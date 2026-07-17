@@ -1,17 +1,26 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api, apiError } from "../lib/api";
 import { useAuth, homeFor } from "../store/auth";
 import { NavBar } from "../components/NavBar";
 import { Fingerprint } from "lucide-react";
 
+const EMPTY = { email: "", password: "", nome: "", tipo_soggetto: "Privato", ragione_sociale: "", partita_iva: "", codice_fiscale: "", pec: "", telefono: "" };
+
 export default function Auth() {
   const [mode, setMode] = useState("login");
-  const [form, setForm] = useState({ email: "", password: "", nome: "" });
+  const [form, setForm] = useState({ ...EMPTY });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const { setSession } = useAuth();
+  const { user, setSession } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (user) navigate(homeFor(user), { replace: true });
+  }, [user, navigate]);
+
+  const isAzienda = form.tipo_soggetto === "Azienda";
+  const isAssociazione = form.tipo_soggetto === "Associazione";
 
   const submit = async (e) => {
     e.preventDefault();
@@ -41,43 +50,77 @@ export default function Auth() {
     }
   };
 
+  const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
   const input = "w-full border border-slate-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-[#2F5B41] transition-colors";
 
   return (
     <div className="min-h-screen">
       <NavBar />
-      <div className="max-w-md mx-auto px-6 py-16">
+      <div className="max-w-md mx-auto px-6 py-12">
+        <div className="text-center mb-6">
+          <h1 className="text-3xl font-heading font-extrabold tracking-tight">Outdoor Planner</h1>
+          <p className="text-sm text-slate-500 mt-1">Pubblicità e occupazione suolo pubblico, online.</p>
+        </div>
         <div className="border border-slate-100 bg-white rounded-2xl overflow-hidden">
           <div className="grid grid-cols-2 border-b border-slate-100">
             <button data-testid="tab-login" onClick={() => setMode("login")}
-              className={`py-3 text-sm font-bold uppercase tracking-widest transition-colors ${mode === "login" ? "bg-[#2F5B41] text-white" : "hover:bg-slate-100"}`}>
+              className={`py-3 text-sm font-bold uppercase tracking-widest transition-colors ${mode === "login" ? "bg-[#2F5B41] text-white" : "hover:bg-slate-50"}`}>
               Accedi
             </button>
             <button data-testid="tab-register" onClick={() => setMode("register")}
-              className={`py-3 text-sm font-bold uppercase tracking-widest transition-colors border-l border-slate-100 ${mode === "register" ? "bg-[#2F5B41] text-white" : "hover:bg-slate-100"}`}>
+              className={`py-3 text-sm font-bold uppercase tracking-widest transition-colors ${mode === "register" ? "bg-[#2F5B41] text-white" : "hover:bg-slate-50"}`}>
               Registrati
             </button>
           </div>
-          <form onSubmit={submit} className="p-8 space-y-4">
-            <h1 className="font-heading font-extrabold text-2xl tracking-tight">
-              {mode === "login" ? "Bentornato" : "Crea il tuo account"}
-            </h1>
+          <form onSubmit={submit} className="p-8 space-y-3.5">
             {mode === "register" && (
-              <input data-testid="input-nome" className={input} placeholder="Nome e cognome / Ragione sociale"
-                value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} required />
+              <>
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-1.5">Tipo soggetto</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {["Privato", "Azienda", "Associazione"].map((t) => (
+                      <button key={t} type="button" data-testid={`tipo-${t.toLowerCase()}`}
+                        onClick={() => setForm({ ...form, tipo_soggetto: t })}
+                        className={`py-2 text-xs font-bold rounded-full border transition-colors ${form.tipo_soggetto === t ? "bg-[#2F5B41] text-white border-[#2F5B41]" : "border-slate-200 hover:border-[#2F5B41]"}`}>
+                        {t}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {(isAzienda || isAssociazione) && (
+                  <input data-testid="input-ragione-sociale" className={input} required
+                    placeholder={isAzienda ? "Ragione sociale" : "Denominazione associazione"}
+                    value={form.ragione_sociale} onChange={set("ragione_sociale")} />
+                )}
+                {isAzienda && (
+                  <input data-testid="input-partita-iva" className={input} required placeholder="Partita IVA"
+                    value={form.partita_iva} onChange={set("partita_iva")} />
+                )}
+                <input data-testid="input-nome" className={input} required
+                  placeholder={form.tipo_soggetto === "Privato" ? "Nome e cognome" : "Nome e cognome referente"}
+                  value={form.nome} onChange={set("nome")} />
+                <input data-testid="input-codice-fiscale" className={input} required placeholder="Codice fiscale"
+                  value={form.codice_fiscale} onChange={set("codice_fiscale")} />
+                {(isAzienda || isAssociazione) && (
+                  <input data-testid="input-pec" className={input} type="email" placeholder="PEC (opzionale)"
+                    value={form.pec} onChange={set("pec")} />
+                )}
+                <input data-testid="input-telefono" className={input} placeholder="Telefono"
+                  value={form.telefono} onChange={set("telefono")} />
+              </>
             )}
             <input data-testid="input-email" className={input} type="email" placeholder="Email"
-              value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required />
+              value={form.email} onChange={set("email")} required />
             <input data-testid="input-password" className={input} type="password" placeholder="Password"
-              value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required />
+              value={form.password} onChange={set("password")} required />
             {error && <div data-testid="auth-error" className="border border-red-200 bg-red-50 rounded-xl text-[#B91C1C] text-sm px-4 py-3">{error}</div>}
             <button data-testid="auth-submit-button" disabled={loading}
               className="w-full bg-[#2F5B41] text-white rounded-full py-3.5 font-bold hover:bg-[#26492F] transition-colors disabled:opacity-50">
-              {loading ? "Attendi..." : mode === "login" ? "Accedi" : "Registrati"}
+              {loading ? "Attendi..." : mode === "login" ? "Accedi" : "Crea account"}
             </button>
             <div className="flex items-center gap-3 py-1">
               <div className="flex-1 border-t border-slate-100" />
-              <span className="text-xs text-slate-500 uppercase tracking-widest">oppure</span>
+              <span className="text-xs text-slate-400 uppercase tracking-widest">oppure</span>
               <div className="flex-1 border-t border-slate-100" />
             </div>
             <button data-testid="spid-login-button" type="button" onClick={spid}
@@ -85,7 +128,7 @@ export default function Auth() {
               <Fingerprint size={18} /> Entra con SPID / CIE (demo)
             </button>
           </form>
-          <div className="border-t border-slate-100 px-8 py-4 bg-[#FAFAF8] text-xs text-slate-600 leading-relaxed">
+          <div className="border-t border-slate-100 px-8 py-4 bg-[#FAFAF8] text-xs text-slate-500 leading-relaxed">
             <strong>Account demo</strong> (password <span className="font-mono">demo123</span>): user@demo.it · comune@demo.it (L1) · comune.l2@demo.it · comune.l3@demo.it · mattia.fabrizi92@gmail.com
           </div>
         </div>

@@ -43,7 +43,7 @@ export default function SpazioDetail() {
                 </div>
                 <p className="mt-4 text-slate-700 leading-relaxed">{spazio.descrizione}</p>
                 <div className="mt-6 grid grid-cols-2 md:grid-cols-3 border border-slate-200 rounded-xl divide-x divide-slate-300">
-                  <div className="p-4"><Ruler size={16} className="text-slate-400" /><div className="text-xs text-slate-500 mt-1">Dimensioni</div><div className="font-bold">{spazio.dimensioni || "—"}</div></div>
+                  <div className="p-4"><Ruler size={16} className="text-slate-400" /><div className="text-xs text-slate-500 mt-1">Formato</div><div className="font-bold">{spazio.formato || spazio.dimensioni || "—"}</div></div>
                   <div className="p-4"><Landmark size={16} className="text-slate-400" /><div className="text-xs text-slate-500 mt-1">Comune</div><div className="font-bold">{spazio.comune?.nome}</div></div>
                   <div className="p-4"><div className="text-xs text-slate-500 mt-1">Stato</div><div className={`font-bold ${spazio.disponibile ? "text-[#10B981]" : "text-slate-900"}`}>{spazio.disponibile ? "Disponibile" : "Occupato"}</div></div>
                 </div>

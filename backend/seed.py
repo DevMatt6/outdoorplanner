@@ -14,6 +14,32 @@ def _uid():
     return str(uuid.uuid4())
 
 
+TIPOLOGIE_MAP = {
+    "Billboard": ("Poster Standard", "6x3"),
+    "Poster": ("Arredo Urbano", "MUPI 120x180"),
+    "Totem": ("Totem Digitale", '55" LED'),
+    "Suolo pubblico": ("Progetto Speciale", "Su misura"),
+}
+
+
+async def ensure_catalogo(db):
+    for old, (new, fmt) in TIPOLOGIE_MAP.items():
+        await db.spazi.update_many({"tipologia": old}, {"$set": {"tipologia": new}})
+        await db.spazi.update_many({"tipologia": new, "formato": {"$exists": False}}, {"$set": {"formato": fmt}})
+    await db.spazi.update_many({"formato": {"$exists": False}}, {"$set": {"formato": ""}})
+    comuni = await db.comuni.find({}, {"_id": 0}).to_list(200)
+    for c in comuni:
+        tariffe = c.get("tariffe", [])
+        changed = False
+        for t in tariffe:
+            if t.get("tipologia") in TIPOLOGIE_MAP:
+                t["tipologia"] = TIPOLOGIE_MAP[t["tipologia"]][0]
+                changed = True
+        if changed:
+            await db.comuni.update_one({"id": c["id"]}, {"$set": {"tariffe": tariffe}})
+
+
+
 async def ensure_livelli(db, hash_password):
     now = datetime.now(timezone.utc)
     await db.users.update_many({"ruolo": "comune", "livello": {"$exists": False}}, {"$set": {"livello": 1}})
@@ -50,10 +76,10 @@ async def seed_all(db, hash_password):
     ]
     for c in comuni:
         c.update({"tariffe": [
-            {"tipologia": "Billboard", "canone_giornaliero": 55},
-            {"tipologia": "Poster", "canone_giornaliero": 25},
-            {"tipologia": "Totem", "canone_giornaliero": 40},
-            {"tipologia": "Suolo pubblico", "canone_giornaliero": 35},
+            {"tipologia": "Poster Standard", "canone_giornaliero": 55},
+            {"tipologia": "Arredo Urbano", "canone_giornaliero": 25},
+            {"tipologia": "Totem Digitale", "canone_giornaliero": 40},
+            {"tipologia": "Progetto Speciale", "canone_giornaliero": 35},
         ], "regole": "Regolamento comunale per pubblicità e OSP. Preavviso minimo 15 giorni. Bozzetto obbligatorio.",
             "attivo": True, "created_at": iso(now)})
     await db.comuni.insert_many([{**c} for c in comuni])
@@ -70,30 +96,30 @@ async def seed_all(db, hash_password):
     await db.users.insert_many([{**u, "password_hash": pwd} for u in users])
     superadmin, demo_user, op_roma, op_milano = users
 
-    def spazio(comune, nome, tipologia, indirizzo, lat, lng, canone, dim, foto=IMG_BILLBOARD, disp=True):
+    def spazio(comune, nome, tipologia, formato, indirizzo, lat, lng, canone, foto=IMG_BILLBOARD, disp=True):
         return {"id": _uid(), "comune_id": comune["id"], "citta": comune["nome"], "regione": comune["regione"],
-                "nome": nome, "tipologia": tipologia, "indirizzo": indirizzo, "lat": lat, "lng": lng,
-                "canone_giornaliero": canone, "dimensioni": dim,
+                "nome": nome, "tipologia": tipologia, "formato": formato, "indirizzo": indirizzo,
+                "lat": lat, "lng": lng, "canone_giornaliero": canone, "dimensioni": formato,
                 "descrizione": f"Spazio {tipologia.lower()} in posizione ad alta visibilità a {comune['nome']}.",
                 "disponibile": disp, "foto_url": foto, "created_at": iso(now)}
 
     spazi = [
-        spazio(roma, "Billboard Via Tiburtina", "Billboard", "Via Tiburtina 450", 41.912, 12.545, 65, "6x3 m"),
-        spazio(roma, "Poster Stazione Termini", "Poster", "Piazza dei Cinquecento", 41.9009, 12.5018, 30, "140x200 cm"),
-        spazio(roma, "Totem EUR Laurentina", "Totem", "Viale America 20", 41.8256, 12.4646, 45, "120x250 cm"),
-        spazio(roma, "Area Eventi Piazza del Popolo", "Suolo pubblico", "Piazza del Popolo", 41.9109, 12.4768, 120, "200 mq", IMG_PIAZZA),
-        spazio(roma, "Billboard GRA Uscita 24", "Billboard", "GRA Uscita 24", 41.836, 12.578, 58, "6x3 m", IMG_BILLBOARD, False),
-        spazio(milano, "Billboard Viale Certosa", "Billboard", "Viale Certosa 148", 45.5015, 9.13, 75, "6x3 m"),
-        spazio(milano, "Poster Metro Duomo", "Poster", "Piazza Duomo", 45.4641, 9.19, 40, "140x200 cm"),
-        spazio(milano, "Area Eventi Parco Sempione", "Suolo pubblico", "Piazza Sempione", 45.4757, 9.1738, 150, "300 mq", IMG_PIAZZA),
-        spazio(milano, "Totem Corso Buenos Aires", "Totem", "Corso Buenos Aires 33", 45.4785, 9.2103, 55, "120x250 cm"),
-        spazio(firenze, "Poster Ponte Vecchio Nord", "Poster", "Lungarno Acciaiuoli", 43.768, 11.2531, 28, "140x200 cm"),
-        spazio(firenze, "Area Eventi Piazza Santa Croce", "Suolo pubblico", "Piazza Santa Croce", 43.7686, 11.2622, 100, "250 mq", IMG_PIAZZA),
-        spazio(firenze, "Billboard Viale Europa", "Billboard", "Viale Europa 120", 43.7455, 11.29, 48, "6x3 m"),
-        spazio(napoli, "Billboard Via Marina", "Billboard", "Via Nuova Marina 10", 40.845, 14.265, 50, "6x3 m"),
-        spazio(napoli, "Area Eventi Piazza Plebiscito", "Suolo pubblico", "Piazza del Plebiscito", 40.8359, 14.2488, 110, "400 mq", IMG_PIAZZA),
-        spazio(bologna, "Poster Via Indipendenza", "Poster", "Via dell'Indipendenza 40", 44.4986, 11.3426, 26, "140x200 cm"),
-        spazio(bologna, "Totem Fiera District", "Totem", "Viale della Fiera 20", 44.5075, 11.3705, 38, "120x250 cm"),
+        spazio(roma, "Poster Via Tiburtina", "Poster Standard", "6x3", "Via Tiburtina 450", 41.912, 12.545, 65),
+        spazio(roma, "MUPI Stazione Termini", "Arredo Urbano", "MUPI 120x180", "Piazza dei Cinquecento", 41.9009, 12.5018, 30),
+        spazio(roma, "Totem EUR Laurentina", "Totem Digitale", '55" LED', "Viale America 20", 41.8256, 12.4646, 45),
+        spazio(roma, "OSP Piazza del Popolo", "Progetto Speciale", "Su misura", "Piazza del Popolo", 41.9109, 12.4768, 120, IMG_PIAZZA),
+        spazio(roma, "Poster GRA Uscita 24", "Poster Standard", "4x3", "GRA Uscita 24", 41.836, 12.578, 58, IMG_BILLBOARD, False),
+        spazio(milano, "Poster Viale Certosa", "Poster Standard", "6x3", "Viale Certosa 148", 45.5015, 9.13, 75),
+        spazio(milano, "Pensilina Metro Duomo", "Arredo Urbano", "Pensilina 200x100", "Piazza Duomo", 45.4641, 9.19, 40),
+        spazio(milano, "OSP Parco Sempione", "Progetto Speciale", "Su misura", "Piazza Sempione", 45.4757, 9.1738, 150, IMG_PIAZZA),
+        spazio(milano, "Ledwall Corso Buenos Aires", "Totem Digitale", "Maxi Ledwall", "Corso Buenos Aires 33", 45.4785, 9.2103, 55),
+        spazio(firenze, "MUPI Ponte Vecchio Nord", "Arredo Urbano", "MUPI 120x180", "Lungarno Acciaiuoli", 43.768, 11.2531, 28),
+        spazio(firenze, "OSP Piazza Santa Croce", "Progetto Speciale", "Su misura", "Piazza Santa Croce", 43.7686, 11.2622, 100, IMG_PIAZZA),
+        spazio(firenze, "Poster Viale Europa", "Poster Standard", "4x3", "Viale Europa 120", 43.7455, 11.29, 48),
+        spazio(napoli, "Poster Via Marina", "Poster Standard", "6x3", "Via Nuova Marina 10", 40.845, 14.265, 50),
+        spazio(napoli, "OSP Piazza Plebiscito", "Progetto Speciale", "Su misura", "Piazza del Plebiscito", 40.8359, 14.2488, 110, IMG_PIAZZA),
+        spazio(bologna, "Totem Via Indipendenza", "Totem Digitale", '75" LED', "Via dell'Indipendenza 40", 44.4986, 11.3426, 26),
+        spazio(bologna, "Ledwall Fiera District", "Totem Digitale", "Maxi Ledwall", "Viale della Fiera 20", 44.5075, 11.3705, 38),
     ]
     await db.spazi.insert_many([{**s} for s in spazi])
 

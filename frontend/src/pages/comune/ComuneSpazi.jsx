@@ -3,10 +3,11 @@ import { MapContainer, TileLayer, CircleMarker, useMapEvents } from "react-leafl
 import "leaflet/dist/leaflet.css";
 import { BackofficeLayout, COMUNE_LINKS } from "../../components/BackofficeLayout";
 import { api, apiError } from "../../lib/api";
+import { TIPOLOGIE, FORMATI } from "../../lib/catalogo";
 import { toast } from "sonner";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 
-const EMPTY = { nome: "", tipologia: "Billboard", indirizzo: "", lat: null, lng: null, canone_giornaliero: 50, dimensioni: "", descrizione: "", disponibile: true, foto_url: "https://images.unsplash.com/photo-1699480114704-ac153307d2a0?crop=entropy&cs=srgb&fm=jpg&q=85" };
+const EMPTY = { nome: "", tipologia: "Poster Standard", formato: "6x3", indirizzo: "", lat: null, lng: null, canone_giornaliero: 50, dimensioni: "", descrizione: "", disponibile: true, foto_url: "https://images.unsplash.com/photo-1699480114704-ac153307d2a0?crop=entropy&cs=srgb&fm=jpg&q=85" };
 
 const ClickPicker = ({ onPick }) => {
   useMapEvents({ click: (e) => onPick(e.latlng) });
@@ -63,12 +64,14 @@ export default function ComuneSpazi() {
             <input data-testid="spazio-nome-input" className={input} placeholder="Nome spazio" required value={editing.nome} onChange={(e) => setEditing({ ...editing, nome: e.target.value })} />
             <div className="grid grid-cols-2 gap-3">
               <select className={input} value={editing.tipologia} onChange={(e) => setEditing({ ...editing, tipologia: e.target.value })}>
-                {["Billboard", "Poster", "Totem", "Suolo pubblico"].map((t) => <option key={t}>{t}</option>)}
+                {TIPOLOGIE.map((t) => <option key={t}>{t}</option>)}
               </select>
               <input className={input} type="number" step="0.5" placeholder="€/giorno" required value={editing.canone_giornaliero} onChange={(e) => setEditing({ ...editing, canone_giornaliero: e.target.value })} />
             </div>
             <input className={input} placeholder="Indirizzo" required value={editing.indirizzo} onChange={(e) => setEditing({ ...editing, indirizzo: e.target.value })} />
-            <input className={input} placeholder="Dimensioni (es. 6x3 m)" value={editing.dimensioni} onChange={(e) => setEditing({ ...editing, dimensioni: e.target.value })} />
+            <select data-testid="spazio-formato-select" className={input} value={editing.formato || ""} onChange={(e) => setEditing({ ...editing, formato: e.target.value })}>
+              {FORMATI.map((f) => <option key={f}>{f}</option>)}
+            </select>
             <textarea className={input} rows={2} placeholder="Descrizione" value={editing.descrizione} onChange={(e) => setEditing({ ...editing, descrizione: e.target.value })} />
             <label className="flex items-center gap-2 text-sm font-semibold">
               <input type="checkbox" className="w-4 h-4 accent-[#2F5B41]" checked={editing.disponibile} onChange={(e) => setEditing({ ...editing, disponibile: e.target.checked })} />
@@ -106,7 +109,7 @@ export default function ComuneSpazi() {
             {spazi.map((s) => (
               <tr key={s.id} className="border-b border-slate-200 hover:bg-[#F1F5F0] transition-colors" data-testid={`spazio-row-${s.id}`}>
                 <td className="px-4 py-3 font-bold">{s.nome}</td>
-                <td className="px-4 py-3">{s.tipologia}</td>
+                <td className="px-4 py-3">{s.tipologia}<div className="text-xs text-slate-400">{s.formato}</div></td>
                 <td className="px-4 py-3 text-slate-600">{s.indirizzo}</td>
                 <td className="px-4 py-3 font-semibold">{s.canone_giornaliero} €/g</td>
                 <td className="px-4 py-3">

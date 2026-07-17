@@ -803,3 +803,225 @@ class TestCampagne:
         cid = campagna_ctx["camp"]["id"]
         r = session.get(f"{API}/campagne/{cid}", headers=h(admin_token), timeout=10)
         assert r.status_code == 403
+
+
+# ---------- ITERAZIONE 5: registrazione tipo_soggetto ----------
+
+class TestRegisterTipoSoggetto:
+    """Register endpoint with tipo_soggetto=Privato/Azienda/Associazione + campi dedicati."""
+
+    def _rand_email(self, prefix):
+        return f"TEST_{prefix}_{int(time.time() * 1000)}_{os.urandom(3).hex()}@demo.it"
+
+    def test_register_azienda_full_fields(self, session):
+        email = self._rand_email("az")
+        payload = {
+            "email": email, "password": "demo123", "nome": "Referente Aziendale",
+            "tipo_soggetto": "Azienda",
+            "ragione_sociale": "TestCo Srl", "partita_iva": "12345678901",
+            "codice_fiscale": "TSTCFS80A01H501X", "pec": "pec@testco.it",
+            "telefono": "+39 06 12345678",
+        }
+        r = session.post(f"{API}/auth/register", json=payload, timeout=10)
+        assert r.status_code == 200, r.text
+        data = r.json()
+        u = data["user"]
+        assert u["email"] == email.lower()
+        assert u["tipo_soggetto"] == "Azienda"
+        assert u["ragione_sociale"] == "TestCo Srl"
+        assert u["partita_iva"] == "12345678901"
+        assert u["codice_fiscale"] == "TSTCFS80A01H501X"
+        assert u["pec"] == "pec@testco.it"
+        assert u["telefono"] == "+39 06 12345678"
+        assert u["ruolo"] == "user"
+        assert "access_token" in data and len(data["access_token"]) > 20
+
+        # login post-registrazione
+        r2 = session.post(f"{API}/auth/login", json={"email": email, "password": "demo123"}, timeout=10)
+        assert r2.status_code == 200
+        assert r2.json()["user"]["tipo_soggetto"] == "Azienda"
+
+    def test_register_associazione(self, session):
+        email = self._rand_email("as")
+        payload = {"email": email, "password": "demo123", "nome": "Presidente",
+                   "tipo_soggetto": "Associazione", "ragione_sociale": "Associazione Test APS",
+                   "codice_fiscale": "ASSCFS80A01H501X", "pec": "pec@assoc.it", "telefono": "3331234567"}
+        r = session.post(f"{API}/auth/register", json=payload, timeout=10)
+        assert r.status_code == 200, r.text
+        u = r.json()["user"]
+        assert u["tipo_soggetto"] == "Associazione"
+        assert u["ragione_sociale"] == "Associazione Test APS"
+        assert u.get("partita_iva") in (None, "")
+
+        r2 = session.post(f"{API}/auth/login", json={"email": email, "password": "demo123"}, timeout=10)
+        assert r2.status_code == 200
+
+    def test_register_privato(self, session):
+        email = self._rand_email("pr")
+        payload = {"email": email, "password": "demo123", "nome": "Mario Rossi",
+                   "tipo_soggetto": "Privato", "codice_fiscale": "RSSMRA80A01H501X", "telefono": "3339999999"}
+        r = session.post(f"{API}/auth/register", json=payload, timeout=10)
+        assert r.status_code == 200, r.text
+        u = r.json()["user"]
+        assert u["tipo_soggetto"] == "Privato"
+        assert u.get("ragione_sociale") in (None, "")
+
+    def test_register_duplicate_email_400(self, session):
+        email = self._rand_email("dup")
+        payload = {"email": email, "password": "demo123", "nome": "X", "tipo_soggetto": "Privato"}
+        r1 = session.post(f"{API}/auth/register", json=payload, timeout=10)
+        assert r1.status_code == 200
+        r2 = session.post(f"{API}/auth/register", json=payload, timeout=10)
+        assert r2.status_code == 400
+
+
+# ---------- ITERAZIONE 5: nuovi filtri /spazi + catalogo migrato ----------
+
+class TestSpaziFiltriIt5:
+    """Filtri /spazi e /spazi/disponibili con citta/tipologia/formato + catalogo migrato."""
+
+    NUOVE_TIPOLOGIE = {"Arredo Urbano", "Poster Standard", "Totem Digitale", "Progetto Speciale"}
+
+    def test_catalogo_migrato_niente_vecchie_tipologie(self, session):
+        r = session.get(f"{API}/spazi", timeout=10)
+        assert r.status_code == 200
+        tips = {s["tipologia"] for s in r.json()}
+        # nessuna delle vecchie
+        for old in ("Billboard", "Poster", "Totem", "Suolo pubblico"):
+            assert old not in tips, f"Vecchia tipologia ancora presente: {old}"
+        # tutte tra le nuove 4
+        assert tips.issubset(self.NUOVE_TIPOLOGIE), f"Tipologie fuori catalogo: {tips - self.NUOVE_TIPOLOGIE}"
+
+    def test_spazi_filter_citta(self, session):
+        r = session.get(f"{API}/spazi", params={"citta": "Roma"}, timeout=10)
+        assert r.status_code == 200
+        data = r.json()
+        assert len(data) > 0
+        assert all(s["citta"] == "Roma" for s in data)
+
+    def test_spazi_filter_tipologia_nuova(self, session):
+        for t in ("Arredo Urbano", "Poster Standard", "Totem Digitale", "Progetto Speciale"):
+            r = session.get(f"{API}/spazi", params={"tipologia": t}, timeout=10)
+            assert r.status_code == 200, f"filter tipologia {t}: {r.text}"
+            for s in r.json():
+                assert s["tipologia"] == t
+
+    def test_spazi_filter_formato(self, session):
+        for fmt in ("6x3", "MUPI 120x180", "Maxi Ledwall", "Su misura"):
+            r = session.get(f"{API}/spazi", params={"formato": fmt}, timeout=10)
+            assert r.status_code == 200
+            for s in r.json():
+                assert s["formato"] == fmt
+
+    def test_spazi_combined_filters(self, session):
+        r = session.get(f"{API}/spazi", params={"citta": "Roma", "tipologia": "Poster Standard"}, timeout=10)
+        assert r.status_code == 200
+        for s in r.json():
+            assert s["citta"] == "Roma"
+            assert s["tipologia"] == "Poster Standard"
+
+    def test_disponibili_filter_tipologia_formato(self, session):
+        d1 = (datetime.now() + timedelta(days=5500)).date().isoformat()
+        d2 = (datetime.now() + timedelta(days=5503)).date().isoformat()
+        r = session.get(f"{API}/spazi/disponibili",
+                        params={"data_inizio": d1, "data_fine": d2,
+                                "citta": "Roma", "tipologia": "Poster Standard"}, timeout=10)
+        assert r.status_code == 200
+        for s in r.json():
+            assert s["citta"] == "Roma"
+            assert s["tipologia"] == "Poster Standard"
+
+
+# ---------- ITERAZIONE 5: PUT /campagne/{id}/dati-form ----------
+
+class TestCampagnaDatiForm:
+    """Aggiornamento dati_form per Comune coinvolto in una campagna (solo BOZZE del proprietario)."""
+
+    @pytest.fixture(scope="class")
+    def camp_ctx(self, session):
+        import random
+        _, user_tok = _login(session, "user@demo.it", "demo123")
+        offset = random.randint(4200, 4700)
+        d1 = (datetime.now() + timedelta(days=offset)).date().isoformat()
+        d2 = (datetime.now() + timedelta(days=offset + 3)).date().isoformat()
+        # pick 2 spazi di comuni DIVERSI: uno Lazio, uno Lombardia (Milano)
+        lazio = session.get(f"{API}/spazi/disponibili",
+                            params={"data_inizio": d1, "data_fine": d2, "regione": "Lazio"}, timeout=10).json()
+        lombardia = session.get(f"{API}/spazi/disponibili",
+                                params={"data_inizio": d1, "data_fine": d2, "regione": "Lombardia"}, timeout=10).json()
+        assert lazio and lombardia, "servono spazi Lazio + Lombardia disponibili"
+        s_roma, s_mi = lazio[0], lombardia[0]
+        payload = {"nome": f"TEST_CampDF_{int(time.time())}", "data_inizio": d1, "data_fine": d2,
+                   "spazi_ids": [s_roma["id"], s_mi["id"]]}
+        r = session.post(f"{API}/campagne", json=payload, headers=h(user_tok), timeout=15)
+        assert r.status_code == 200, r.text
+        camp = r.json()
+        return {"user_tok": user_tok, "camp": camp, "s_roma": s_roma, "s_mi": s_mi}
+
+    def test_put_dati_form_aggiorna_solo_comune_target(self, session, camp_ctx):
+        camp = camp_ctx["camp"]
+        tok = camp_ctx["user_tok"]
+        comune_roma = camp_ctx["s_roma"]["comune_id"]
+        comune_mi = camp_ctx["s_mi"]["comune_id"]
+
+        dati_roma = {"tipo_richiedente": "Azienda", "ragione_sociale": "TESTCO Roma",
+                     "partita_iva": "99999999999", "codice_fiscale": "TSTCFS80A01H501X",
+                     "descrizione_contenuto": "Contenuto Roma"}
+        r = session.put(f"{API}/campagne/{camp['id']}/dati-form",
+                        json={"comune_id": comune_roma, "dati_form": dati_roma},
+                        headers=h(tok), timeout=10)
+        assert r.status_code == 200
+        assert r.json()["aggiornate"] >= 1
+
+        # GET campagna → pratica Roma ha nuovi dati; pratica Milano invariata
+        rc = session.get(f"{API}/campagne/{camp['id']}", headers=h(tok), timeout=10)
+        assert rc.status_code == 200
+        cd = rc.json()
+        for p in cd["pratiche"]:
+            if p["comune_id"] == comune_roma:
+                assert p["dati_form"]["ragione_sociale"] == "TESTCO Roma"
+                assert p["dati_form"]["descrizione_contenuto"] == "Contenuto Roma"
+            elif p["comune_id"] == comune_mi:
+                # non contiene la stessa ragione sociale (era default con solo descrizione_contenuto)
+                assert p["dati_form"].get("ragione_sociale") != "TESTCO Roma"
+
+    def test_put_dati_form_secondo_comune(self, session, camp_ctx):
+        camp = camp_ctx["camp"]
+        tok = camp_ctx["user_tok"]
+        comune_mi = camp_ctx["s_mi"]["comune_id"]
+        dati_mi = {"tipo_richiedente": "Privato", "codice_fiscale": "PRVCFS80A01H501X",
+                   "descrizione_contenuto": "Contenuto Milano"}
+        r = session.put(f"{API}/campagne/{camp['id']}/dati-form",
+                        json={"comune_id": comune_mi, "dati_form": dati_mi},
+                        headers=h(tok), timeout=10)
+        assert r.status_code == 200
+        rc = session.get(f"{API}/campagne/{camp['id']}", headers=h(tok), timeout=10)
+        prm = next(p for p in rc.json()["pratiche"] if p["comune_id"] == comune_mi)
+        assert prm["dati_form"]["descrizione_contenuto"] == "Contenuto Milano"
+        assert prm["dati_form"]["tipo_richiedente"] == "Privato"
+
+    def test_put_dati_form_altro_utente_404(self, session, camp_ctx):
+        # altra utenza (registriamo un nuovo user) non deve poter aggiornare
+        email = f"TEST_other_{int(time.time() * 1000)}@demo.it"
+        rr = session.post(f"{API}/auth/register",
+                          json={"email": email, "password": "demo123", "nome": "Altro",
+                                "tipo_soggetto": "Privato"}, timeout=10)
+        assert rr.status_code == 200
+        other_tok = rr.json()["access_token"]
+        r = session.put(f"{API}/campagne/{camp_ctx['camp']['id']}/dati-form",
+                        json={"comune_id": camp_ctx["s_roma"]["comune_id"], "dati_form": {"x": 1}},
+                        headers=h(other_tok), timeout=10)
+        assert r.status_code == 404
+
+    def test_put_dati_form_solo_bozze_dopo_invio(self, session, camp_ctx):
+        # dopo checkout + invia le pratiche non sono più BOZZA: update_many aggiorna 0
+        camp = camp_ctx["camp"]
+        tok = camp_ctx["user_tok"]
+        session.post(f"{API}/campagne/{camp['id']}/checkout", headers=h(tok), timeout=10)
+        session.post(f"{API}/campagne/{camp['id']}/invia", headers=h(tok), timeout=10)
+        r = session.put(f"{API}/campagne/{camp['id']}/dati-form",
+                        json={"comune_id": camp_ctx["s_roma"]["comune_id"],
+                              "dati_form": {"descrizione_contenuto": "post-invio"}},
+                        headers=h(tok), timeout=10)
+        assert r.status_code == 200
+        assert r.json()["aggiornate"] == 0

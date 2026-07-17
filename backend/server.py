@@ -103,6 +103,12 @@ class RegisterIn(BaseModel):
     email: str
     password: str
     nome: str
+    tipo_soggetto: str = "Privato"
+    ragione_sociale: Optional[str] = None
+    partita_iva: Optional[str] = None
+    codice_fiscale: Optional[str] = None
+    pec: Optional[str] = None
+    telefono: Optional[str] = None
 
 class LoginIn(BaseModel):
     email: str
@@ -111,6 +117,7 @@ class LoginIn(BaseModel):
 class SpazioIn(BaseModel):
     nome: str
     tipologia: str
+    formato: str = ""
     indirizzo: str
     lat: float
     lng: float
@@ -156,6 +163,10 @@ class CampagnaIn(BaseModel):
     data_fine: str
     spazi_ids: List[str]
 
+class CampagnaFormIn(BaseModel):
+    comune_id: str
+    dati_form: dict
+
 
 class ComuneOnboardIn(BaseModel):
     nome: str
@@ -179,7 +190,10 @@ async def register(data: RegisterIn):
     if await db.users.find_one({"email": email}):
         raise HTTPException(status_code=400, detail="Email già registrata")
     user = {"id": str(uuid.uuid4()), "email": email, "nome": data.nome, "ruolo": "user",
-            "comune_id": None, "created_at": now_iso()}
+            "comune_id": None, "tipo_soggetto": data.tipo_soggetto,
+            "ragione_sociale": data.ragione_sociale, "partita_iva": data.partita_iva,
+            "codice_fiscale": data.codice_fiscale, "pec": data.pec, "telefono": data.telefono,
+            "created_at": now_iso()}
     await db.users.insert_one({**user, "password_hash": hash_password(data.password)})
     token = create_access_token(user["id"], email, "user")
     return {"user": user, "access_token": token}
@@ -225,7 +239,8 @@ async def list_comuni():
 
 @api_router.get("/spazi")
 async def list_spazi(regione: Optional[str] = None, citta: Optional[str] = None,
-                     tipologia: Optional[str] = None, prezzo_max: Optional[float] = None,
+                     tipologia: Optional[str] = None, formato: Optional[str] = None,
+                     prezzo_max: Optional[float] = None,
                      q: Optional[str] = None, disponibile: Optional[bool] = None):
     query: dict = {}
     if regione:
@@ -234,6 +249,8 @@ async def list_spazi(regione: Optional[str] = None, citta: Optional[str] = None,
         query["citta"] = citta
     if tipologia:
         query["tipologia"] = tipologia
+    if formato:
+        query["formato"] = formato
     if prezzo_max is not None:
         query["canone_giornaliero"] = {"$lte": prezzo_max}
     if disponibile is not None:
@@ -246,12 +263,17 @@ async def list_spazi(regione: Optional[str] = None, citta: Optional[str] = None,
 
 @api_router.get("/spazi/disponibili")
 async def spazi_disponibili(data_inizio: str, data_fine: str, regione: Optional[str] = None,
-                            tipologia: Optional[str] = None):
+                            citta: Optional[str] = None, tipologia: Optional[str] = None,
+                            formato: Optional[str] = None):
     query: dict = {"disponibile": True}
     if regione:
         query["regione"] = regione
+    if citta:
+        query["citta"] = citta
     if tipologia:
         query["tipologia"] = tipologia
+    if formato:
+        query["formato"] = formato
     spazi = await db.spazi.find(query, {"_id": 0}).to_list(500)
     occupati = await db.pratiche.find(
         {"stato": {"$in": STATI_ATTIVI}, "data_inizio": {"$lte": data_fine}, "data_fine": {"$gte": data_inizio}},
@@ -457,6 +479,16 @@ async def get_campagna(campagna_id: str, user: dict = Depends(require_role("user
         raise HTTPException(status_code=404, detail="Campagna non trovata")
     return await _enrich_campagna(c)
 
+@api_router.put("/campagne/{campagna_id}/dati-form")
+async def campagna_dati_form(campagna_id: str, data: CampagnaFormIn, user: dict = Depends(require_role("user"))):
+    c = await db.campagne.find_one({"id": campagna_id, "user_id": user["id"]}, {"_id": 0})
+    if not c:
+        raise HTTPException(status_code=404, detail="Campagna non trovata")
+    res = await db.pratiche.update_many(
+        {"campagna_id": campagna_id, "comune_id": data.comune_id, "stato": "BOZZA"},
+        {"$set": {"dati_form": data.dati_form, "updated_at": now_iso()}})
+    return {"ok": True, "aggiornate": res.modified_count}
+
 @api_router.post("/campagne/{campagna_id}/checkout")
 async def checkout_campagna(campagna_id: str, user: dict = Depends(require_role("user"))):
     c = await db.campagne.find_one({"id": campagna_id, "user_id": user["id"]}, {"_id": 0})
@@ -546,7 +578,8 @@ async def comune_spazi(user: dict = Depends(require_role("comune"))):
 async def crea_spazio(data: SpazioIn, user: dict = Depends(require_comune_l3)):
     comune = await db.comuni.find_one({"id": user["comune_id"]}, {"_id": 0})
     spazio = {"id": str(uuid.uuid4()), "comune_id": comune["id"], "citta": comune["nome"],
-              "regione": comune["regione"], **data.model_dump(), "created_at": now_iso()}
+              "regione": comune["regione"], **data.model_dump(), "dimensioni": data.formato,
+              "created_at": now_iso()}
     await db.spazi.insert_one({**spazio})
     return spazio
 
@@ -769,9 +802,10 @@ async def startup():
     await db.users.create_index("email", unique=True)
     await db.pratiche.create_index("user_id")
     await db.pratiche.create_index("comune_id")
-    from seed import seed_all, ensure_livelli
+    from seed import seed_all, ensure_livelli, ensure_catalogo
     await seed_all(db, hash_password)
     await ensure_livelli(db, hash_password)
+    await ensure_catalogo(db)
 
 @app.on_event("shutdown")
 async def shutdown_db_client():

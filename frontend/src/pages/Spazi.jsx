@@ -1,22 +1,29 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { MapContainer, TileLayer, CircleMarker, Popup } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import { NavBar } from "../components/NavBar";
 import { api } from "../lib/api";
-import { MapPin } from "lucide-react";
+import { TIPOLOGIE, FORMATI } from "../lib/catalogo";
+import { MapPin, Megaphone } from "lucide-react";
 
 export default function Spazi() {
   const [params, setParams] = useSearchParams();
   const [spazi, setSpazi] = useState([]);
+  const [comuni, setComuni] = useState([]);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
   const filters = {
     regione: params.get("regione") || "",
     citta: params.get("citta") || "",
     tipologia: params.get("tipologia") || "",
-    prezzo_max: params.get("prezzo_max") || "",
+    formato: params.get("formato") || "",
     q: params.get("q") || "",
   };
+
+  useEffect(() => {
+    api.get("/comuni").then(({ data }) => setComuni(data));
+  }, []);
 
   useEffect(() => {
     setLoading(true);
@@ -36,32 +43,41 @@ export default function Spazi() {
     return [spazi.reduce((a, s) => a + s.lat, 0) / spazi.length, spazi.reduce((a, s) => a + s.lng, 0) / spazi.length];
   }, [spazi]);
 
-  const tipologie = ["Billboard", "Poster", "Totem", "Suolo pubblico"];
   const input = "border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#2F5B41] bg-white";
 
   return (
     <div className="min-h-screen">
       <NavBar />
       <div className="max-w-7xl mx-auto px-6 py-8">
-        <h1 className="text-3xl sm:text-4xl font-heading font-extrabold tracking-tight">
-          Spazi disponibili {filters.regione && <span className="text-[#1F3D2B]">· {filters.regione}</span>}
-        </h1>
-        <div className="mt-6 border border-slate-100 bg-white rounded-2xl overflow-hidden p-4 flex flex-wrap gap-3 items-center" data-testid="filtri-spazi">
-          <input data-testid="filter-q" className={input} placeholder="Cerca per nome, indirizzo, città..."
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <h1 className="text-3xl sm:text-4xl font-heading font-extrabold tracking-tight">
+            Spazi disponibili {filters.regione && <span className="text-[#2F5B41]">· {filters.regione}</span>}
+          </h1>
+          <button data-testid="avvia-campagna-button" onClick={() => navigate("/campagne/nuova")}
+            className="inline-flex items-center gap-2 bg-[#2F5B41] text-white rounded-full px-6 py-3 font-bold hover:bg-[#26492F] transition-colors">
+            <Megaphone size={17} /> Avvia una campagna
+          </button>
+        </div>
+        <p className="text-sm text-slate-500 mt-1">Prenota un singolo spazio oppure avvia una campagna multi-spazio con un unico flusso.</p>
+
+        <div className="mt-6 bg-white border border-slate-100 rounded-2xl p-4 flex flex-wrap gap-3 items-center" data-testid="filtri-spazi">
+          <input data-testid="filter-q" className={input} placeholder="Cerca per nome o indirizzo..."
             defaultValue={filters.q} onKeyDown={(e) => e.key === "Enter" && setFilter("q", e.target.value)} />
-          <select data-testid="filter-tipologia" className={input} value={filters.tipologia} onChange={(e) => setFilter("tipologia", e.target.value)}>
-            <option value="">Tutte le tipologie</option>
-            {tipologie.map((t) => <option key={t} value={t}>{t}</option>)}
+          <select data-testid="filter-comune" className={input} value={filters.citta} onChange={(e) => setFilter("citta", e.target.value)}>
+            <option value="">Tutti i Comuni</option>
+            {comuni.map((c) => <option key={c.id} value={c.nome}>{c.nome}</option>)}
           </select>
-          <select data-testid="filter-prezzo" className={input} value={filters.prezzo_max} onChange={(e) => setFilter("prezzo_max", e.target.value)}>
-            <option value="">Qualsiasi prezzo</option>
-            <option value="30">Fino a 30 €/g</option>
-            <option value="60">Fino a 60 €/g</option>
-            <option value="120">Fino a 120 €/g</option>
+          <select data-testid="filter-tipologia" className={input} value={filters.tipologia} onChange={(e) => setFilter("tipologia", e.target.value)}>
+            <option value="">Tipologia impianto</option>
+            {TIPOLOGIE.map((t) => <option key={t} value={t}>{t}</option>)}
+          </select>
+          <select data-testid="filter-formato" className={input} value={filters.formato} onChange={(e) => setFilter("formato", e.target.value)}>
+            <option value="">Formato</option>
+            {FORMATI.map((f) => <option key={f} value={f}>{f}</option>)}
           </select>
           {filters.regione && (
             <button data-testid="clear-regione" onClick={() => setFilter("regione", "")}
-              className="px-3 py-2 text-sm font-semibold border border-slate-100 rounded-2xl overflow-hidden bg-[#2F5B41] text-white hover:bg-white hover:text-slate-900 transition-colors">
+              className="px-3 py-2 text-sm font-semibold rounded-full bg-[#2F5B41] text-white hover:bg-[#26492F] transition-colors">
               {filters.regione} ✕
             </button>
           )}
@@ -92,7 +108,7 @@ export default function Spazi() {
                     <MapPin size={13} /> {s.indirizzo} — {s.citta} ({s.regione})
                   </div>
                   <div className="mt-3 flex items-center justify-between">
-                    <span className="text-xs text-slate-500">{s.dimensioni}</span>
+                    <span className="text-xs font-bold rounded-full bg-[#F5F6F3] px-2.5 py-1 text-slate-600">{s.formato || s.dimensioni}</span>
                     <span className="font-heading font-extrabold text-xl">{s.canone_giornaliero} €<span className="text-xs font-normal text-slate-500">/giorno</span></span>
                   </div>
                 </div>
@@ -101,15 +117,15 @@ export default function Spazi() {
           </div>
           <div className="lg:col-span-2">
             <div className="sticky top-24 border border-slate-100 rounded-2xl overflow-hidden">
-              <MapContainer key={center.join(",")} center={center} zoom={spazi.length && filters.regione ? 9 : 5.5}
+              <MapContainer key={center.join(",")} center={center} zoom={spazi.length && (filters.regione || filters.citta) ? 9 : 5.5}
                 style={{ height: 520 }} scrollWheelZoom={false}>
                 <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
                 {spazi.map((s) => (
                   <CircleMarker key={s.id} center={[s.lat, s.lng]} radius={9}
-                    pathOptions={{ color: "#020617", weight: 1.5, fillColor: s.disponibile ? "#2F5B41" : "#94A3B8", fillOpacity: 1 }}>
+                    pathOptions={{ color: "#1F3D2B", weight: 1.5, fillColor: s.disponibile ? "#2F5B41" : "#94A3B8", fillOpacity: 1 }}>
                     <Popup>
                       <div className="font-bold">{s.nome}</div>
-                      <div className="text-xs">{s.canone_giornaliero} €/giorno</div>
+                      <div className="text-xs">{s.canone_giornaliero} €/giorno · {s.formato}</div>
                       <Link to={`/spazi/${s.id}`} className="text-[#2F5B41] text-xs font-bold">Dettaglio →</Link>
                     </Popup>
                   </CircleMarker>

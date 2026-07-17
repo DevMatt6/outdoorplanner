@@ -3,7 +3,6 @@ import { useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Toaster } from "sonner";
 import { useAuth, homeFor } from "./store/auth";
-import Landing from "./pages/Landing";
 import Auth from "./pages/Auth";
 import Spazi from "./pages/Spazi";
 import SpazioDetail from "./pages/SpazioDetail";
@@ -40,7 +39,7 @@ function App() {
       <BrowserRouter>
         <Toaster position="top-right" toastOptions={{ style: { borderRadius: 14, border: "1px solid #E5E7E4" } }} />
         <Routes>
-          <Route path="/" element={<Landing />} />
+          <Route path="/" element={<Auth />} />
           <Route path="/login" element={<Auth />} />
           <Route path="/spazi" element={<Spazi />} />
           <Route path="/spazi/:id" element={<SpazioDetail />} />
