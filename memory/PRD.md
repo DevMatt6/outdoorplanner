@@ -32,12 +32,15 @@ Vedi `/app/memory/test_credentials.md` (password demo123 per tutti).
 ## Design language (aggiornato — iterazione 3)
 Su richiesta utente (screenshot stile "Donezo") il design è passato da flat brutalist a **soft modern SaaS**: canvas grigio caldo #F2F3F0, card bianche rounded-2xl/3xl con bordi slate-100, palette verde (primario #2F5B41, scuro #1F3D2B, soft #D8EADB/#E4EEE6), bottoni a pillola, badge stato soft (bg tenue + testo colorato), sidebar backoffice chiara con voce attiva verde e icone, font Plus Jakarta Sans. **Tutte le animazioni rimosse** (niente reveal, marquee, grain, transform hover); restano solo transition-colors e l'hover fluido della mappa Italia (fill verde).
 
+## Implementato (Iterazione 4 — testato 100%, 63/63 backend)
+- **Campaign Planner multi-spazio**: /campagne (lista), /campagne/nuova (planner 3 step: periodo → selezione multi-spazio con disponibilità reale → riepilogo, checkout unico mock, invio massivo), /campagne/:id (dettaglio con pratiche). Backend: collezione campagne, GET /spazi/disponibili, POST/GET /campagne, checkout e invia di campagna con log e notifiche
+- **Calendario con periodi occupati**: DateRangePicker (react-day-picker range, locale it) nel wizard pratica e nel planner — date occupate rosse/disabilitate, blocco range che attraversano periodi occupati, riepilogo periodo e importo live
+
 ## Backlog prioritizzato
-- P1: Campaign Planner (candidatura multi-spazio)
-- P2: date picker calendario (shadcn) con evidenza visiva dei periodi occupati nel wizard
+- P2: date picker anche per modifica pratiche in INTEGRAZIONE_RICHIESTA
 - P2: Stripe test mode reale al posto del mock; export report CSV/PDF
-- P2: clustering marker (react-leaflet-cluster) su città con molti spazi
-- P2: notifiche real-time (websocket) al posto del polling
+- P2: clustering marker su città con molti spazi; notifiche websocket
+- P3: refactor server.py in router per feature (>750 righe)
 
 ## Note tecniche
 - seed_all non è idempotente per singola collezione (si attiva solo se manca il superadmin)

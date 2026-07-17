@@ -463,11 +463,13 @@ async def checkout_campagna(campagna_id: str, user: dict = Depends(require_role(
     if not c:
         raise HTTPException(status_code=404, detail="Campagna non trovata")
     tx = f"MOCK-{uuid.uuid4().hex[:10].upper()}"
-    res = await db.pratiche.update_many(
-        {"campagna_id": campagna_id, "pagata": False},
-        {"$set": {"pagata": True, "pagamento": {"metodo": "carta_mock", "transazione_id": tx, "data": now_iso()},
-                  "updated_at": now_iso()}})
-    return {"ok": True, "transazione_id": tx, "pratiche_pagate": res.modified_count,
+    pratiche = await db.pratiche.find({"campagna_id": campagna_id, "pagata": False}, {"_id": 0}).to_list(100)
+    for p in pratiche:
+        await db.pratiche.update_one({"id": p["id"]}, {"$set": {
+            "pagata": True,
+            "pagamento": {"metodo": "carta_mock", "transazione_id": tx, "importo": p["importo"], "data": now_iso()},
+            "updated_at": now_iso()}})
+    return {"ok": True, "transazione_id": tx, "pratiche_pagate": len(pratiche),
             "importo_totale": c["importo_totale"]}
 
 @api_router.post("/campagne/{campagna_id}/invia")
