@@ -1,0 +1,37 @@
+{
+  "summary": "Full-stack testing of Outdoor Planner SaaS completed successfully. All 38 backend pytest tests pass (auth, spazi/geo, user pratica flow with state machine, comune backoffice CRUD + transitions + PDF, superadmin KPI/onboarding, RBAC 403 enforcement, chat, notifications). Frontend flows verified end-to-end via Playwright: landing with italy-map, login for all 3 roles, user dashboard with 6 pratiche + notification bell/panel, full pratica wizard (Periodo -> Modulo Comune with conditional Azienda fields -> Documenti skip -> Pagamento mock -> Invio) ending in state INVIATA, comune scrivania with code + istruttoria full state machine (presa_in_carico -> approva) generating numero_autorizzazione + PDF button, comune spazi/form/report pages, admin KPI dashboard with charts + comuni onboarding + monitor anomalie.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/backend_test.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py at 634 lines is at the acceptable limit; if any new features are added, consider splitting into modules (auth, pratiche, comune, admin routers).",
+    "CORS_ORIGINS defaults to '*' with allow_credentials=True which browsers reject in practice - not blocking here since JWT is passed via Bearer header, but if cookie-based auth is ever activated (get_current_user already reads access_token cookie), explicit origins must be configured.",
+    "seed_all uses `if await db.users.find_one({email: admin_email}): return` - non-idempotent: if only some collections are cleared, seed will not repopulate. Consider seeding per-collection with upsert semantics.",
+    "reportlab PDF is generated synchronously inside async endpoint - fine for small PDFs but a heavier report should be offloaded to run_in_executor.",
+    "No rate limiting / brute force protection on /api/auth/login - not required by spec but worth noting per playbook.",
+    "Log_stato transition on invia() uses pratica['stato'] as 'da' AFTER update — actual code order is correct (log_stato called before update was applied to the local dict); confirmed correct behavior."
+  ],
+  "updated_files": [
+    "/app/backend/tests/backend_test.py (new)"
+  ],
+  "success_rate": {
+    "backend": "100% (38/38)",
+    "frontend": "100% (all critical flows verified)"
+  },
+  "test_credentials": "user@demo.it / demo123, comune@demo.it / demo123, comune.milano@demo.it / demo123, mattia.fabrizi92@gmail.com / demo123 - all working",
+  "seed_data_creation": "Created via test run: 1 extra INVIATA-then-APPROVATA pratica for user@demo.it (Billboard Via Tiburtina, 325 EUR, 2026-06-01 to 2026-06-05); 1 TEST_Comune_* onboarded with referente TEST_ref_*@demo.it in Sicilia. These add to KPI counts but do not disturb seed data.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Backend pytest suite at /app/backend/tests/backend_test.py covers all endpoints and can be re-run with: cd /app && REACT_APP_BACKEND_URL=<url> python -m pytest backend/tests/backend_test.py -v. Frontend routes: auth is at /login (not /auth). All data-testid attributes referenced in the review request are present and functional. Wizard steps are numbered internally; input-data-inizio/fine are on step 1, field-* on step 2, checkout-button on step 4, invia-pratica-button on step 5. Comune istruttoria buttons render conditionally by state (btn-presa-in-carico only visible in INVIATA; btn-approva/btn-integrazione/btn-rifiuta only in IN_ISTRUTTORIA)."
+}

@@ -1,0 +1,93 @@
+import { useEffect, useState } from "react";
+import { BackofficeLayout, ADMIN_LINKS } from "../../components/BackofficeLayout";
+import { api, apiError } from "../../lib/api";
+import { toast } from "sonner";
+import { Plus } from "lucide-react";
+
+const EMPTY = { nome: "", regione: "", provincia: "", lat: "", lng: "", referente_nome: "", referente_email: "", referente_password: "" };
+
+const REGIONI = ["Abruzzo", "Basilicata", "Calabria", "Campania", "Emilia-Romagna", "Friuli-Venezia Giulia", "Lazio", "Liguria", "Lombardia", "Marche", "Molise", "Piemonte", "Puglia", "Sardegna", "Sicilia", "Toscana", "Trentino-Alto Adige/Südtirol", "Umbria", "Valle d'Aosta/Vallée d'Aoste", "Veneto"];
+
+export default function AdminComuni() {
+  const [comuni, setComuni] = useState([]);
+  const [form, setForm] = useState(null);
+
+  const load = () => api.get("/admin/comuni").then(({ data }) => setComuni(data));
+  useEffect(() => { load(); }, []);
+
+  const submit = async (e) => {
+    e.preventDefault();
+    try {
+      await api.post("/admin/comuni", { ...form, lat: parseFloat(form.lat), lng: parseFloat(form.lng) });
+      toast.success(`Comune ${form.nome} attivato con referente ${form.referente_email}`);
+      setForm(null);
+      load();
+    } catch (err) { toast.error(apiError(err)); }
+  };
+
+  const input = "border border-slate-300 px-3 py-2 text-sm outline-none focus:border-[#0033FF] transition-colors bg-white w-full";
+
+  return (
+    <BackofficeLayout title="Superadmin" links={ADMIN_LINKS}>
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <h1 className="text-2xl sm:text-3xl font-heading font-extrabold tracking-tight">Comuni</h1>
+        <button data-testid="onboard-comune-button" onClick={() => setForm({ ...EMPTY })}
+          className="inline-flex items-center gap-2 bg-[#0033FF] text-white px-5 py-2.5 font-bold hover:bg-[#0A3D91] transition-colors">
+          <Plus size={17} /> Onboarding comune
+        </button>
+      </div>
+
+      {form && (
+        <form onSubmit={submit} className="mt-6 border-2 border-slate-900 bg-white p-6" data-testid="onboard-form">
+          <h2 className="font-heading font-extrabold text-lg mb-4">Nuovo comune</h2>
+          <div className="grid md:grid-cols-3 gap-3">
+            <input data-testid="onboard-nome" className={input} placeholder="Nome comune" required value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} />
+            <select data-testid="onboard-regione" className={input} required value={form.regione} onChange={(e) => setForm({ ...form, regione: e.target.value })}>
+              <option value="">— Regione —</option>
+              {REGIONI.map((r) => <option key={r}>{r}</option>)}
+            </select>
+            <input className={input} placeholder="Provincia (sigla)" required value={form.provincia} onChange={(e) => setForm({ ...form, provincia: e.target.value })} />
+            <input className={input} type="number" step="any" placeholder="Latitudine" required value={form.lat} onChange={(e) => setForm({ ...form, lat: e.target.value })} />
+            <input className={input} type="number" step="any" placeholder="Longitudine" required value={form.lng} onChange={(e) => setForm({ ...form, lng: e.target.value })} />
+          </div>
+          <div className="text-xs font-bold uppercase tracking-widest text-slate-500 mt-5 mb-2">Account referente</div>
+          <div className="grid md:grid-cols-3 gap-3">
+            <input data-testid="onboard-ref-nome" className={input} placeholder="Nome referente" required value={form.referente_nome} onChange={(e) => setForm({ ...form, referente_nome: e.target.value })} />
+            <input data-testid="onboard-ref-email" className={input} type="email" placeholder="Email referente" required value={form.referente_email} onChange={(e) => setForm({ ...form, referente_email: e.target.value })} />
+            <input data-testid="onboard-ref-password" className={input} placeholder="Password" required value={form.referente_password} onChange={(e) => setForm({ ...form, referente_password: e.target.value })} />
+          </div>
+          <div className="mt-5 flex gap-3">
+            <button data-testid="onboard-submit" className="px-6 py-2.5 font-bold bg-slate-900 text-white hover:bg-[#0033FF] transition-colors">Attiva comune</button>
+            <button type="button" onClick={() => setForm(null)} className="px-6 py-2.5 font-bold border-2 border-slate-300 hover:border-slate-900 transition-colors">Annulla</button>
+          </div>
+        </form>
+      )}
+
+      <div className="mt-6 border border-slate-900 bg-white overflow-x-auto">
+        <table className="w-full text-sm border-collapse">
+          <thead>
+            <tr className="bg-slate-50 border-b border-slate-900 text-left">
+              {["Comune", "Regione", "Provincia", "Spazi", "Pratiche", "Stato"].map((h) => (
+                <th key={h} className="px-4 py-3 text-[11px] font-bold uppercase tracking-widest text-slate-500">{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {comuni.map((c) => (
+              <tr key={c.id} className="border-b border-slate-200 hover:bg-blue-50 transition-colors" data-testid={`comune-row-${c.id}`}>
+                <td className="px-4 py-3 font-bold">{c.nome}</td>
+                <td className="px-4 py-3">{c.regione}</td>
+                <td className="px-4 py-3">{c.provincia}</td>
+                <td className="px-4 py-3 font-mono">{c.spazi_count}</td>
+                <td className="px-4 py-3 font-mono">{c.pratiche_count}</td>
+                <td className="px-4 py-3">
+                  <span className="text-[10px] font-bold uppercase px-2 py-1 bg-[#10B981] text-slate-950">Attivo</span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </BackofficeLayout>
+  );
+}
