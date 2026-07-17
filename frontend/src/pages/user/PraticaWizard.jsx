@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { NavBar } from "../../components/NavBar";
 import { DynamicField, isVisible } from "../../components/DynamicField";
+import { DateRangePicker, fmtDay } from "../../components/DateRangePicker";
 import { api, apiError } from "../../lib/api";
 import { toast } from "sonner";
 import { Upload, CreditCard, Check, FileText } from "lucide-react";
@@ -16,6 +17,7 @@ export default function PraticaWizard() {
   const [step, setStep] = useState(0);
   const [pratica, setPratica] = useState(null);
   const [date, setDate] = useState({ inizio: "", fine: "" });
+  const [range, setRange] = useState();
   const [values, setValues] = useState({});
   const [docs, setDocs] = useState([]);
   const [paying, setPaying] = useState(false);
@@ -128,33 +130,19 @@ export default function PraticaWizard() {
           {step === 0 && (
             <div className="space-y-4">
               <h2 className="font-heading font-extrabold text-xl">Periodo di occupazione</h2>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-widest text-slate-600 mb-1.5">Data inizio</label>
-                  <input data-testid="input-data-inizio" type="date" className={input} value={date.inizio} onChange={(e) => setDate({ ...date, inizio: e.target.value })} />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-widest text-slate-600 mb-1.5">Data fine</label>
-                  <input data-testid="input-data-fine" type="date" className={input} value={date.fine} onChange={(e) => setDate({ ...date, fine: e.target.value })} />
-                </div>
-              </div>
+              <p className="text-sm text-slate-500">Seleziona inizio e fine sul calendario. Le date in rosso sono già occupate e non selezionabili.</p>
+              <DateRangePicker
+                occupazioni={occupazioni}
+                value={range}
+                onChange={(r) => {
+                  setRange(r);
+                  setDate({ inizio: fmtDay(r?.from), fine: fmtDay(r?.to) });
+                }}
+              />
               {giorni > 0 && (
                 <div className="border border-slate-200 rounded-xl bg-slate-50 px-4 py-3 flex justify-between text-sm">
                   <span>{giorni} giorni × {spazio.canone_giornaliero} €</span>
                   <span className="font-heading font-extrabold" data-testid="importo-calcolato">{importo.toFixed(2)} €</span>
-                </div>
-              )}
-              {occupazioni.length > 0 && (
-                <div className="border border-amber-200 bg-amber-50 rounded-xl px-4 py-3" data-testid="occupazioni-box">
-                  <div className="text-xs font-bold uppercase tracking-widest text-amber-700 mb-1.5">Periodi già impegnati per questo spazio</div>
-                  <div className="flex flex-wrap gap-2">
-                    {occupazioni.map((o, i) => (
-                      <span key={i} className="text-xs font-mono border border-amber-200 bg-white rounded-lg px-2 py-1">
-                        {o.data_inizio} → {o.data_fine}
-                      </span>
-                    ))}
-                  </div>
-                  <div className="text-xs text-amber-700 mt-1.5">Le date sovrapposte a questi periodi verranno rifiutate.</div>
                 </div>
               )}
             </div>

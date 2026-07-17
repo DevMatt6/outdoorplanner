@@ -652,3 +652,154 @@ class TestOverlapDate:
         assert r.status_code == 200
         data = r.json()
         assert len(data) >= 1
+
+
+
+# ---------- ITERAZIONE 4: campagne multi-spazio ----------
+
+class TestCampagne:
+    """Multi-space Campaign Planner: crea, checkout, invia, overlap, ownership.
+    Uses class fixture that runs the full life-cycle once, then individual tests assert on shared state.
+    This makes tests idempotent even under pytest-xdist parallel execution.
+    """
+
+    @pytest.fixture(scope="class")
+    def campagna_ctx(self, session):
+        import random
+        _, user_tok = _login(session, "user@demo.it", "demo123")
+        offset = random.randint(3200, 3800)
+        d1 = (datetime.now() + timedelta(days=offset)).date().isoformat()
+        d2 = (datetime.now() + timedelta(days=offset + 4)).date().isoformat()  # 5 gg
+        disp = session.get(f"{API}/spazi/disponibili",
+                           params={"data_inizio": d1, "data_fine": d2, "regione": "Lazio"},
+                           timeout=10).json()
+        assert len(disp) >= 2, "Need at least 2 spazi disponibili in Lazio"
+        s1, s2 = disp[0], disp[1]
+        # 1) crea campagna
+        create_payload = {"nome": f"TEST_Camp_{int(time.time())}",
+                          "data_inizio": d1, "data_fine": d2,
+                          "spazi_ids": [s1["id"], s2["id"]]}
+        r = session.post(f"{API}/campagne", json=create_payload, headers=h(user_tok), timeout=15)
+        assert r.status_code == 200, r.text
+        camp = r.json()
+        # 2) tentativo invio prima del pagamento
+        r_pre = session.post(f"{API}/campagne/{camp['id']}/invia", headers=h(user_tok), timeout=10)
+        # 3) checkout
+        r_ck = session.post(f"{API}/campagne/{camp['id']}/checkout", headers=h(user_tok), timeout=10)
+        # 4) invio finale
+        r_snd = session.post(f"{API}/campagne/{camp['id']}/invia", headers=h(user_tok), timeout=10)
+        return {"user_tok": user_tok, "d1": d1, "d2": d2, "s1": s1, "s2": s2,
+                "create_payload": create_payload, "camp": camp,
+                "invia_pre_pay": r_pre, "checkout": r_ck, "invia_post_pay": r_snd}
+
+    def test_01_spazi_disponibili_endpoint(self, session):
+        d1 = (datetime.now() + timedelta(days=4500)).date().isoformat()
+        d2 = (datetime.now() + timedelta(days=4503)).date().isoformat()
+        r = session.get(f"{API}/spazi/disponibili",
+                        params={"data_inizio": d1, "data_fine": d2, "regione": "Lazio"},
+                        timeout=10)
+        assert r.status_code == 200, r.text
+        data = r.json()
+        assert isinstance(data, list) and len(data) >= 2
+        assert all(s["regione"] == "Lazio" for s in data)
+
+    def test_02_create_campagna_generates_pratiche_bozza(self, campagna_ctx):
+        camp = campagna_ctx["camp"]
+        s1, s2 = campagna_ctx["s1"], campagna_ctx["s2"]
+        assert camp["nome"] == campagna_ctx["create_payload"]["nome"]
+        assert len(camp["spazi_ids"]) == 2
+        assert len(camp["pratiche"]) == 2
+        expected = round(5 * s1["canone_giornaliero"] + 5 * s2["canone_giornaliero"], 2)
+        assert camp["importo_totale"] == expected
+        for p in camp["pratiche"]:
+            assert p["stato"] == "BOZZA"
+            assert p["pagata"] is False
+            assert p["campagna_id"] == camp["id"]
+
+    def test_03_invia_senza_pagamento_400(self, campagna_ctx):
+        r = campagna_ctx["invia_pre_pay"]
+        assert r.status_code == 400, r.text
+        assert "pagamento" in r.text.lower()
+
+    def test_04_checkout_paga_tutte(self, campagna_ctx):
+        r = campagna_ctx["checkout"]
+        assert r.status_code == 200, r.text
+        data = r.json()
+        assert data["ok"] is True
+        assert data["transazione_id"].startswith("MOCK-")
+        assert data["pratiche_pagate"] == 2
+
+    def test_05_invia_dopo_checkout(self, campagna_ctx):
+        r = campagna_ctx["invia_post_pay"]
+        assert r.status_code == 200, r.text
+        assert r.json()["inviate"] == 2
+
+    def test_06_detail_pratiche_inviate_con_log(self, session, campagna_ctx):
+        cid = campagna_ctx["camp"]["id"]
+        tok = campagna_ctx["user_tok"]
+        r = session.get(f"{API}/campagne/{cid}", headers=h(tok), timeout=10)
+        assert r.status_code == 200
+        data = r.json()
+        assert all(p["stato"] == "INVIATA" for p in data["pratiche"])
+        assert data["per_stato"].get("INVIATA") == 2
+        # verify log_stato of one pratica
+        pid = data["pratiche"][0]["id"]
+        rp = session.get(f"{API}/pratiche/{pid}", headers=h(tok), timeout=10)
+        assert rp.status_code == 200
+        stati = [l["a"] for l in rp.json()["log_stato"]]
+        assert "BOZZA" in stati and "INVIATA" in stati
+
+    def test_07_lista_campagne_include_per_stato(self, session, campagna_ctx):
+        cid = campagna_ctx["camp"]["id"]
+        tok = campagna_ctx["user_tok"]
+        r = session.get(f"{API}/campagne", headers=h(tok), timeout=10)
+        assert r.status_code == 200
+        camps = r.json()
+        mine = next((c for c in camps if c["id"] == cid), None)
+        assert mine, f"campagna {cid} non in lista"
+        assert mine["per_stato"].get("INVIATA") == 2
+        assert mine["pagate"] == 2
+
+    def test_08_overlap_409_on_second_campagna(self, session, campagna_ctx):
+        tok = campagna_ctx["user_tok"]
+        c = campagna_ctx["camp"]
+        payload = {"nome": f"TEST_Overlap_{int(time.time())}",
+                   "data_inizio": c["data_inizio"], "data_fine": c["data_fine"],
+                   "spazi_ids": c["spazi_ids"]}
+        r = session.post(f"{API}/campagne", json=payload, headers=h(tok), timeout=15)
+        assert r.status_code == 409, r.text
+        assert "disponibil" in r.text.lower()
+
+    def test_09_spazi_disponibili_esclude_occupati(self, session, campagna_ctx):
+        c = campagna_ctx["camp"]
+        occupati = set(c["spazi_ids"])
+        r = session.get(f"{API}/spazi/disponibili",
+                        params={"data_inizio": c["data_inizio"], "data_fine": c["data_fine"],
+                                "regione": "Lazio"}, timeout=10)
+        assert r.status_code == 200
+        ids = {s["id"] for s in r.json()}
+        assert not (occupati & ids), f"spazi occupati non esclusi: {occupati & ids}"
+
+    def test_10_altro_ruolo_non_accede(self, session, campagna_ctx, comune_token):
+        cid = campagna_ctx["camp"]["id"]
+        # comune role → 403 by require_role("user")
+        r = session.get(f"{API}/campagne/{cid}", headers=h(comune_token), timeout=10)
+        assert r.status_code == 403
+
+    def test_11_campagna_inesistente_404(self, session, user_token):
+        r = session.get(f"{API}/campagne/does-not-exist", headers=h(user_token), timeout=10)
+        assert r.status_code == 404
+
+    def test_12_campagna_senza_spazi_400(self, session, user_token):
+        d1 = (datetime.now() + timedelta(days=5000)).date().isoformat()
+        d2 = (datetime.now() + timedelta(days=5002)).date().isoformat()
+        r = session.post(f"{API}/campagne",
+                         json={"nome": "TEST_empty", "data_inizio": d1, "data_fine": d2, "spazi_ids": []},
+                         headers=h(user_token), timeout=10)
+        assert r.status_code == 400
+
+    def test_13_altro_user_non_vede_campagna(self, session, admin_token, campagna_ctx):
+        # admin non è user role → 403
+        cid = campagna_ctx["camp"]["id"]
+        r = session.get(f"{API}/campagne/{cid}", headers=h(admin_token), timeout=10)
+        assert r.status_code == 403

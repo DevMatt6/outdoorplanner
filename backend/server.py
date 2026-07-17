@@ -150,6 +150,13 @@ class TransizioneIn(BaseModel):
 class ChatIn(BaseModel):
     testo: str
 
+class CampagnaIn(BaseModel):
+    nome: str
+    data_inizio: str
+    data_fine: str
+    spazi_ids: List[str]
+
+
 class ComuneOnboardIn(BaseModel):
     nome: str
     regione: str
@@ -236,6 +243,21 @@ async def list_spazi(regione: Optional[str] = None, citta: Optional[str] = None,
                         {"indirizzo": {"$regex": q, "$options": "i"}},
                         {"citta": {"$regex": q, "$options": "i"}}]
     return await db.spazi.find(query, {"_id": 0}).to_list(500)
+
+@api_router.get("/spazi/disponibili")
+async def spazi_disponibili(data_inizio: str, data_fine: str, regione: Optional[str] = None,
+                            tipologia: Optional[str] = None):
+    query: dict = {"disponibile": True}
+    if regione:
+        query["regione"] = regione
+    if tipologia:
+        query["tipologia"] = tipologia
+    spazi = await db.spazi.find(query, {"_id": 0}).to_list(500)
+    occupati = await db.pratiche.find(
+        {"stato": {"$in": STATI_ATTIVI}, "data_inizio": {"$lte": data_fine}, "data_fine": {"$gte": data_inizio}},
+        {"_id": 0, "spazio_id": 1}).to_list(2000)
+    busy = {o["spazio_id"] for o in occupati}
+    return [s for s in spazi if s["id"] not in busy]
 
 @api_router.get("/spazi/{spazio_id}")
 async def get_spazio(spazio_id: str):
@@ -376,6 +398,96 @@ async def get_pratica(pratica_id: str, user: dict = Depends(get_current_user)):
     comune = await db.comuni.find_one({"id": pratica["comune_id"]}, {"_id": 0})
     logs = await db.log_stato.find({"pratica_id": pratica_id}, {"_id": 0}).sort("timestamp", 1).to_list(100)
     return {**pratica, "spazio": spazio, "comune": comune, "log_stato": logs}
+
+# ---------- campagne (multi-spazio) ----------
+
+@api_router.post("/campagne")
+async def crea_campagna(data: CampagnaIn, user: dict = Depends(require_role("user"))):
+    ids = list(dict.fromkeys(data.spazi_ids))
+    if not ids:
+        raise HTTPException(status_code=400, detail="Seleziona almeno uno spazio")
+    spazi = await db.spazi.find({"id": {"$in": ids}}, {"_id": 0}).to_list(100)
+    if len(spazi) != len(ids):
+        raise HTTPException(status_code=404, detail="Uno o più spazi non trovati")
+    non_disp = []
+    for s in spazi:
+        if await _periodo_occupato(s["id"], data.data_inizio, data.data_fine):
+            non_disp.append(s["nome"])
+    if non_disp:
+        raise HTTPException(status_code=409, detail=f"Spazi non disponibili nel periodo: {', '.join(non_disp)}")
+    giorni = _giorni(data.data_inizio, data.data_fine)
+    campagna_id = str(uuid.uuid4())
+    pratiche = []
+    for s in spazi:
+        pratica = {"id": str(uuid.uuid4()), "user_id": user["id"], "user_nome": user["nome"],
+                   "spazio_id": s["id"], "spazio_nome": s["nome"], "comune_id": s["comune_id"],
+                   "campagna_id": campagna_id, "campagna_nome": data.nome,
+                   "stato": "BOZZA", "dati_form": {"descrizione_contenuto": f"Campagna '{data.nome}'"},
+                   "documenti": [], "data_inizio": data.data_inizio, "data_fine": data.data_fine,
+                   "importo": round(giorni * s["canone_giornaliero"], 2), "pagata": False,
+                   "created_at": now_iso(), "updated_at": now_iso()}
+        await db.pratiche.insert_one({**pratica})
+        await log_stato(pratica["id"], None, "BOZZA", user, f"Pratica creata dalla campagna '{data.nome}'")
+        pratiche.append(pratica)
+    campagna = {"id": campagna_id, "user_id": user["id"], "nome": data.nome,
+                "data_inizio": data.data_inizio, "data_fine": data.data_fine,
+                "spazi_ids": ids, "pratica_ids": [p["id"] for p in pratiche],
+                "importo_totale": round(sum(p["importo"] for p in pratiche), 2),
+                "created_at": now_iso()}
+    await db.campagne.insert_one({**campagna})
+    return {**campagna, "pratiche": pratiche}
+
+async def _enrich_campagna(c: dict) -> dict:
+    pratiche = await db.pratiche.find({"campagna_id": c["id"]}, {"_id": 0}).to_list(100)
+    per_stato: dict = {}
+    for p in pratiche:
+        per_stato[p["stato"]] = per_stato.get(p["stato"], 0) + 1
+    return {**c, "pratiche": pratiche, "per_stato": per_stato,
+            "pagate": sum(1 for p in pratiche if p.get("pagata"))}
+
+@api_router.get("/campagne")
+async def mie_campagne(user: dict = Depends(require_role("user"))):
+    camps = await db.campagne.find({"user_id": user["id"]}, {"_id": 0}).sort("created_at", -1).to_list(100)
+    return [await _enrich_campagna(c) for c in camps]
+
+@api_router.get("/campagne/{campagna_id}")
+async def get_campagna(campagna_id: str, user: dict = Depends(require_role("user"))):
+    c = await db.campagne.find_one({"id": campagna_id, "user_id": user["id"]}, {"_id": 0})
+    if not c:
+        raise HTTPException(status_code=404, detail="Campagna non trovata")
+    return await _enrich_campagna(c)
+
+@api_router.post("/campagne/{campagna_id}/checkout")
+async def checkout_campagna(campagna_id: str, user: dict = Depends(require_role("user"))):
+    c = await db.campagne.find_one({"id": campagna_id, "user_id": user["id"]}, {"_id": 0})
+    if not c:
+        raise HTTPException(status_code=404, detail="Campagna non trovata")
+    tx = f"MOCK-{uuid.uuid4().hex[:10].upper()}"
+    res = await db.pratiche.update_many(
+        {"campagna_id": campagna_id, "pagata": False},
+        {"$set": {"pagata": True, "pagamento": {"metodo": "carta_mock", "transazione_id": tx, "data": now_iso()},
+                  "updated_at": now_iso()}})
+    return {"ok": True, "transazione_id": tx, "pratiche_pagate": res.modified_count,
+            "importo_totale": c["importo_totale"]}
+
+@api_router.post("/campagne/{campagna_id}/invia")
+async def invia_campagna(campagna_id: str, user: dict = Depends(require_role("user"))):
+    c = await db.campagne.find_one({"id": campagna_id, "user_id": user["id"]}, {"_id": 0})
+    if not c:
+        raise HTTPException(status_code=404, detail="Campagna non trovata")
+    pratiche = await db.pratiche.find({"campagna_id": campagna_id, "stato": "BOZZA"}, {"_id": 0}).to_list(100)
+    non_pagate = [p for p in pratiche if not p["pagata"]]
+    if non_pagate:
+        raise HTTPException(status_code=400, detail="Completa il pagamento prima di inviare")
+    inviate = 0
+    for p in pratiche:
+        await db.pratiche.update_one({"id": p["id"]}, {"$set": {"stato": "INVIATA", "updated_at": now_iso()}})
+        await log_stato(p["id"], "BOZZA", "INVIATA", user, f"Inviata dalla campagna '{c['nome']}'")
+        operatori = await db.users.find({"ruolo": "comune", "comune_id": p["comune_id"]}, {"_id": 0}).to_list(20)
+        for op in operatori:
+            await notifica(op["id"], "Nuova pratica da campagna", f"Pratica '{p['spazio_nome']}' → INVIATA", p["id"])
+        inviate += 1
+    return {"ok": True, "inviate": inviate}
 
 # ---------- chat ----------
 

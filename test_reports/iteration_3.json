@@ -1,0 +1,38 @@
+{
+  "summary": "Iteration 4 (Campaign Planner + calendar date-range picker) fully tested. Backend pytest 63/63 pass including new TestCampagne class (13 tests: spazi_disponibili, create with multi-pratica generation and correct importo_totale, invia before payment=400, checkout marks all pratiche paid, invia post-payment sends all to comuni with log_stato entries, list with per_stato/pagate counts, overlap 409, spazi_disponibili excludes occupied, RBAC 403 for comune/admin, 404 for missing/other-owned, 400 for empty spazi_ids). All prior regression tests (auth/public/pratica user flow/comune backoffice/superadmin/RBAC/chat/notifiche/livelli/overlap) unchanged and passing. Frontend Playwright verified: (1) user@demo.it login → dashboard shows campagne-link + Nuova pratica → /campagne page with nuova-campagna-button → planner step0 campagna-nome-input + DateRangePicker (advanced 36 months forward, selected 2 free days → range-summary '2029-06-27 → 2029-06-30') → planner-next → step1 15 disponibili spazi listed, clicked 2, planner-totale updated to '380.00 €' → next → step2 riepilogo-totale '380.00 €' → crea-campagna-button → checkout-campagna-button (toast 'Pagamento simulato · MOCK-...') → invia-campagna-button → redirected to /campagne/{id} with campagna-detail showing 2 pratiche INVIATA · pagata ✓ · toast '2 pratiche inviate ai Comuni'. (2) Wizard for Billboard Via Tiburtina: date-range-picker renders 25 occupied cells (red strikethrough) in luglio/agosto 2026 view, 35 disabled buttons total; advancing calendar to 2029 shows 73 free days, selecting 2 → range-summary '2029-07-01 → 2029-07-04' + importo-calcolato '260.00 €' (4gg × 65€) → wizard-next-button leads to step Modulo Comune. Anti-cross logic verified via disabled array (occupied days non-clickable — react-day-picker enforces via disabled prop). (3) Regression: comune.l3@demo.it → livello-badge 'Responsabile · L3', all 5 sidebar links (scrivania/spazi/form/report/profilo). No console errors observed.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "test_richiedi_integrazione_e_reinvio (test suite)", "issue": "Pre-existing flaky overlap collision in test_richiedi_integrazione_e_reinvio (~10-20% failure on rerun) — uses random.randint(2700, 3000) which can collide with accumulated test data from prior runs. Passes reliably on retry. Not a code bug; test isolation only."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/backend_test.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py grown to 776 lines — now exceeds recommended 700-line threshold; split by feature router (auth, spazi/pratiche, campagne, comune, admin) recommended before next iteration.",
+    "invia_campagna does not update pratica.pagamento with a per-pratica record — the campaign-level $set only sets `pagamento` once at the pratica level with `metodo/transazione_id/data` but omits `importo` (single-pratica checkout also sets importo). Consider setting per-pratica importo in the update_many for consistency with single-pratica checkout payload.",
+    "crea_campagna does _periodo_occupato in a serial loop (N spazi = N sequential Mongo queries); acceptable for small N but consider a single $or aggregation for larger multi-spazio campagne.",
+    "DateRangePicker anti-cross fallback in DateRangePicker.jsx uses `r.to > (value?.from || 0)` — comparing Date to number 0 works by JS coercion but is subtle; explicit null check would be safer.",
+    "CampagnaPlanner state race: `useEffect` re-fetches `/spazi/disponibili` on step/date/regione/tipologia change but does NOT abort in-flight requests; rapid filter changes can render stale results. Consider AbortController.",
+    "In Campagne.jsx STATO_COLORS lookup uses optional chaining fallback but if unknown stato appears (e.g., new lifecycle state added), backgroundColor becomes undefined → invisible chip. Add default color.",
+    "invia_campagna picks up pratiche with stato==BOZZA only — if user manually inviata one pratica separately then tries invia campagna, that one won't be re-processed but also won't error. Acceptable but could log/report."
+  ],
+  "updated_files": [
+    "/app/backend/tests/backend_test.py (added TestCampagne class with 13 tests using class-scoped campagna_ctx fixture for xdist-safe lifecycle execution)"
+  ],
+  "success_rate": {"backend": "100% (63/63, with 1 pre-existing flaky retry-passing)", "frontend": "100% (all critical Campaign Planner + calendar wizard flows verified end-to-end)"},
+  "test_credentials": "All credentials from /app/memory/test_credentials.md work: user@demo.it, comune@demo.it (L1), comune.l2@demo.it (L2), comune.l3@demo.it (L3), mattia.fabrizi92@gmail.com (superadmin) — password demo123",
+  "seed_data_creation": "TestCampagne creates 1 campagna 'TEST_Camp_<ts>' with 2 pratiche in Lazio at random offset 3200-3800 days. Frontend flow additionally creates 'TEST_UI_Camp_<ts>' at ~1000 days. All far-future to avoid accumulating overlap. No seed data modified.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Iteration 4 (Campaign Planner + calendar wizard) is fully working. To rerun backend tests: `cd /app && python -m pytest backend/tests/backend_test.py -v` (uses -n 2 --dist loadscope from pytest.ini). New data-testids used: campagne-link (dashboard), campagne-page, nuova-campagna-button, campagna-planner, campagna-nome-input, date-range-picker, range-summary, planner-next-button, planner-spazio-<id>, planner-totale, planner-filter-regione, planner-error, riepilogo-totale, crea-campagna-button, checkout-campagna-button, invia-campagna-button, campagna-detail, campagna-card-<id>, campagna-pratica-<id>, campagna-checkout-button, campagna-invia-button, importo-calcolato (wizard step 0). Calendar navigation: click button[name='next-month'] N times. Enabled day cells: button[name='day']:not([disabled]). Occupied cells have class 'rdp-day_occupato' and 'line-through' with red background. NOTE: Random offset ranges to avoid collisions: TestPraticaUserFlow (400-900), test_richiedi_integrazione (2700-3000 — occasionally flaky), TestLivelliComune (1500-2000), TestOverlapDate (2100-2500), TestCampagne (3200-3800). If future iterations add more tests, use offsets ≥4000 days.",
+  "rca of the issue": "No blocking issues. Only observation: flaky comune backoffice test uses random offset 2700-3000 which occasionally collides on rerun — trivial to widen offset range (fix scope: main agent, not urgent)."
+}

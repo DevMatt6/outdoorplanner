@@ -10,6 +10,9 @@ import SpazioDetail from "./pages/SpazioDetail";
 import UserDashboard from "./pages/user/UserDashboard";
 import PraticaWizard from "./pages/user/PraticaWizard";
 import PraticaDetail from "./pages/user/PraticaDetail";
+import Campagne from "./pages/user/Campagne";
+import CampagnaPlanner from "./pages/user/CampagnaPlanner";
+import CampagnaDetail from "./pages/user/CampagnaDetail";
 import Scrivania from "./pages/comune/Scrivania";
 import PraticaIstruttoria from "./pages/comune/PraticaIstruttoria";
 import ComuneSpazi from "./pages/comune/ComuneSpazi";
@@ -44,6 +47,9 @@ function App() {
           <Route path="/dashboard" element={<Protected role="user"><UserDashboard /></Protected>} />
           <Route path="/pratiche/nuova/:spazioId" element={<Protected role="user"><PraticaWizard /></Protected>} />
           <Route path="/pratiche/:id" element={<Protected role="user"><PraticaDetail /></Protected>} />
+          <Route path="/campagne" element={<Protected role="user"><Campagne /></Protected>} />
+          <Route path="/campagne/nuova" element={<Protected role="user"><CampagnaPlanner /></Protected>} />
+          <Route path="/campagne/:id" element={<Protected role="user"><CampagnaDetail /></Protected>} />
           <Route path="/comune" element={<Protected role="comune"><Scrivania /></Protected>} />
           <Route path="/comune/pratiche/:id" element={<Protected role="comune"><PraticaIstruttoria /></Protected>} />
           <Route path="/comune/spazi" element={<Protected role="comune"><ComuneSpazi /></Protected>} />

@@ -4,7 +4,7 @@ import { NavBar } from "../../components/NavBar";
 import { StatusBadge } from "../../components/StatusBadge";
 import { api } from "../../lib/api";
 import { useAuth } from "../../store/auth";
-import { Plus, ArrowRight } from "lucide-react";
+import { Plus, ArrowRight, Megaphone } from "lucide-react";
 
 export default function UserDashboard() {
   const [pratiche, setPratiche] = useState([]);
@@ -27,10 +27,16 @@ export default function UserDashboard() {
             <div className="text-xs font-bold uppercase tracking-[0.25em] text-slate-500">Area inserzionista</div>
             <h1 className="text-3xl sm:text-4xl font-heading font-extrabold tracking-tight mt-1">Ciao, {user?.nome?.split(" ")[0]}</h1>
           </div>
-          <Link to="/spazi" data-testid="nuova-pratica-button"
-            className="inline-flex items-center gap-2 bg-[#2F5B41] text-white rounded-full px-6 py-3 font-bold hover:bg-[#26492F] transition-colors">
-            <Plus size={18} /> Nuova pratica
-          </Link>
+          <div className="flex gap-3">
+            <Link to="/campagne" data-testid="campagne-link"
+              className="inline-flex items-center gap-2 border border-slate-200 rounded-full px-6 py-3 font-bold bg-white hover:border-[#2F5B41] hover:text-[#2F5B41] transition-colors">
+              <Megaphone size={18} /> Campagne
+            </Link>
+            <Link to="/spazi" data-testid="nuova-pratica-button"
+              className="inline-flex items-center gap-2 bg-[#2F5B41] text-white rounded-full px-6 py-3 font-bold hover:bg-[#26492F] transition-colors">
+              <Plus size={18} /> Nuova pratica
+            </Link>
+          </div>
         </div>
 
         <div className="mt-8 grid grid-cols-3 border border-slate-100 rounded-2xl overflow-hidden divide-x divide-slate-100 bg-white">
