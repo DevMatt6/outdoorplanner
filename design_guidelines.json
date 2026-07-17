@@ -1,0 +1,107 @@
+{
+  "theme_strategy": "Light Theme Only (High Contrast Flat Design / Swiss Brutalist)",
+  "typography": {
+    "font_headings": "Cabinet Grotesk",
+    "font_body": "IBM Plex Sans",
+    "font_mono": "JetBrains Mono",
+    "scale_hierarchy": {
+      "H1": "text-4xl sm:text-5xl lg:text-6xl tracking-tight font-black",
+      "H2": "text-2xl sm:text-3xl lg:text-4xl tracking-tight font-bold",
+      "H3": "text-xl sm:text-2xl tracking-tight font-bold",
+      "H4": "text-lg sm:text-xl font-bold",
+      "Body": "text-base leading-relaxed text-slate-800",
+      "Labels": "text-xs tracking-[0.2em] uppercase font-bold text-slate-500"
+    },
+    "rules": [
+      "NO default Inter, Roboto, or generic sans for headings.",
+      "Strict typography hierarchy, never jump more than two tailwind size steps between heading and subheading.",
+      "Headlines > 32px MUST use tracking-tight."
+    ]
+  },
+  "colors": {
+    "palette": {
+      "base_bg": "#FFFFFF",
+      "surface_bg": "#F8FAFC",
+      "text_primary": "#020617",
+      "text_secondary": "#475569",
+      "brand_primary": "#0A3D91",
+      "brand_accent": "#0033FF",
+      "border_default": "#CBD5E1",
+      "border_dark": "#0F172A"
+    },
+    "statuses": {
+      "BOZZA": "#94A3B8",
+      "INVIATA": "#3B82F6",
+      "IN_ISTRUTTORIA": "#F59E0B",
+      "INTEGRAZIONE_RICHIESTA": "#EF4444",
+      "APPROVATA": "#10B981",
+      "RIFIUTATA": "#0F172A"
+    },
+    "rules": [
+      "NO full-screen gradients. NO shadow values. Only flat solid colors.",
+      "NO pure black (#000000). Use #020617 (slate-950).",
+      "Never use pure transparent background on elements that overlap content (e.g., sticky headers)."
+    ]
+  },
+  "visual_enhancers": {
+    "flat_design_enforcement": "Strict 'Flat Design Assoluto'. ALL box-shadow, drop-shadow, and blur utilities are STRICTLY FORBIDDEN.",
+    "separation": "Visual separation MUST rely entirely on 1px solid borders, stark color contrasts, typography weight, and padding/margin.",
+    "border_radius": "Keep it sharp. Use 'rounded-none' for pure brutalism or max 'rounded-sm' for subtle softening. No pill-shaped large components except specific CTAs.",
+    "textures": "Use subtle noise/grain overlays ONLY on the public landing page hero section if needed, otherwise stick to clean flat blocks."
+  },
+  "components": {
+    "buttons": "Sharp rectangular (`rounded-none`), solid background. Hover state: invert colors or add thick 2px dark border. Focus: strong 2px offset ring.",
+    "cards": "border border-slate-300 bg-white shadow-none. No rounded corners. Inner padding p-6 or p-8.",
+    "tables": "Crisp borders (`border-collapse`, `border-slate-300`). Use `border-b` for rows. Dense paddings in backoffice.",
+    "badges": "Solid fill with contrasting text, sharp corners (`rounded-none`), no shadows. Color code based on pratiche state machine.",
+    "forms": "Inputs with flat borders, focus state is solid 2px outline of primary brand color. Step-by-step wizard uses explicit bordered segments.",
+    "map": "Leaflet with GeoJSON. Hover states on regions should use fluid SVG fill transitions (color shift) without drop shadows or glow. Use sharp tooltips.",
+    "wizard": "Clear segmented progress bar without any rounded corners. Bold typography for current step."
+  },
+  "grids_and_layouts": {
+    "spacing": "Generous spacing for public pages (`p-12` to `p-24`). Dense structured layout for backoffice dashboards (`p-4` to `p-6`).",
+    "dashboard_grid": "Dense BENTO or strict analytical grid (`grid-cols-1 md:grid-cols-3 lg:grid-cols-4`). Use `border-r` and `border-b` on grid cells to create technical look.",
+    "alignment": "Left-align mostly. Only center hero text if structurally needed."
+  },
+  "motion": {
+    "rules": "Micro-interactions on hover (border color change, background fill shift, text color change). ZERO shadow animations. ZERO blur animations.",
+    "transitions": "Use specific properties (`transition-colors`, `transition-transform`) rather than `transition-all`."
+  },
+  "accessibility": {
+    "contrast": "APCA/WCAG AA compliant. High contrast text on all colored badges/buttons.",
+    "testing": "All interactive and informational elements MUST include `data-testid` attribute (e.g., `data-testid='submit-pratica-button'`)."
+  },
+  "media_and_libraries": {
+    "icons": "@phosphor-icons/react (Duotone or Regular weight, matches business software well).",
+    "charts": "recharts (styled with sharp lines, flat colors, zero drop-shadows on tooltips).",
+    "map": "leaflet, react-leaflet (GeoJSON per Italia).",
+    "animations": "framer-motion (for layout shifts, entrance, state transitions)."
+  },
+  "image_urls": [
+    {
+      "url": "https://images.unsplash.com/photo-1699480114704-ac153307d2a0?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA2MTJ8MHwxfHNlYXJjaHwyfHxvdXRkb29yJTIwYWR2ZXJ0aXNpbmclMjBiaWxsYm9hcmR8ZW58MHx8fHwxNzg0Mjc2NTA1fDA&ixlib=rb-4.1.0&q=85",
+      "category": "hero_landing",
+      "description": "A billboard by the road, suitable for public space advertising (OSP) SaaS context."
+    },
+    {
+      "url": "https://images.unsplash.com/photo-1777403705903-9704d002ca8a?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDk1NzZ8MHwxfHNlYXJjaHwzfHxwdWJsaWMlMjBzcXVhcmUlMjBldmVudCUyMGl0YWx5fGVufDB8fHx8MTc4NDI3NjUwNXww&ixlib=rb-4.1.0&q=85",
+      "category": "event_showcase",
+      "description": "Italian public square (Piazza), ideal for representing events and public space occupation."
+    },
+    {
+      "url": "https://images.unsplash.com/photo-1639917714192-557a6143f788?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2NzB8MHwxfHNlYXJjaHwyfHxvZmZpY2UlMjBkZXNrJTIwY29tcHV0ZXIlMjBncmFwaHN8ZW58MHx8fHwxNzg0Mjc2NTA1fDA&ixlib=rb-4.1.0&q=85",
+      "category": "dashboard_admin",
+      "description": "Computer monitor displaying data and graphs, representing Superadmin and Comune workflow."
+    }
+  ],
+  "instructions_to_main_agent": [
+    "TUTTA LA UI DEVE ESSERE IN ITALIANO. Labels, placeholder, table headers, form steps must be perfectly translated in Italian.",
+    "Apply absolute flat design. Use standard Tailwind border classes (`border`, `border-2`) and specific background colors. Never use `shadow-*` or `drop-shadow-*`.",
+    "Implement the Leaflet map of Italy for the public landing page with interactive GeoJSON. Hover events should trigger a fluid path fill transition.",
+    "Build the dashboard using Shadcn UI but STRIP OUT all rounded corners and shadows from the default components (e.g., adjust radius in `tailwind.config.js` to 0 or hardcode `rounded-none`).",
+    "For the Comune backoffice, implement the Pratiche state machine (BOZZA → INVIATA → IN_ISTRUTTORIA → INTEGRAZIONE_RICHIESTA → APPROVATA/RIFIUTATA) using the explicit colors defined in the palette.",
+    "Use mock SPID/CIE logic for the login entry points.",
+    "Integrate a clear multi-step Wizard for the Pratica creation with document upload placeholder, ending in a Checkout mock."
+  ],
+  "UNIVERSAL GUIDELINES FOR MAIN AGENT": "You tend to converge toward generic outputs. Avoid this: make creative, distinctive frontends. DO NOT use generic centered layouts or uniform styling. Prioritize high contrast and 1px sharp borders. Every interaction needs micro-animations (hover states, structural transitions) but WITHOUT blur/shadows. Subdued grain textures, custom cursors, clear selection states separate good from extraordinary. Ensure all placeholder images use the provided URLs."
+}
