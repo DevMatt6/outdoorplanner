@@ -41,20 +41,20 @@ export default function Auth() {
     }
   };
 
-  const input = "w-full border border-slate-300 px-4 py-3 text-sm outline-none focus:border-[#0033FF] focus:border-2 transition-colors";
+  const input = "w-full border border-slate-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-[#2F5B41] transition-colors";
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen">
       <NavBar />
       <div className="max-w-md mx-auto px-6 py-16">
-        <div className="border border-slate-900 bg-white">
-          <div className="grid grid-cols-2 border-b border-slate-900">
+        <div className="border border-slate-100 bg-white rounded-2xl overflow-hidden">
+          <div className="grid grid-cols-2 border-b border-slate-100">
             <button data-testid="tab-login" onClick={() => setMode("login")}
-              className={`py-3 text-sm font-bold uppercase tracking-widest transition-colors ${mode === "login" ? "bg-slate-900 text-white" : "hover:bg-slate-100"}`}>
+              className={`py-3 text-sm font-bold uppercase tracking-widest transition-colors ${mode === "login" ? "bg-[#2F5B41] text-white" : "hover:bg-slate-100"}`}>
               Accedi
             </button>
             <button data-testid="tab-register" onClick={() => setMode("register")}
-              className={`py-3 text-sm font-bold uppercase tracking-widest transition-colors border-l border-slate-900 ${mode === "register" ? "bg-slate-900 text-white" : "hover:bg-slate-100"}`}>
+              className={`py-3 text-sm font-bold uppercase tracking-widest transition-colors border-l border-slate-100 ${mode === "register" ? "bg-[#2F5B41] text-white" : "hover:bg-slate-100"}`}>
               Registrati
             </button>
           </div>
@@ -70,22 +70,22 @@ export default function Auth() {
               value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required />
             <input data-testid="input-password" className={input} type="password" placeholder="Password"
               value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required />
-            {error && <div data-testid="auth-error" className="border border-[#EF4444] bg-red-50 text-[#B91C1C] text-sm px-4 py-3">{error}</div>}
+            {error && <div data-testid="auth-error" className="border border-red-200 bg-red-50 rounded-xl text-[#B91C1C] text-sm px-4 py-3">{error}</div>}
             <button data-testid="auth-submit-button" disabled={loading}
-              className="w-full bg-[#0033FF] text-white py-3.5 font-bold hover:bg-[#0A3D91] transition-colors disabled:opacity-50">
+              className="w-full bg-[#2F5B41] text-white rounded-full py-3.5 font-bold hover:bg-[#26492F] transition-colors disabled:opacity-50">
               {loading ? "Attendi..." : mode === "login" ? "Accedi" : "Registrati"}
             </button>
             <div className="flex items-center gap-3 py-1">
-              <div className="flex-1 border-t border-slate-300" />
+              <div className="flex-1 border-t border-slate-100" />
               <span className="text-xs text-slate-500 uppercase tracking-widest">oppure</span>
-              <div className="flex-1 border-t border-slate-300" />
+              <div className="flex-1 border-t border-slate-100" />
             </div>
             <button data-testid="spid-login-button" type="button" onClick={spid}
-              className="w-full border-2 border-[#0A3D91] text-[#0A3D91] py-3 font-bold flex items-center justify-center gap-2 hover:bg-[#0A3D91] hover:text-white transition-colors">
+              className="w-full border border-[#2F5B41] text-[#2F5B41] rounded-full py-3 font-bold flex items-center justify-center gap-2 hover:bg-[#2F5B41] hover:text-white transition-colors">
               <Fingerprint size={18} /> Entra con SPID / CIE (demo)
             </button>
           </form>
-          <div className="border-t border-slate-300 px-8 py-4 bg-slate-50 text-xs text-slate-600 leading-relaxed">
+          <div className="border-t border-slate-100 px-8 py-4 bg-[#FAFAF8] text-xs text-slate-600 leading-relaxed">
             <strong>Account demo</strong> (password <span className="font-mono">demo123</span>): user@demo.it · comune@demo.it (L1) · comune.l2@demo.it · comune.l3@demo.it · mattia.fabrizi92@gmail.com
           </div>
         </div>

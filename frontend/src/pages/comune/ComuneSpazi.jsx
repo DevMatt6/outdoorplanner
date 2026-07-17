@@ -44,20 +44,20 @@ export default function ComuneSpazi() {
     load();
   };
 
-  const input = "w-full border border-slate-300 px-3 py-2 text-sm outline-none focus:border-[#0033FF] transition-colors";
+  const input = "w-full border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#2F5B41] transition-colors";
 
   return (
     <BackofficeLayout title="Backoffice Comune" links={COMUNE_LINKS}>
       <div className="flex flex-wrap items-center justify-between gap-4">
         <h1 className="text-2xl sm:text-3xl font-heading font-extrabold tracking-tight">Catalogo spazi</h1>
         <button data-testid="nuovo-spazio-button" onClick={() => setEditing({ ...EMPTY, lat: profilo?.lat, lng: profilo?.lng })}
-          className="inline-flex items-center gap-2 bg-[#0033FF] text-white px-5 py-2.5 font-bold hover:bg-[#0A3D91] transition-colors">
+          className="inline-flex items-center gap-2 bg-[#2F5B41] text-white rounded-full px-5 py-2.5 font-bold hover:bg-[#26492F] transition-colors">
           <Plus size={17} /> Nuovo spazio
         </button>
       </div>
 
       {editing && (
-        <form onSubmit={save} className="mt-6 border-2 border-slate-900 bg-white p-6 grid lg:grid-cols-2 gap-6" data-testid="spazio-form">
+        <form onSubmit={save} className="mt-6 border border-slate-100 bg-white rounded-2xl p-6 grid lg:grid-cols-2 gap-6" data-testid="spazio-form">
           <div className="space-y-3">
             <h2 className="font-heading font-extrabold text-lg">{editing.id ? "Modifica spazio" : "Nuovo spazio"}</h2>
             <input data-testid="spazio-nome-input" className={input} placeholder="Nome spazio" required value={editing.nome} onChange={(e) => setEditing({ ...editing, nome: e.target.value })} />
@@ -71,21 +71,21 @@ export default function ComuneSpazi() {
             <input className={input} placeholder="Dimensioni (es. 6x3 m)" value={editing.dimensioni} onChange={(e) => setEditing({ ...editing, dimensioni: e.target.value })} />
             <textarea className={input} rows={2} placeholder="Descrizione" value={editing.descrizione} onChange={(e) => setEditing({ ...editing, descrizione: e.target.value })} />
             <label className="flex items-center gap-2 text-sm font-semibold">
-              <input type="checkbox" className="w-4 h-4 accent-[#0033FF]" checked={editing.disponibile} onChange={(e) => setEditing({ ...editing, disponibile: e.target.checked })} />
+              <input type="checkbox" className="w-4 h-4 accent-[#2F5B41]" checked={editing.disponibile} onChange={(e) => setEditing({ ...editing, disponibile: e.target.checked })} />
               Disponibile
             </label>
             <div className="flex gap-3 pt-2">
-              <button data-testid="salva-spazio-button" className="px-6 py-2.5 font-bold bg-slate-900 text-white hover:bg-[#0033FF] transition-colors">Salva</button>
-              <button type="button" onClick={() => setEditing(null)} className="px-6 py-2.5 font-bold border-2 border-slate-300 hover:border-slate-900 transition-colors">Annulla</button>
+              <button data-testid="salva-spazio-button" className="px-6 py-2.5 font-bold rounded-full bg-[#2F5B41] text-white hover:bg-[#26492F] transition-colors">Salva</button>
+              <button type="button" onClick={() => setEditing(null)} className="px-6 py-2.5 font-bold border border-slate-200 rounded-full hover:border-[#2F5B41] transition-colors">Annulla</button>
             </div>
           </div>
           <div>
             <div className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-2">Posizionamento — clicca sulla mappa</div>
-            <div className="border border-slate-900">
+            <div className="border border-slate-100 rounded-2xl overflow-hidden">
               <MapContainer center={[editing.lat || profilo?.lat || 41.9, editing.lng || profilo?.lng || 12.5]} zoom={12} style={{ height: 320 }}>
                 <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
                 <ClickPicker onPick={(ll) => setEditing({ ...editing, lat: ll.lat, lng: ll.lng })} />
-                {editing.lat != null && <CircleMarker center={[editing.lat, editing.lng]} radius={10} pathOptions={{ color: "#020617", fillColor: "#0033FF", fillOpacity: 1 }} />}
+                {editing.lat != null && <CircleMarker center={[editing.lat, editing.lng]} radius={10} pathOptions={{ color: "#020617", fillColor: "#2F5B41", fillOpacity: 1 }} />}
               </MapContainer>
             </div>
             {editing.lat != null && <div className="text-xs font-mono text-slate-500 mt-1">lat {editing.lat.toFixed(5)}, lng {editing.lng.toFixed(5)}</div>}
@@ -93,10 +93,10 @@ export default function ComuneSpazi() {
         </form>
       )}
 
-      <div className="mt-6 border border-slate-900 bg-white overflow-x-auto">
+      <div className="mt-6 border border-slate-100 bg-white rounded-2xl overflow-hidden overflow-x-auto">
         <table className="w-full text-sm border-collapse">
           <thead>
-            <tr className="bg-slate-50 border-b border-slate-900 text-left">
+            <tr className="bg-[#FAFAF8] border-b border-slate-100 text-left">
               {["Nome", "Tipologia", "Indirizzo", "Canone", "Stato", "Azioni"].map((h) => (
                 <th key={h} className="px-4 py-3 text-[11px] font-bold uppercase tracking-widest text-slate-500">{h}</th>
               ))}
@@ -104,20 +104,20 @@ export default function ComuneSpazi() {
           </thead>
           <tbody>
             {spazi.map((s) => (
-              <tr key={s.id} className="border-b border-slate-200 hover:bg-blue-50 transition-colors" data-testid={`spazio-row-${s.id}`}>
+              <tr key={s.id} className="border-b border-slate-200 hover:bg-[#F1F5F0] transition-colors" data-testid={`spazio-row-${s.id}`}>
                 <td className="px-4 py-3 font-bold">{s.nome}</td>
                 <td className="px-4 py-3">{s.tipologia}</td>
                 <td className="px-4 py-3 text-slate-600">{s.indirizzo}</td>
                 <td className="px-4 py-3 font-semibold">{s.canone_giornaliero} €/g</td>
                 <td className="px-4 py-3">
-                  <span className={`text-[10px] font-bold uppercase px-2 py-1 ${s.disponibile ? "bg-[#10B981] text-slate-950" : "bg-slate-900 text-white"}`}>
+                  <span className={`text-[10px] font-bold uppercase px-2 py-1 ${s.disponibile ? "bg-[#D8EADB] text-[#1F5B33]" : "bg-[#26292B] text-white"}`}>
                     {s.disponibile ? "Disponibile" : "Occupato"}
                   </span>
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex gap-2">
-                    <button data-testid={`edit-spazio-${s.id}`} onClick={() => setEditing(s)} className="border border-slate-300 p-1.5 hover:border-slate-900 transition-colors"><Pencil size={14} /></button>
-                    <button data-testid={`delete-spazio-${s.id}`} onClick={() => remove(s.id)} className="border border-slate-300 p-1.5 hover:border-[#EF4444] hover:text-[#EF4444] transition-colors"><Trash2 size={14} /></button>
+                    <button data-testid={`edit-spazio-${s.id}`} onClick={() => setEditing(s)} className="border border-slate-200 rounded-xl p-1.5 hover:border-[#2F5B41] transition-colors"><Pencil size={14} /></button>
+                    <button data-testid={`delete-spazio-${s.id}`} onClick={() => remove(s.id)} className="border border-slate-200 rounded-xl p-1.5 hover:border-[#EF4444] hover:text-[#EF4444] transition-colors"><Trash2 size={14} /></button>
                   </div>
                 </td>
               </tr>

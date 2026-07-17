@@ -1,6 +1,18 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../store/auth";
 import { NotificationBell } from "./NotificationBell";
+import { LayoutGrid, Inbox, Map, FileSliders, ChartColumn, Settings, LogOut, Landmark, Radar } from "lucide-react";
+
+const ICONS = {
+  "link-scrivania": Inbox,
+  "link-spazi": Map,
+  "link-form": FileSliders,
+  "link-report": ChartColumn,
+  "link-profilo": Settings,
+  "link-kpi": LayoutGrid,
+  "link-comuni": Landmark,
+  "link-monitor": Radar,
+};
 
 export const BackofficeLayout = ({ title, links, children }) => {
   const { user, logout } = useAuth();
@@ -13,43 +25,45 @@ export const BackofficeLayout = ({ title, links, children }) => {
     : null;
 
   return (
-    <div className="min-h-screen bg-slate-50 flex">
-      <aside className="w-60 shrink-0 bg-[#020617] text-white flex flex-col min-h-screen sticky top-0 max-h-screen">
-        <Link to="/" className="flex items-center gap-2.5 px-5 h-16 border-b border-slate-700">
-          <span className="bg-white text-[#0A3D91] font-heading font-extrabold px-1.5 py-0.5 text-sm">OP</span>
-          <span className="font-heading font-bold text-sm">Outdoor Planner</span>
+    <div className="min-h-screen bg-[#F2F3F0] flex p-4 gap-4">
+      <aside className="w-64 shrink-0 bg-white rounded-2xl border border-slate-100 flex flex-col sticky top-4 max-h-[calc(100vh-2rem)]">
+        <Link to="/" className="flex items-center gap-3 px-6 h-16 border-b border-slate-100">
+          <span className="bg-[#2F5B41] text-white font-heading font-extrabold w-8 h-8 rounded-full flex items-center justify-center text-xs">OP</span>
+          <span className="font-heading font-extrabold text-sm">Outdoor Planner</span>
         </Link>
-        <div className="px-5 py-4 border-b border-slate-700">
+        <div className="px-6 py-4 border-b border-slate-100">
           <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">{title}</div>
-          <div className="text-sm font-semibold mt-0.5 truncate">{user?.nome}</div>
+          <div className="text-sm font-bold mt-0.5 truncate">{user?.nome}</div>
           {livelloLabel && (
-            <span data-testid="livello-badge" className="inline-block mt-1.5 text-[10px] font-bold uppercase tracking-wider bg-[#0033FF] text-white px-2 py-0.5">
+            <span data-testid="livello-badge" className="inline-block mt-1.5 text-[10px] font-bold rounded-full bg-[#D8EADB] text-[#1F5B33] px-2.5 py-0.5">
               {livelloLabel}
             </span>
           )}
         </div>
-        <nav className="flex-1 py-3">
+        <div className="px-6 pt-4 pb-1 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Menu</div>
+        <nav className="flex-1 px-3 pb-3 space-y-1">
           {visibleLinks.map(([to, label, testid]) => {
             const active = location.pathname === to;
+            const Icon = ICONS[testid] || LayoutGrid;
             return (
               <Link key={to} to={to} data-testid={testid}
-                className={`block px-5 py-2.5 text-sm font-semibold border-l-4 transition-colors
-                  ${active ? "border-[#0033FF] bg-slate-800 text-white" : "border-transparent text-slate-300 hover:text-white hover:bg-slate-800"}`}>
-                {label}
+                className={`flex items-center gap-3 px-3 py-2.5 text-sm font-semibold rounded-xl transition-colors
+                  ${active ? "bg-[#2F5B41] text-white" : "text-slate-600 hover:bg-[#EEF2EC] hover:text-slate-900"}`}>
+                <Icon size={17} /> {label}
               </Link>
             );
           })}
         </nav>
         <button data-testid="backoffice-logout" onClick={() => { logout(); navigate("/"); }}
-          className="px-5 py-4 text-left text-sm font-semibold text-slate-400 hover:text-white border-t border-slate-700 transition-colors">
-          Esci
+          className="flex items-center gap-3 mx-3 mb-3 px-3 py-2.5 text-left text-sm font-semibold text-slate-500 rounded-xl hover:bg-[#EEF2EC] hover:text-slate-900 transition-colors">
+          <LogOut size={17} /> Esci
         </button>
       </aside>
       <main className="flex-1 min-w-0">
-        <div className="h-16 bg-white border-b border-slate-900 flex items-center justify-end px-6 sticky top-0 z-[1100]">
+        <div className="h-16 bg-white rounded-2xl border border-slate-100 flex items-center justify-end px-5 sticky top-4 z-[1100]">
           <NotificationBell />
         </div>
-        <div className="p-6 lg:p-8">{children}</div>
+        <div className="py-6 px-1">{children}</div>
       </main>
     </div>
   );

@@ -25,20 +25,20 @@ export default function AdminComuni() {
     } catch (err) { toast.error(apiError(err)); }
   };
 
-  const input = "border border-slate-300 px-3 py-2 text-sm outline-none focus:border-[#0033FF] transition-colors bg-white w-full";
+  const input = "border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#2F5B41] transition-colors bg-white w-full";
 
   return (
     <BackofficeLayout title="Superadmin" links={ADMIN_LINKS}>
       <div className="flex flex-wrap items-center justify-between gap-4">
         <h1 className="text-2xl sm:text-3xl font-heading font-extrabold tracking-tight">Comuni</h1>
         <button data-testid="onboard-comune-button" onClick={() => setForm({ ...EMPTY })}
-          className="inline-flex items-center gap-2 bg-[#0033FF] text-white px-5 py-2.5 font-bold hover:bg-[#0A3D91] transition-colors">
+          className="inline-flex items-center gap-2 bg-[#2F5B41] text-white rounded-full px-5 py-2.5 font-bold hover:bg-[#26492F] transition-colors">
           <Plus size={17} /> Onboarding comune
         </button>
       </div>
 
       {form && (
-        <form onSubmit={submit} className="mt-6 border-2 border-slate-900 bg-white p-6" data-testid="onboard-form">
+        <form onSubmit={submit} className="mt-6 border border-slate-100 bg-white rounded-2xl p-6" data-testid="onboard-form">
           <h2 className="font-heading font-extrabold text-lg mb-4">Nuovo comune</h2>
           <div className="grid md:grid-cols-3 gap-3">
             <input data-testid="onboard-nome" className={input} placeholder="Nome comune" required value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} />
@@ -57,16 +57,16 @@ export default function AdminComuni() {
             <input data-testid="onboard-ref-password" className={input} placeholder="Password" required value={form.referente_password} onChange={(e) => setForm({ ...form, referente_password: e.target.value })} />
           </div>
           <div className="mt-5 flex gap-3">
-            <button data-testid="onboard-submit" className="px-6 py-2.5 font-bold bg-slate-900 text-white hover:bg-[#0033FF] transition-colors">Attiva comune</button>
-            <button type="button" onClick={() => setForm(null)} className="px-6 py-2.5 font-bold border-2 border-slate-300 hover:border-slate-900 transition-colors">Annulla</button>
+            <button data-testid="onboard-submit" className="px-6 py-2.5 font-bold rounded-full bg-[#2F5B41] text-white hover:bg-[#26492F] transition-colors">Attiva comune</button>
+            <button type="button" onClick={() => setForm(null)} className="px-6 py-2.5 font-bold border border-slate-200 rounded-full hover:border-[#2F5B41] transition-colors">Annulla</button>
           </div>
         </form>
       )}
 
-      <div className="mt-6 border border-slate-900 bg-white overflow-x-auto">
+      <div className="mt-6 border border-slate-100 bg-white rounded-2xl overflow-hidden overflow-x-auto">
         <table className="w-full text-sm border-collapse">
           <thead>
-            <tr className="bg-slate-50 border-b border-slate-900 text-left">
+            <tr className="bg-[#FAFAF8] border-b border-slate-100 text-left">
               {["Comune", "Regione", "Provincia", "Spazi", "Pratiche", "Stato"].map((h) => (
                 <th key={h} className="px-4 py-3 text-[11px] font-bold uppercase tracking-widest text-slate-500">{h}</th>
               ))}
@@ -74,14 +74,14 @@ export default function AdminComuni() {
           </thead>
           <tbody>
             {comuni.map((c) => (
-              <tr key={c.id} className="border-b border-slate-200 hover:bg-blue-50 transition-colors" data-testid={`comune-row-${c.id}`}>
+              <tr key={c.id} className="border-b border-slate-200 hover:bg-[#F1F5F0] transition-colors" data-testid={`comune-row-${c.id}`}>
                 <td className="px-4 py-3 font-bold">{c.nome}</td>
                 <td className="px-4 py-3">{c.regione}</td>
                 <td className="px-4 py-3">{c.provincia}</td>
                 <td className="px-4 py-3 font-mono">{c.spazi_count}</td>
                 <td className="px-4 py-3 font-mono">{c.pratiche_count}</td>
                 <td className="px-4 py-3">
-                  <span className="text-[10px] font-bold uppercase px-2 py-1 bg-[#10B981] text-slate-950">Attivo</span>
+                  <span className="text-[10px] font-bold rounded-full px-2.5 py-1 bg-[#D8EADB] text-[#1F5B33]">Attivo</span>
                 </td>
               </tr>
             ))}

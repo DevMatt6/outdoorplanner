@@ -37,16 +37,16 @@ export default function Spazi() {
   }, [spazi]);
 
   const tipologie = ["Billboard", "Poster", "Totem", "Suolo pubblico"];
-  const input = "border border-slate-300 px-3 py-2 text-sm outline-none focus:border-[#0033FF] bg-white";
+  const input = "border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#2F5B41] bg-white";
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen">
       <NavBar />
       <div className="max-w-7xl mx-auto px-6 py-8">
         <h1 className="text-3xl sm:text-4xl font-heading font-extrabold tracking-tight">
-          Spazi disponibili {filters.regione && <span className="text-[#0A3D91]">· {filters.regione}</span>}
+          Spazi disponibili {filters.regione && <span className="text-[#1F3D2B]">· {filters.regione}</span>}
         </h1>
-        <div className="mt-6 border border-slate-900 bg-white p-4 flex flex-wrap gap-3 items-center" data-testid="filtri-spazi">
+        <div className="mt-6 border border-slate-100 bg-white rounded-2xl overflow-hidden p-4 flex flex-wrap gap-3 items-center" data-testid="filtri-spazi">
           <input data-testid="filter-q" className={input} placeholder="Cerca per nome, indirizzo, città..."
             defaultValue={filters.q} onKeyDown={(e) => e.key === "Enter" && setFilter("q", e.target.value)} />
           <select data-testid="filter-tipologia" className={input} value={filters.tipologia} onChange={(e) => setFilter("tipologia", e.target.value)}>
@@ -61,7 +61,7 @@ export default function Spazi() {
           </select>
           {filters.regione && (
             <button data-testid="clear-regione" onClick={() => setFilter("regione", "")}
-              className="px-3 py-2 text-sm font-semibold border border-slate-900 bg-slate-900 text-white hover:bg-white hover:text-slate-900 transition-colors">
+              className="px-3 py-2 text-sm font-semibold border border-slate-100 rounded-2xl overflow-hidden bg-[#2F5B41] text-white hover:bg-white hover:text-slate-900 transition-colors">
               {filters.regione} ✕
             </button>
           )}
@@ -72,21 +72,21 @@ export default function Spazi() {
           <div className="lg:col-span-3 space-y-4">
             {loading && <div className="text-slate-500 p-8">Caricamento...</div>}
             {!loading && spazi.length === 0 && (
-              <div className="border border-slate-300 bg-white p-10 text-center text-slate-500">Nessuno spazio trovato con questi filtri.</div>
+              <div className="border border-slate-100 bg-white rounded-2xl p-10 text-center text-slate-500">Nessuno spazio trovato con questi filtri.</div>
             )}
             {spazi.map((s) => (
               <Link key={s.id} to={`/spazi/${s.id}`} data-testid={`spazio-card-${s.id}`}
-                className="grid grid-cols-[140px_1fr] border border-slate-300 bg-white hover:border-slate-900 transition-colors group">
-                <div className="border-r border-slate-300 overflow-hidden">
-                  <img src={s.foto_url} alt={s.nome} className="w-full h-full object-cover min-h-[120px] transition-transform duration-500 group-hover:scale-105" />
+                className="grid grid-cols-[140px_1fr] border border-slate-100 bg-white rounded-2xl overflow-hidden hover:border-[#2F5B41] transition-colors group">
+                <div className="border-r border-slate-100 overflow-hidden">
+                  <img src={s.foto_url} alt={s.nome} className="w-full h-full object-cover min-h-[120px]" />
                 </div>
                 <div className="p-4">
                   <div className="flex items-start justify-between gap-2">
                     <div>
-                      <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#0033FF]">{s.tipologia}</div>
-                      <h3 className="font-heading font-extrabold text-lg leading-tight group-hover:text-[#0A3D91] transition-colors">{s.nome}</h3>
+                      <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#2F5B41]">{s.tipologia}</div>
+                      <h3 className="font-heading font-extrabold text-lg leading-tight group-hover:text-[#1F3D2B] transition-colors">{s.nome}</h3>
                     </div>
-                    {!s.disponibile && <span className="text-[10px] font-bold uppercase bg-slate-900 text-white px-2 py-1">Occupato</span>}
+                    {!s.disponibile && <span className="text-[10px] font-bold rounded-full bg-[#26292B] text-white px-2.5 py-1">Occupato</span>}
                   </div>
                   <div className="text-sm text-slate-600 mt-1 flex items-center gap-1">
                     <MapPin size={13} /> {s.indirizzo} — {s.citta} ({s.regione})
@@ -100,17 +100,17 @@ export default function Spazi() {
             ))}
           </div>
           <div className="lg:col-span-2">
-            <div className="sticky top-24 border border-slate-900">
+            <div className="sticky top-24 border border-slate-100 rounded-2xl overflow-hidden">
               <MapContainer key={center.join(",")} center={center} zoom={spazi.length && filters.regione ? 9 : 5.5}
                 style={{ height: 520 }} scrollWheelZoom={false}>
                 <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
                 {spazi.map((s) => (
                   <CircleMarker key={s.id} center={[s.lat, s.lng]} radius={9}
-                    pathOptions={{ color: "#020617", weight: 1.5, fillColor: s.disponibile ? "#0033FF" : "#94A3B8", fillOpacity: 1 }}>
+                    pathOptions={{ color: "#020617", weight: 1.5, fillColor: s.disponibile ? "#2F5B41" : "#94A3B8", fillOpacity: 1 }}>
                     <Popup>
                       <div className="font-bold">{s.nome}</div>
                       <div className="text-xs">{s.canone_giornaliero} €/giorno</div>
-                      <Link to={`/spazi/${s.id}`} className="text-[#0033FF] text-xs font-bold">Dettaglio →</Link>
+                      <Link to={`/spazi/${s.id}`} className="text-[#2F5B41] text-xs font-bold">Dettaglio →</Link>
                     </Popup>
                   </CircleMarker>
                 ))}

@@ -49,7 +49,7 @@ export default function PraticaDetail() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen">
       <NavBar />
       <div className="max-w-6xl mx-auto px-6 py-10" data-testid="pratica-detail">
         <Link to="/dashboard" className="inline-flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-slate-900 transition-colors">
@@ -64,29 +64,29 @@ export default function PraticaDetail() {
         </div>
 
         {pratica.stato === "APPROVATA" && (
-          <div className="mt-6 border-2 border-[#10B981] bg-emerald-50 p-5 flex flex-wrap items-center justify-between gap-4">
+          <div className="mt-6 border border-emerald-200 bg-emerald-50 rounded-2xl p-5 flex flex-wrap items-center justify-between gap-4">
             <div>
               <div className="font-heading font-extrabold text-lg">Autorizzazione {pratica.numero_autorizzazione}</div>
               <div className="text-sm text-slate-600">Rilasciata dal Comune di {pratica.comune?.nome}</div>
             </div>
             <button data-testid="download-pdf-button" onClick={scaricaPdf}
-              className="inline-flex items-center gap-2 bg-[#10B981] text-slate-950 px-6 py-3 font-bold hover:bg-slate-900 hover:text-white transition-colors">
+              className="inline-flex items-center gap-2 bg-[#2F5B41] text-white rounded-full px-6 py-3 font-bold hover:bg-[#2F5B41] hover:text-white transition-colors">
               <Download size={17} /> Scarica PDF
             </button>
           </div>
         )}
 
         {pratica.stato === "INTEGRAZIONE_RICHIESTA" && (
-          <div className="mt-6 border-2 border-[#EF4444] bg-red-50 p-5" data-testid="integrazione-box">
+          <div className="mt-6 border border-red-200 bg-red-50 rounded-2xl p-5" data-testid="integrazione-box">
             <div className="font-heading font-extrabold text-lg text-[#B91C1C]">Il Comune richiede un'integrazione</div>
             <p className="text-sm text-slate-700 mt-1">Carica i documenti richiesti (vedi chat) e reinvia la pratica.</p>
             <div className="mt-4 flex flex-wrap gap-3">
-              <label className="cursor-pointer inline-flex items-center gap-2 border-2 border-slate-900 bg-white px-5 py-2.5 text-sm font-bold hover:bg-slate-900 hover:text-white transition-colors">
+              <label className="cursor-pointer inline-flex items-center gap-2 border-2 border-slate-900 bg-white px-5 py-2.5 text-sm font-bold hover:bg-[#2F5B41] hover:text-white transition-colors">
                 <Upload size={15} /> Carica documento
                 <input data-testid="upload-integrazione" type="file" className="hidden" onChange={uploadIntegrazione} />
               </label>
               <button data-testid="invia-integrazione-button" onClick={inviaIntegrazione}
-                className="inline-flex items-center gap-2 bg-[#0033FF] text-white px-5 py-2.5 text-sm font-bold hover:bg-[#0A3D91] transition-colors">
+                className="inline-flex items-center gap-2 bg-[#2F5B41] text-white rounded-full px-5 py-2.5 text-sm font-bold hover:bg-[#26492F] transition-colors">
                 <Send size={15} /> Reinvia al Comune
               </button>
             </div>
@@ -95,13 +95,13 @@ export default function PraticaDetail() {
 
         <div className="mt-8 grid lg:grid-cols-2 gap-6">
           <div className="space-y-6">
-            <div className="border border-slate-900 bg-white">
-              <div className="px-5 py-2.5 border-b border-slate-900 text-xs font-bold uppercase tracking-widest bg-slate-50">Cronologia stati</div>
+            <div className="border border-slate-100 bg-white rounded-2xl overflow-hidden">
+              <div className="px-5 py-2.5 border-b border-slate-100 text-xs font-bold uppercase tracking-widest bg-[#FAFAF8]">Cronologia stati</div>
               <div className="p-5 space-y-0">
                 {pratica.log_stato.map((l, i) => (
                   <div key={l.id} className="flex gap-4 pb-5 last:pb-0 relative">
                     <div className="flex flex-col items-center">
-                      <span className="w-3.5 h-3.5 border-2 border-slate-900" style={{ backgroundColor: STATO_COLORS[l.a]?.bg }} />
+                      <span className="w-3.5 h-3.5 rounded-full" style={{ backgroundColor: STATO_COLORS[l.a]?.dot }} />
                       {i < pratica.log_stato.length - 1 && <span className="w-px flex-1 bg-slate-300 mt-1" />}
                     </div>
                     <div className="pb-1 -mt-0.5">
@@ -113,19 +113,19 @@ export default function PraticaDetail() {
                 ))}
               </div>
             </div>
-            <div className="border border-slate-300 bg-white">
-              <div className="px-5 py-2.5 border-b border-slate-300 text-xs font-bold uppercase tracking-widest bg-slate-50">Documenti ({pratica.documenti.length})</div>
+            <div className="border border-slate-100 bg-white rounded-2xl">
+              <div className="px-5 py-2.5 border-b border-slate-100 text-xs font-bold uppercase tracking-widest bg-[#FAFAF8]">Documenti ({pratica.documenti.length})</div>
               {pratica.documenti.length === 0 && <div className="p-5 text-sm text-slate-500">Nessun documento caricato.</div>}
               {pratica.documenti.map((d) => (
                 <a key={d.id} href={`${process.env.REACT_APP_BACKEND_URL}${d.url}`} target="_blank" rel="noreferrer"
-                  className="flex justify-between px-5 py-3 border-b border-slate-200 text-sm hover:bg-blue-50 transition-colors">
+                  className="flex justify-between px-5 py-3 border-b border-slate-200 text-sm hover:bg-[#F1F5F0] transition-colors">
                   <span className="font-semibold">{d.nome}</span>
                   <span className="text-xs text-slate-500 uppercase">{d.tipo}</span>
                 </a>
               ))}
             </div>
-            <div className="border border-slate-300 bg-white">
-              <div className="px-5 py-2.5 border-b border-slate-300 text-xs font-bold uppercase tracking-widest bg-slate-50">Dati dichiarati</div>
+            <div className="border border-slate-100 bg-white rounded-2xl">
+              <div className="px-5 py-2.5 border-b border-slate-100 text-xs font-bold uppercase tracking-widest bg-[#FAFAF8]">Dati dichiarati</div>
               <div className="p-5 grid grid-cols-2 gap-3 text-sm">
                 {Object.entries(pratica.dati_form || {}).map(([k, v]) => (
                   <div key={k}>

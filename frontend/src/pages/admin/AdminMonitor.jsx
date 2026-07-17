@@ -14,7 +14,7 @@ export default function AdminMonitor() {
     <BackofficeLayout title="Superadmin" links={ADMIN_LINKS}>
       <h1 className="text-2xl sm:text-3xl font-heading font-extrabold tracking-tight" data-testid="monitor-title">Monitor anomalie e flussi</h1>
       <p className="text-sm text-slate-600 mt-1">Pratiche ferme oltre le soglie di servizio: presa in carico &gt; 3 giorni, istruttoria &gt; 7 giorni.</p>
-      <div className="mt-6 border border-slate-900 bg-white">
+      <div className="mt-6 border border-slate-100 bg-white rounded-2xl overflow-hidden">
         {anomalie === null && <div className="p-6 text-slate-500">Caricamento...</div>}
         {anomalie?.length === 0 && (
           <div className="p-10 text-center">

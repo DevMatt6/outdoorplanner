@@ -13,12 +13,12 @@ export default function Report() {
 
   if (!report) return <BackofficeLayout title="Backoffice Comune" links={COMUNE_LINKS}><div className="text-slate-500">Caricamento...</div></BackofficeLayout>;
 
-  const statoData = Object.entries(report.per_stato).map(([stato, count]) => ({ stato: STATO_COLORS[stato]?.label || stato, count, fill: STATO_COLORS[stato]?.bg }));
+  const statoData = Object.entries(report.per_stato).map(([stato, count]) => ({ stato: STATO_COLORS[stato]?.label || stato, count, fill: STATO_COLORS[stato]?.dot }));
 
   return (
     <BackofficeLayout title="Backoffice Comune" links={COMUNE_LINKS}>
       <h1 className="text-2xl sm:text-3xl font-heading font-extrabold tracking-tight" data-testid="report-title">Report & incassi</h1>
-      <div className="mt-6 grid grid-cols-2 md:grid-cols-4 border border-slate-900 divide-x divide-slate-900 bg-white">
+      <div className="mt-6 grid grid-cols-2 md:grid-cols-4 border border-slate-100 rounded-2xl overflow-hidden divide-x divide-slate-100 bg-white">
         {[
           [`${report.incassi_totali.toFixed(2)} €`, "Incassi totali"],
           [report.pratiche_totali, "Pratiche ricevute"],
@@ -33,7 +33,7 @@ export default function Report() {
       </div>
 
       <div className="mt-6 grid lg:grid-cols-2 gap-6">
-        <div className="border border-slate-900 bg-white p-6">
+        <div className="border border-slate-100 bg-white rounded-2xl overflow-hidden p-6">
           <div className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-4">Pratiche per stato</div>
           <ResponsiveContainer width="100%" height={280}>
             <BarChart data={statoData}>
@@ -47,7 +47,7 @@ export default function Report() {
             </BarChart>
           </ResponsiveContainer>
         </div>
-        <div className="border border-slate-900 bg-white p-6">
+        <div className="border border-slate-100 bg-white rounded-2xl overflow-hidden p-6">
           <div className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-4">Incassi per mese (€)</div>
           <ResponsiveContainer width="100%" height={280}>
             <BarChart data={report.incassi_mese}>
@@ -55,7 +55,7 @@ export default function Report() {
               <XAxis dataKey="mese" tick={{ fontSize: 11 }} />
               <YAxis tick={{ fontSize: 11 }} />
               <Tooltip contentStyle={{ borderRadius: 0, border: "1px solid #0F172A" }} />
-              <Bar dataKey="importo" name="Incassi" fill="#0A3D91" isAnimationActive={false} />
+              <Bar dataKey="importo" name="Incassi" fill="#1F3D2B" isAnimationActive={false} />
             </BarChart>
           </ResponsiveContainer>
         </div>

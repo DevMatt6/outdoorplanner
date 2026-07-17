@@ -18,7 +18,7 @@ export default function AdminDashboard() {
   return (
     <BackofficeLayout title="Superadmin" links={ADMIN_LINKS}>
       <h1 className="text-2xl sm:text-3xl font-heading font-extrabold tracking-tight" data-testid="admin-kpi-title">Dashboard KPI di piattaforma</h1>
-      <div className="mt-6 grid grid-cols-2 md:grid-cols-5 border border-slate-900 divide-x divide-y md:divide-y-0 divide-slate-900 bg-white">
+      <div className="mt-6 grid grid-cols-2 md:grid-cols-5 border border-slate-100 rounded-2xl overflow-hidden divide-x divide-y md:divide-y-0 divide-slate-100 bg-white">
         {[
           [kpi.comuni, "Comuni attivi"],
           [kpi.utenti, "Inserzionisti"],
@@ -34,7 +34,7 @@ export default function AdminDashboard() {
       </div>
 
       <div className="mt-6 grid lg:grid-cols-2 gap-6">
-        <div className="border border-slate-900 bg-white p-6">
+        <div className="border border-slate-100 bg-white rounded-2xl overflow-hidden p-6">
           <div className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-4">Pratiche per stato (sistema)</div>
           <ResponsiveContainer width="100%" height={280}>
             <BarChart data={statoData}>
@@ -42,11 +42,11 @@ export default function AdminDashboard() {
               <XAxis dataKey="stato" tick={{ fontSize: 10 }} interval={0} angle={-20} textAnchor="end" height={60} />
               <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
               <Tooltip contentStyle={{ borderRadius: 0, border: "1px solid #0F172A" }} />
-              <Bar dataKey="count" name="Pratiche" fill="#0033FF" isAnimationActive={false} />
+              <Bar dataKey="count" name="Pratiche" fill="#2F5B41" isAnimationActive={false} />
             </BarChart>
           </ResponsiveContainer>
         </div>
-        <div className="border border-slate-900 bg-white p-6">
+        <div className="border border-slate-100 bg-white rounded-2xl overflow-hidden p-6">
           <div className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-4">Volumi per comune</div>
           <ResponsiveContainer width="100%" height={280}>
             <BarChart data={kpi.pratiche_per_comune} layout="vertical">
@@ -54,7 +54,7 @@ export default function AdminDashboard() {
               <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11 }} />
               <YAxis type="category" dataKey="comune" tick={{ fontSize: 12 }} width={80} />
               <Tooltip contentStyle={{ borderRadius: 0, border: "1px solid #0F172A" }} />
-              <Bar dataKey="count" name="Pratiche" fill="#0A3D91" isAnimationActive={false} />
+              <Bar dataKey="count" name="Pratiche" fill="#1F3D2B" isAnimationActive={false} />
             </BarChart>
           </ResponsiveContainer>
         </div>

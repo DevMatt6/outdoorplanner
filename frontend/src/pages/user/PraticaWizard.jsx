@@ -105,26 +105,26 @@ export default function PraticaWizard() {
     }
   };
 
-  const input = "w-full border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-[#0033FF] focus:border-2 transition-colors";
+  const input = "w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2F5B41] transition-colors";
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen">
       <NavBar />
       <div className="max-w-3xl mx-auto px-6 py-10" data-testid="pratica-wizard">
         <div className="text-xs font-bold uppercase tracking-[0.25em] text-slate-500">Nuova candidatura</div>
         <h1 className="text-3xl font-heading font-extrabold tracking-tight mt-1">{spazio.nome}</h1>
         <div className="text-sm text-slate-600">{spazio.citta} · {spazio.tipologia} · {spazio.canone_giornaliero} €/giorno</div>
 
-        <div className="mt-8 grid grid-cols-5 border border-slate-900 bg-white" data-testid="wizard-steps">
+        <div className="mt-8 grid grid-cols-5 border border-slate-100 bg-white rounded-2xl overflow-hidden" data-testid="wizard-steps">
           {STEPS.map((s, i) => (
-            <div key={s} className={`py-2.5 px-2 text-center text-[11px] font-bold uppercase tracking-wider border-r border-slate-900 last:border-r-0 transition-colors
-              ${i === step ? "bg-[#0033FF] text-white" : i < step ? "bg-slate-900 text-white" : "text-slate-400"}`}>
+            <div key={s} className={`py-2.5 px-2 text-center text-[11px] font-bold uppercase tracking-wider border-r border-slate-100 last:border-r-0 transition-colors
+              ${i === step ? "bg-[#2F5B41] text-white" : i < step ? "bg-[#1F3D2B] text-white" : "text-slate-400"}`}>
               {i + 1}. {s}
             </div>
           ))}
         </div>
 
-        <div className="mt-6 border border-slate-900 bg-white p-8">
+        <div className="mt-6 border border-slate-100 bg-white rounded-2xl overflow-hidden p-8">
           {step === 0 && (
             <div className="space-y-4">
               <h2 className="font-heading font-extrabold text-xl">Periodo di occupazione</h2>
@@ -139,17 +139,17 @@ export default function PraticaWizard() {
                 </div>
               </div>
               {giorni > 0 && (
-                <div className="border border-slate-300 bg-slate-50 px-4 py-3 flex justify-between text-sm">
+                <div className="border border-slate-200 rounded-xl bg-slate-50 px-4 py-3 flex justify-between text-sm">
                   <span>{giorni} giorni × {spazio.canone_giornaliero} €</span>
                   <span className="font-heading font-extrabold" data-testid="importo-calcolato">{importo.toFixed(2)} €</span>
                 </div>
               )}
               {occupazioni.length > 0 && (
-                <div className="border border-[#F59E0B] bg-amber-50 px-4 py-3" data-testid="occupazioni-box">
+                <div className="border border-amber-200 bg-amber-50 rounded-xl px-4 py-3" data-testid="occupazioni-box">
                   <div className="text-xs font-bold uppercase tracking-widest text-amber-700 mb-1.5">Periodi già impegnati per questo spazio</div>
                   <div className="flex flex-wrap gap-2">
                     {occupazioni.map((o, i) => (
-                      <span key={i} className="text-xs font-mono border border-amber-300 bg-white px-2 py-1">
+                      <span key={i} className="text-xs font-mono border border-amber-200 bg-white rounded-lg px-2 py-1">
                         {o.data_inizio} → {o.data_fine}
                       </span>
                     ))}
@@ -175,12 +175,12 @@ export default function PraticaWizard() {
             <div className="space-y-5">
               <h2 className="font-heading font-extrabold text-xl">Documenti allegati</h2>
               {[["bozzetto", "Bozzetto / grafica"], ["planimetria", "Planimetria"], ["doc_identita", "Documento d'identità"]].map(([tipo, label]) => (
-                <div key={tipo} className="border border-slate-300 p-4 flex items-center justify-between gap-4">
+                <div key={tipo} className="border border-slate-100 rounded-xl p-4 flex items-center justify-between gap-4">
                   <div>
                     <div className="font-bold text-sm">{label}</div>
                     <div className="text-xs text-slate-500">{docs.filter((d) => d.tipo === tipo).map((d) => d.nome).join(", ") || "Nessun file caricato"}</div>
                   </div>
-                  <label className="cursor-pointer inline-flex items-center gap-2 border-2 border-slate-900 px-4 py-2 text-sm font-bold hover:bg-slate-900 hover:text-white transition-colors">
+                  <label className="cursor-pointer inline-flex items-center gap-2 border border-slate-200 rounded-full px-4 py-2 text-sm font-bold hover:bg-[#2F5B41] hover:text-white transition-colors">
                     <Upload size={15} /> Carica
                     <input data-testid={`upload-${tipo}`} type="file" className="hidden" onChange={(e) => uploadFile(e, tipo)} />
                   </label>
@@ -193,16 +193,16 @@ export default function PraticaWizard() {
           {step === 3 && (
             <div className="space-y-5">
               <h2 className="font-heading font-extrabold text-xl">Checkout</h2>
-              <div className="border border-slate-900 divide-y divide-slate-300">
+              <div className="border border-slate-100 rounded-2xl overflow-hidden divide-y divide-slate-300">
                 <div className="px-4 py-3 flex justify-between text-sm"><span>Spazio</span><span className="font-bold">{spazio.nome}</span></div>
                 <div className="px-4 py-3 flex justify-between text-sm"><span>Periodo</span><span className="font-mono">{pratica?.data_inizio} → {pratica?.data_fine}</span></div>
                 <div className="px-4 py-3 flex justify-between text-sm"><span>Canone totale</span><span className="font-heading font-extrabold text-lg">{pratica?.importo?.toFixed(2)} €</span></div>
               </div>
-              <div className="border border-dashed border-slate-400 bg-slate-50 p-4 text-xs text-slate-600">
+              <div className="border border-dashed border-slate-300 rounded-xl bg-slate-50 p-4 text-xs text-slate-600">
                 Pagamento simulato (demo) — nessun addebito reale. In produzione: Stripe / PagoPA.
               </div>
               <button data-testid="checkout-button" onClick={pay} disabled={paying}
-                className="w-full bg-[#10B981] text-slate-950 py-3.5 font-bold flex items-center justify-center gap-2 hover:bg-[#0A3D91] hover:text-white transition-colors disabled:opacity-60">
+                className="w-full bg-[#2F5B41] text-white rounded-full py-3.5 font-bold flex items-center justify-center gap-2 hover:bg-[#26492F] hover:text-white transition-colors disabled:opacity-60">
                 <CreditCard size={18} /> {paying ? "Elaborazione..." : `Paga ${pratica?.importo?.toFixed(2)} € (mock)`}
               </button>
             </div>
@@ -214,22 +214,22 @@ export default function PraticaWizard() {
               <h2 className="font-heading font-extrabold text-2xl">Tutto pronto</h2>
               <p className="text-sm text-slate-600">Pagamento registrato. Invia la pratica al Comune di {spazio.comune?.nome} per avviare l'istruttoria.</p>
               <button data-testid="invia-pratica-button" onClick={invia}
-                className="w-full bg-[#0033FF] text-white py-3.5 font-bold flex items-center justify-center gap-2 hover:bg-[#0A3D91] transition-colors">
+                className="w-full bg-[#2F5B41] text-white rounded-full py-3.5 font-bold flex items-center justify-center gap-2 hover:bg-[#26492F] transition-colors">
                 <FileText size={18} /> Invia pratica
               </button>
             </div>
           )}
 
-          {error && <div data-testid="wizard-error" className="mt-4 border border-[#EF4444] bg-red-50 text-[#B91C1C] text-sm px-4 py-3">{error}</div>}
+          {error && <div data-testid="wizard-error" className="mt-4 border border-red-200 bg-red-50 rounded-xl text-[#B91C1C] text-sm px-4 py-3">{error}</div>}
 
           {step < 3 && (
             <div className="mt-8 flex justify-between">
               <button onClick={() => setStep(Math.max(0, step - 1))} disabled={step === 0}
-                className="px-6 py-2.5 font-bold border-2 border-slate-300 hover:border-slate-900 transition-colors disabled:opacity-40">
+                className="px-6 py-2.5 font-bold border border-slate-200 rounded-full hover:border-[#2F5B41] transition-colors disabled:opacity-40">
                 Indietro
               </button>
               <button data-testid="wizard-next-button" onClick={next}
-                className="px-8 py-2.5 font-bold bg-slate-900 text-white hover:bg-[#0033FF] transition-colors">
+                className="px-8 py-2.5 font-bold rounded-full bg-[#2F5B41] text-white hover:bg-[#26492F] transition-colors">
                 Avanti
               </button>
             </div>

@@ -35,7 +35,7 @@ function App() {
   return (
     <div className="App">
       <BrowserRouter>
-        <Toaster position="top-right" toastOptions={{ style: { borderRadius: 0, border: "1px solid #0F172A", boxShadow: "none" } }} />
+        <Toaster position="top-right" toastOptions={{ style: { borderRadius: 14, border: "1px solid #E5E7E4" } }} />
         <Routes>
           <Route path="/" element={<Landing />} />
           <Route path="/login" element={<Auth />} />

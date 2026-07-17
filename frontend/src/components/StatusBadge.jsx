@@ -1,10 +1,10 @@
 export const STATO_COLORS = {
-  BOZZA: { bg: "#94A3B8", text: "#020617", label: "Bozza" },
-  INVIATA: { bg: "#3B82F6", text: "#FFFFFF", label: "Inviata" },
-  IN_ISTRUTTORIA: { bg: "#F59E0B", text: "#020617", label: "In istruttoria" },
-  INTEGRAZIONE_RICHIESTA: { bg: "#EF4444", text: "#FFFFFF", label: "Integrazione richiesta" },
-  APPROVATA: { bg: "#10B981", text: "#020617", label: "Approvata" },
-  RIFIUTATA: { bg: "#0F172A", text: "#FFFFFF", label: "Rifiutata" },
+  BOZZA: { bg: "#E9EAE7", text: "#4B5563", dot: "#9CA3AF", label: "Bozza" },
+  INVIATA: { bg: "#DBEAFE", text: "#1D4ED8", dot: "#3B82F6", label: "Inviata" },
+  IN_ISTRUTTORIA: { bg: "#FEF3C7", text: "#B45309", dot: "#F59E0B", label: "In istruttoria" },
+  INTEGRAZIONE_RICHIESTA: { bg: "#FEE2E2", text: "#B91C1C", dot: "#EF4444", label: "Integrazione richiesta" },
+  APPROVATA: { bg: "#D8EADB", text: "#1F5B33", dot: "#2F5B41", label: "Approvata" },
+  RIFIUTATA: { bg: "#26292B", text: "#FFFFFF", dot: "#26292B", label: "Rifiutata" },
 };
 
 export const StatusBadge = ({ stato }) => {
@@ -12,7 +12,7 @@ export const StatusBadge = ({ stato }) => {
   return (
     <span
       data-testid={`badge-stato-${stato}`}
-      className="inline-block px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider"
+      className="inline-block px-3 py-1 text-[11px] font-bold rounded-full whitespace-nowrap"
       style={{ backgroundColor: s.bg, color: s.text }}
     >
       {s.label}

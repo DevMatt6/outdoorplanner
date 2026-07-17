@@ -1,5 +1,5 @@
 export const DynamicField = ({ campo, value, onChange }) => {
-  const base = "w-full border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-[#0033FF] focus:border-2 transition-colors bg-white";
+  const base = "w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2F5B41] transition-colors bg-white";
   const tid = `field-${campo.id}`;
 
   return (
@@ -15,9 +15,9 @@ export const DynamicField = ({ campo, value, onChange }) => {
           {campo.opzioni.map((o) => <option key={o} value={o}>{o}</option>)}
         </select>
       ) : campo.tipo === "checkbox" ? (
-        <label className="flex items-center gap-2 border border-slate-300 px-3 py-2.5 cursor-pointer hover:border-slate-900 transition-colors">
+        <label className="flex items-center gap-2 border border-slate-200 rounded-xl px-3 py-2.5 cursor-pointer hover:border-[#2F5B41] transition-colors">
           <input data-testid={tid} type="checkbox" checked={!!value} onChange={(e) => onChange(e.target.checked)}
-            className="w-4 h-4 accent-[#0033FF]" />
+            className="w-4 h-4 accent-[#2F5B41]" />
           <span className="text-sm">Sì</span>
         </label>
       ) : (

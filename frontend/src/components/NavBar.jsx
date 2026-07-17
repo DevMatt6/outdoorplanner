@@ -7,21 +7,21 @@ export const NavBar = () => {
   const navigate = useNavigate();
 
   return (
-    <header className="sticky top-0 z-[1100] bg-white border-b border-slate-900">
-      <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+    <header className="sticky top-0 z-[1100] px-4 pt-4">
+      <div className="max-w-7xl mx-auto bg-white rounded-2xl border border-slate-100 px-6 h-16 flex items-center justify-between">
         <Link to="/" data-testid="nav-logo" className="flex items-center gap-3">
-          <span className="bg-[#0A3D91] text-white font-heading font-extrabold px-2 py-1 text-lg leading-none">OP</span>
+          <span className="bg-[#2F5B41] text-white font-heading font-extrabold w-9 h-9 rounded-full flex items-center justify-center text-sm">OP</span>
           <span className="font-heading font-extrabold text-lg tracking-tight">Outdoor Planner</span>
         </Link>
         <nav className="flex items-center gap-2">
           <Link to="/spazi" data-testid="nav-spazi"
-            className="px-4 py-2 text-sm font-semibold hover:bg-slate-100 transition-colors">
+            className="px-4 py-2 text-sm font-semibold rounded-full hover:bg-[#EEF2EC] transition-colors">
             Cerca spazi
           </Link>
           {user ? (
             <>
               <Link to={homeFor(user)} data-testid="nav-dashboard"
-                className="px-4 py-2 text-sm font-semibold border border-slate-900 hover:bg-slate-900 hover:text-white transition-colors">
+                className="px-4 py-2 text-sm font-semibold rounded-full border border-slate-200 hover:border-[#2F5B41] hover:text-[#2F5B41] transition-colors">
                 {user.ruolo === "superadmin" ? "Superadmin" : user.ruolo === "comune" ? "Backoffice" : "Le mie pratiche"}
               </Link>
               <NotificationBell />
@@ -32,7 +32,7 @@ export const NavBar = () => {
             </>
           ) : (
             <Link to="/login" data-testid="nav-login"
-              className="px-5 py-2 text-sm font-bold bg-[#0033FF] text-white hover:bg-[#0A3D91] transition-colors">
+              className="px-5 py-2.5 text-sm font-bold rounded-full bg-[#2F5B41] text-white hover:bg-[#26492F] transition-colors">
               Accedi
             </Link>
           )}

@@ -29,6 +29,9 @@ SaaS per digitalizzare la gestione della pubblicità e dell'occupazione del suol
 ## Credenziali demo
 Vedi `/app/memory/test_credentials.md` (password demo123 per tutti).
 
+## Design language (aggiornato — iterazione 3)
+Su richiesta utente (screenshot stile "Donezo") il design è passato da flat brutalist a **soft modern SaaS**: canvas grigio caldo #F2F3F0, card bianche rounded-2xl/3xl con bordi slate-100, palette verde (primario #2F5B41, scuro #1F3D2B, soft #D8EADB/#E4EEE6), bottoni a pillola, badge stato soft (bg tenue + testo colorato), sidebar backoffice chiara con voce attiva verde e icone, font Plus Jakarta Sans. **Tutte le animazioni rimosse** (niente reveal, marquee, grain, transform hover); restano solo transition-colors e l'hover fluido della mappa Italia (fill verde).
+
 ## Backlog prioritizzato
 - P1: Campaign Planner (candidatura multi-spazio)
 - P2: date picker calendario (shadcn) con evidenza visiva dei periodi occupati nel wizard
