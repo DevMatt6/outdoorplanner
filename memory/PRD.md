@@ -36,6 +36,14 @@ Su richiesta utente (screenshot stile "Donezo") il design è passato da flat bru
 - **Campaign Planner multi-spazio**: /campagne (lista), /campagne/nuova (planner 3 step: periodo → selezione multi-spazio con disponibilità reale → riepilogo, checkout unico mock, invio massivo), /campagne/:id (dettaglio con pratiche). Backend: collezione campagne, GET /spazi/disponibili, POST/GET /campagne, checkout e invia di campagna con log e notifiche
 - **Calendario con periodi occupati**: DateRangePicker (react-day-picker range, locale it) nel wizard pratica e nel planner — date occupate rosse/disabilitate, blocco range che attraversano periodi occupati, riepilogo periodo e importo live
 
+## Implementato (Iterazione 5 — testato 100%, 77/77 backend)
+- Home "/" = pagina di login (landing rimossa); utenti loggati rediretti alla propria dashboard
+- Registrazione per Privato/Azienda/Associazione con campi dedicati (ragione sociale, P.IVA, CF, PEC, telefono) salvati sul profilo utente
+- Nuovo catalogo: tipologie impianto (Arredo Urbano, Poster Standard, Totem Digitale, Progetto Speciale/OSP) + formati (6x3, MUPI 120x180, 4x3, 75" LED, 55" LED, Pensilina 200x100, Maxi Ledwall, Su misura) con migrazione idempotente ensure_catalogo
+- Filtri /spazi: Comune, Tipologia impianto, Formato + bottone "Avvia una campagna"
+- Planner campagna a 4 step: Periodo → Spazi (mappa+elenco+filtri, selezione da lista o marker) → Moduli (form dinamico per ogni Comune coinvolto + upload documenti applicati alle pratiche del comune, PUT /campagne/{id}/dati-form) → Riepilogo con pagamento mock e invio massivo
+- Dedupe campi form template per id (server-side)
+
 ## Backlog prioritizzato
 - P2: date picker anche per modifica pratiche in INTEGRAZIONE_RICHIESTA
 - P2: Stripe test mode reale al posto del mock; export report CSV/PDF

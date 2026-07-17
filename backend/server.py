@@ -604,8 +604,9 @@ async def comune_template(user: dict = Depends(require_role("comune"))):
 
 @api_router.put("/comune/form-template")
 async def salva_template(data: TemplateIn, user: dict = Depends(require_comune_l3)):
+    campi_unici = list({c.id: c for c in data.campi}.values())
     tpl = {"comune_id": user["comune_id"], "nome": data.nome,
-           "campi": [c.model_dump() for c in data.campi], "updated_at": now_iso()}
+           "campi": [c.model_dump() for c in campi_unici], "updated_at": now_iso()}
     await db.form_templates.update_one({"comune_id": user["comune_id"]}, {"$set": tpl}, upsert=True)
     return tpl
 
