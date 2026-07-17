@@ -30,8 +30,8 @@ SaaS per digitalizzare la gestione della pubblicità e dell'occupazione del suol
 Vedi `/app/memory/test_credentials.md` (password demo123 per tutti).
 
 ## Backlog prioritizzato
-- P1: Campaign Planner (candidatura multi-spazio); ricerca disponibilità per date (blocco sovrapposizioni periodi)
-- P1: ruoli comune L1/L2/L3 con permessi differenziati sulle azioni istruttoria
+- P1: Campaign Planner (candidatura multi-spazio)
+- P2: date picker calendario (shadcn) con evidenza visiva dei periodi occupati nel wizard
 - P2: Stripe test mode reale al posto del mock; export report CSV/PDF
 - P2: clustering marker (react-leaflet-cluster) su città con molti spazi
 - P2: notifiche real-time (websocket) al posto del polling
