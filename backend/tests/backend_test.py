@@ -7,6 +7,7 @@ import io
 import time
 import pytest
 import requests
+from datetime import datetime, timedelta
 
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://advert-hub-47.preview.emergentagent.com").rstrip("/")
 API = f"{BASE_URL}/api"
@@ -54,6 +55,18 @@ def user_info(session):
 @pytest.fixture(scope="session")
 def comune_token(session):
     _, tok = _login(session, "comune@demo.it", "demo123")
+    return tok
+
+
+@pytest.fixture(scope="session")
+def comune_l2_token(session):
+    _, tok = _login(session, "comune.l2@demo.it", "demo123")
+    return tok
+
+
+@pytest.fixture(scope="session")
+def comune_l3_token(session):
+    _, tok = _login(session, "comune.l3@demo.it", "demo123")
     return tok
 
 
@@ -162,10 +175,15 @@ class TestPraticaUserFlow:
 
     @pytest.fixture(scope="class")
     def created_pratica(self, session, user_token, spazio_roma):
+        # use randomized future dates to avoid 409 overlap on rerun
+        import random
+        offset = random.randint(400, 900)
+        d1 = (datetime.now() + timedelta(days=offset)).date().isoformat()
+        d2 = (datetime.now() + timedelta(days=offset + 4)).date().isoformat()
         payload = {
             "spazio_id": spazio_roma["id"],
-            "data_inizio": "2026-05-10",
-            "data_fine": "2026-05-14",  # 5 giorni
+            "data_inizio": d1,
+            "data_fine": d2,  # 5 giorni
             "dati_form": {"tipo_richiedente": "Privato"}
         }
         r = session.post(f"{API}/pratiche", json=payload, headers=h(user_token), timeout=15)
@@ -252,14 +270,14 @@ class TestComuneBackoffice:
         # solo Roma comune
         assert len({p["comune_id"] for p in pratiche}) == 1
 
-    def test_transizione_full_flow(self, session, comune_token):
+    def test_transizione_full_flow(self, session, comune_token, comune_l2_token):
         # Trova pratica INVIATA (seed p1 su Roma)
         pratiche = session.get(f"{API}/comune/pratiche", headers=h(comune_token), timeout=10).json()
         inviata = next((p for p in pratiche if p["stato"] == "INVIATA"), None)
         assert inviata, "seed non contiene pratica INVIATA per Roma"
         pid = inviata["id"]
 
-        # presa_in_carico
+        # presa_in_carico by L1
         r = session.post(f"{API}/comune/pratiche/{pid}/transizione",
                          json={"azione": "presa_in_carico", "nota": "test"},
                          headers=h(comune_token), timeout=10)
@@ -272,10 +290,16 @@ class TestComuneBackoffice:
                           headers=h(comune_token), timeout=10)
         assert r2.status_code == 400
 
-        # approva
+        # L1 cannot approve → 403
+        r_l1 = session.post(f"{API}/comune/pratiche/{pid}/transizione",
+                            json={"azione": "approva"},
+                            headers=h(comune_token), timeout=10)
+        assert r_l1.status_code == 403
+
+        # L2 approva
         r3 = session.post(f"{API}/comune/pratiche/{pid}/transizione",
                           json={"azione": "approva"},
-                          headers=h(comune_token), timeout=10)
+                          headers=h(comune_l2_token), timeout=10)
         assert r3.status_code == 200
         assert r3.json()["stato"] == "APPROVATA"
 
@@ -291,12 +315,25 @@ class TestComuneBackoffice:
         assert r5.headers.get("content-type", "").startswith("application/pdf")
 
     def test_richiedi_integrazione_e_reinvio(self, session, comune_token, user_token):
-        # trova pratica IN_ISTRUTTORIA — seed p2, ma se già consumato usiamo un altro flusso
-        pratiche = session.get(f"{API}/comune/pratiche", headers=h(comune_token), timeout=10).json()
-        istruttoria = next((p for p in pratiche if p["stato"] == "IN_ISTRUTTORIA"), None)
-        if not istruttoria:
-            pytest.skip("nessuna pratica IN_ISTRUTTORIA disponibile")
-        pid = istruttoria["id"]
+        # create dedicated pratica to avoid parallel test races
+        import random
+        offset = random.randint(2700, 3000)
+        d1 = (datetime.now() + timedelta(days=offset)).date().isoformat()
+        d2 = (datetime.now() + timedelta(days=offset + 2)).date().isoformat()
+        spazi = session.get(f"{API}/spazi", params={"regione": "Lazio"}, timeout=10).json()
+        sp = spazi[1]
+        pr = session.post(f"{API}/pratiche",
+                          json={"spazio_id": sp["id"], "data_inizio": d1, "data_fine": d2, "dati_form": {}},
+                          headers=h(user_token), timeout=15)
+        assert pr.status_code == 200, pr.text
+        pid = pr.json()["id"]
+        session.post(f"{API}/pratiche/{pid}/checkout", headers=h(user_token), timeout=10)
+        session.post(f"{API}/pratiche/{pid}/invia", headers=h(user_token), timeout=10)
+        # presa_in_carico by L1
+        session.post(f"{API}/comune/pratiche/{pid}/transizione",
+                     json={"azione": "presa_in_carico"},
+                     headers=h(comune_token), timeout=10)
+        # richiedi_integrazione
         r = session.post(f"{API}/comune/pratiche/{pid}/transizione",
                          json={"azione": "richiedi_integrazione", "nota": "manca doc"},
                          headers=h(comune_token), timeout=10)
@@ -305,39 +342,39 @@ class TestComuneBackoffice:
 
         # user reinvia
         r2 = session.post(f"{API}/pratiche/{pid}/invia", headers=h(user_token), timeout=10)
-        assert r2.status_code == 200
+        assert r2.status_code == 200, r2.text
         assert r2.json()["stato"] == "IN_ISTRUTTORIA"
 
-    def test_comune_spazi_crud(self, session, comune_token):
+    def test_comune_spazi_crud(self, session, comune_l3_token):
         payload = {"nome": "TEST_SpazioNuovo", "tipologia": "Billboard",
                    "indirizzo": "Via Test 1", "lat": 41.9, "lng": 12.5,
                    "canone_giornaliero": 40, "dimensioni": "6x3 m",
                    "descrizione": "test", "disponibile": True, "foto_url": ""}
-        r = session.post(f"{API}/comune/spazi", json=payload, headers=h(comune_token), timeout=10)
+        r = session.post(f"{API}/comune/spazi", json=payload, headers=h(comune_l3_token), timeout=10)
         assert r.status_code == 200
         sid = r.json()["id"]
 
         # PUT
         payload["canone_giornaliero"] = 55
-        r2 = session.put(f"{API}/comune/spazi/{sid}", json=payload, headers=h(comune_token), timeout=10)
+        r2 = session.put(f"{API}/comune/spazi/{sid}", json=payload, headers=h(comune_l3_token), timeout=10)
         assert r2.status_code == 200
         assert r2.json()["canone_giornaliero"] == 55
 
         # DELETE
-        r3 = session.delete(f"{API}/comune/spazi/{sid}", headers=h(comune_token), timeout=10)
+        r3 = session.delete(f"{API}/comune/spazi/{sid}", headers=h(comune_l3_token), timeout=10)
         assert r3.status_code == 200
 
-    def test_form_template_get_put(self, session, comune_token):
+    def test_form_template_get_put(self, session, comune_token, comune_l3_token):
         r = session.get(f"{API}/comune/form-template", headers=h(comune_token), timeout=10)
         assert r.status_code == 200
         tpl = r.json()
-        # PUT (aggiungi un campo TEST)
+        # PUT (aggiungi un campo TEST) — solo L3
         campi = tpl.get("campi", []) + [
             {"id": "test_campo", "label": "TEST", "tipo": "text", "opzioni": [], "required": False, "condizione": None}
         ]
         r2 = session.put(f"{API}/comune/form-template",
                          json={"nome": tpl.get("nome", "Test"), "campi": campi},
-                         headers=h(comune_token), timeout=10)
+                         headers=h(comune_l3_token), timeout=10)
         assert r2.status_code == 200
         assert any(c["id"] == "test_campo" for c in r2.json()["campi"])
 
@@ -441,3 +478,177 @@ class TestChatNotifiche:
         r2 = session.post(f"{API}/notifiche/leggi", headers=h(user_token), timeout=10)
         assert r2.status_code == 200
         assert r2.json()["ok"] is True
+
+
+
+# ---------- ITERAZIONE 2: livelli comune ----------
+
+class TestLivelliComune:
+    def test_l1_ha_livello_1(self, session, comune_token):
+        r = session.get(f"{API}/auth/me", headers=h(comune_token), timeout=10)
+        assert r.status_code == 200
+        assert r.json().get("livello") == 1
+
+    def test_l2_ha_livello_2(self, session, comune_l2_token):
+        r = session.get(f"{API}/auth/me", headers=h(comune_l2_token), timeout=10)
+        assert r.status_code == 200
+        assert r.json().get("livello") == 2
+
+    def test_l3_ha_livello_3(self, session, comune_l3_token):
+        r = session.get(f"{API}/auth/me", headers=h(comune_l3_token), timeout=10)
+        assert r.status_code == 200
+        assert r.json().get("livello") == 3
+
+    def test_l1_cannot_crud_spazi(self, session, comune_token):
+        payload = {"nome": "TEST_L1_denied", "tipologia": "Poster",
+                   "indirizzo": "Via X 1", "lat": 41.9, "lng": 12.5,
+                   "canone_giornaliero": 20, "dimensioni": "1x1",
+                   "descrizione": "x", "disponibile": True, "foto_url": ""}
+        r = session.post(f"{API}/comune/spazi", json=payload, headers=h(comune_token), timeout=10)
+        assert r.status_code == 403
+
+    def test_l1_cannot_put_form_template(self, session, comune_token):
+        r = session.put(f"{API}/comune/form-template",
+                        json={"nome": "Test", "campi": []},
+                        headers=h(comune_token), timeout=10)
+        assert r.status_code == 403
+
+    def test_l1_cannot_update_profilo(self, session, comune_token):
+        r = session.put(f"{API}/comune/profilo",
+                        json={"tariffe": [], "regole": "test"},
+                        headers=h(comune_token), timeout=10)
+        assert r.status_code == 403
+
+    def test_l1_puo_presa_in_carico_e_integrazione(self, session, comune_token, comune_l3_token, user_token):
+        # crea flusso: nuova pratica INVIATA su Milano no, usiamo Roma
+        # Cerca una INVIATA di Roma o crea nuova
+        import random
+        offset = random.randint(1500, 2000)
+        d1 = (datetime.now() + timedelta(days=offset)).date().isoformat()
+        d2 = (datetime.now() + timedelta(days=offset + 2)).date().isoformat()
+        spazi = session.get(f"{API}/spazi", params={"regione": "Lazio"}, timeout=10).json()
+        sp = spazi[0]
+        pr = session.post(f"{API}/pratiche",
+                          json={"spazio_id": sp["id"], "data_inizio": d1, "data_fine": d2, "dati_form": {}},
+                          headers=h(user_token), timeout=15)
+        assert pr.status_code == 200, pr.text
+        pid = pr.json()["id"]
+        # checkout + invia
+        session.post(f"{API}/pratiche/{pid}/checkout", headers=h(user_token), timeout=10)
+        rin = session.post(f"{API}/pratiche/{pid}/invia", headers=h(user_token), timeout=10)
+        assert rin.status_code == 200
+
+        # L1 presa_in_carico OK
+        r = session.post(f"{API}/comune/pratiche/{pid}/transizione",
+                         json={"azione": "presa_in_carico"},
+                         headers=h(comune_token), timeout=10)
+        assert r.status_code == 200
+        assert r.json()["stato"] == "IN_ISTRUTTORIA"
+
+        # L1 approva → 403
+        r2 = session.post(f"{API}/comune/pratiche/{pid}/transizione",
+                          json={"azione": "approva"},
+                          headers=h(comune_token), timeout=10)
+        assert r2.status_code == 403
+
+        # L1 rifiuta → 403
+        r3 = session.post(f"{API}/comune/pratiche/{pid}/transizione",
+                          json={"azione": "rifiuta"},
+                          headers=h(comune_token), timeout=10)
+        assert r3.status_code == 403
+
+        # L1 richiedi_integrazione OK
+        r4 = session.post(f"{API}/comune/pratiche/{pid}/transizione",
+                          json={"azione": "richiedi_integrazione", "nota": "manca doc"},
+                          headers=h(comune_token), timeout=10)
+        assert r4.status_code == 200
+        assert r4.json()["stato"] == "INTEGRAZIONE_RICHIESTA"
+
+    def test_l3_can_crud_spazi_and_profilo(self, session, comune_l3_token):
+        payload = {"nome": "TEST_L3_spazio", "tipologia": "Poster",
+                   "indirizzo": "Via L3 1", "lat": 41.9, "lng": 12.5,
+                   "canone_giornaliero": 30, "dimensioni": "1x1",
+                   "descrizione": "l3", "disponibile": True, "foto_url": ""}
+        r = session.post(f"{API}/comune/spazi", json=payload, headers=h(comune_l3_token), timeout=10)
+        assert r.status_code == 200
+        sid = r.json()["id"]
+        session.delete(f"{API}/comune/spazi/{sid}", headers=h(comune_l3_token), timeout=10)
+
+    def test_onboard_crea_referente_l3(self, session, admin_token):
+        unique = f"TEST_l3_ref_{int(time.time())}@demo.it"
+        payload = {"nome": f"TEST_Comune_L3_{int(time.time())}", "regione": "Sicilia",
+                   "provincia": "CT", "lat": 37.5, "lng": 15.09,
+                   "referente_email": unique, "referente_password": "demo123",
+                   "referente_nome": "TEST L3 Referente"}
+        r = session.post(f"{API}/admin/comuni", json=payload, headers=h(admin_token), timeout=15)
+        assert r.status_code == 200
+        # login and verify livello=3
+        r2 = session.post(f"{API}/auth/login", json={"email": unique, "password": "demo123"}, timeout=10)
+        assert r2.status_code == 200
+        user = r2.json()["user"]
+        assert user["livello"] == 3
+
+
+# ---------- ITERAZIONE 2: sovrapposizione date ----------
+
+class TestOverlapDate:
+    @pytest.fixture(scope="class")
+    def spazio_roma(self, session):
+        spazi = session.get(f"{API}/spazi", params={"regione": "Lazio"}, timeout=10).json()
+        return spazi[0]
+
+    def test_occupazioni_endpoint(self, session, spazio_roma):
+        r = session.get(f"{API}/spazi/{spazio_roma['id']}/occupazioni", timeout=10)
+        assert r.status_code == 200
+        data = r.json()
+        assert isinstance(data, list)
+        # deve avere formato con data_inizio/fine/stato
+        for o in data:
+            assert "data_inizio" in o and "data_fine" in o and "stato" in o
+
+    def test_overlap_returns_409(self, session, user_token, spazio_roma):
+        # crea prima pratica su date future
+        import random
+        offset = random.randint(2100, 2500)
+        d1 = (datetime.now() + timedelta(days=offset)).date().isoformat()
+        d2 = (datetime.now() + timedelta(days=offset + 5)).date().isoformat()
+        r1 = session.post(f"{API}/pratiche",
+                          json={"spazio_id": spazio_roma["id"], "data_inizio": d1, "data_fine": d2, "dati_form": {}},
+                          headers=h(user_token), timeout=15)
+        assert r1.status_code == 200, r1.text
+        pid = r1.json()["id"]
+        # portala a INVIATA
+        session.post(f"{API}/pratiche/{pid}/checkout", headers=h(user_token), timeout=10)
+        rin = session.post(f"{API}/pratiche/{pid}/invia", headers=h(user_token), timeout=10)
+        assert rin.status_code == 200
+
+        # 2° pratica sovrapposta → 409
+        d3 = (datetime.now() + timedelta(days=offset + 3)).date().isoformat()
+        d4 = (datetime.now() + timedelta(days=offset + 8)).date().isoformat()
+        r2 = session.post(f"{API}/pratiche",
+                          json={"spazio_id": spazio_roma["id"], "data_inizio": d3, "data_fine": d4, "dati_form": {}},
+                          headers=h(user_token), timeout=15)
+        assert r2.status_code == 409, r2.text
+        assert "non disponibile" in r2.text.lower() or "impegnat" in r2.text.lower()
+
+        # date libere → 200
+        d5 = (datetime.now() + timedelta(days=offset + 20)).date().isoformat()
+        d6 = (datetime.now() + timedelta(days=offset + 22)).date().isoformat()
+        r3 = session.post(f"{API}/pratiche",
+                          json={"spazio_id": spazio_roma["id"], "data_inizio": d5, "data_fine": d6, "dati_form": {}},
+                          headers=h(user_token), timeout=15)
+        assert r3.status_code == 200
+        pid_free = r3.json()["id"]
+
+        # PUT sovrapposto su pratica in BOZZA → 409
+        rput = session.put(f"{API}/pratiche/{pid_free}",
+                           json={"data_inizio": d3, "data_fine": d4},
+                           headers=h(user_token), timeout=15)
+        assert rput.status_code == 409
+
+    def test_occupazioni_include_pratica_attiva(self, session, user_token, spazio_roma):
+        # dopo test_overlap_returns_409, occupazioni deve mostrare almeno un range
+        r = session.get(f"{API}/spazi/{spazio_roma['id']}/occupazioni", timeout=10)
+        assert r.status_code == 200
+        data = r.json()
+        assert len(data) >= 1

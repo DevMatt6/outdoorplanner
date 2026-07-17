@@ -78,7 +78,7 @@ export default function Spazi() {
               <Link key={s.id} to={`/spazi/${s.id}`} data-testid={`spazio-card-${s.id}`}
                 className="grid grid-cols-[140px_1fr] border border-slate-300 bg-white hover:border-slate-900 transition-colors group">
                 <div className="border-r border-slate-300 overflow-hidden">
-                  <img src={s.foto_url} alt={s.nome} className="w-full h-full object-cover min-h-[120px]" />
+                  <img src={s.foto_url} alt={s.nome} className="w-full h-full object-cover min-h-[120px] transition-transform duration-500 group-hover:scale-105" />
                 </div>
                 <div className="p-4">
                   <div className="flex items-start justify-between gap-2">

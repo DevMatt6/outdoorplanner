@@ -4,11 +4,14 @@ import { BackofficeLayout, COMUNE_LINKS } from "../../components/BackofficeLayou
 import { StatusBadge, STATO_COLORS } from "../../components/StatusBadge";
 import { Chat } from "../../components/Chat";
 import { api, apiError, API } from "../../lib/api";
+import { useAuth } from "../../store/auth";
 import { toast } from "sonner";
-import { ArrowLeft, Download } from "lucide-react";
+import { ArrowLeft, Download, Lock } from "lucide-react";
 
 export default function PraticaIstruttoria() {
   const { id } = useParams();
+  const { user } = useAuth();
+  const livello = user?.livello || 1;
   const [pratica, setPratica] = useState(null);
   const [nota, setNota] = useState("");
 
@@ -65,17 +68,25 @@ export default function PraticaIstruttoria() {
           )}
           {pratica.stato === "IN_ISTRUTTORIA" && (
             <>
-              <button data-testid="btn-approva" onClick={() => azione("approva", "Pratica approvata")}
-                className="px-5 py-2.5 font-bold text-sm bg-[#10B981] text-slate-950 hover:bg-slate-900 hover:text-white transition-colors">
-                Approva
-              </button>
+              {livello >= 2 ? (
+                <>
+                  <button data-testid="btn-approva" onClick={() => azione("approva", "Pratica approvata")}
+                    className="px-5 py-2.5 font-bold text-sm bg-[#10B981] text-slate-950 hover:bg-slate-900 hover:text-white transition-colors">
+                    Approva
+                  </button>
+                  <button data-testid="btn-rifiuta" onClick={() => azione("rifiuta", "Pratica rifiutata")}
+                    className="px-5 py-2.5 font-bold text-sm bg-[#0F172A] text-white hover:bg-[#EF4444] transition-colors">
+                    Rifiuta
+                  </button>
+                </>
+              ) : (
+                <span data-testid="livello-lock-msg" className="inline-flex items-center gap-1.5 text-sm text-slate-500 border border-dashed border-slate-400 px-4 py-2.5">
+                  <Lock size={14} /> Approvazione e rifiuto riservati al Referente L2+
+                </span>
+              )}
               <button data-testid="btn-integrazione" onClick={() => azione("richiedi_integrazione", "Integrazione richiesta")}
                 className="px-5 py-2.5 font-bold text-sm bg-[#EF4444] text-white hover:bg-slate-900 transition-colors">
                 Richiedi integrazione
-              </button>
-              <button data-testid="btn-rifiuta" onClick={() => azione("rifiuta", "Pratica rifiutata")}
-                className="px-5 py-2.5 font-bold text-sm bg-[#0F172A] text-white hover:bg-[#EF4444] transition-colors">
-                Rifiuta
               </button>
             </>
           )}

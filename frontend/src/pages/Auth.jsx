@@ -86,7 +86,7 @@ export default function Auth() {
             </button>
           </form>
           <div className="border-t border-slate-300 px-8 py-4 bg-slate-50 text-xs text-slate-600 leading-relaxed">
-            <strong>Account demo:</strong> user@demo.it · comune@demo.it · mattia.fabrizi92@gmail.com — password <span className="font-mono">demo123</span>
+            <strong>Account demo</strong> (password <span className="font-mono">demo123</span>): user@demo.it · comune@demo.it (L1) · comune.l2@demo.it · comune.l3@demo.it · mattia.fabrizi92@gmail.com
           </div>
         </div>
       </div>

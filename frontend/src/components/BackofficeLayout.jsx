@@ -6,6 +6,11 @@ export const BackofficeLayout = ({ title, links, children }) => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const livello = user?.livello || 1;
+  const visibleLinks = links.filter((l) => !l[3] || livello >= l[3]);
+  const livelloLabel = user?.ruolo === "comune"
+    ? (livello === 3 ? "Responsabile · L3" : livello === 2 ? "Referente · L2" : "Operatore · L1")
+    : null;
 
   return (
     <div className="min-h-screen bg-slate-50 flex">
@@ -17,9 +22,14 @@ export const BackofficeLayout = ({ title, links, children }) => {
         <div className="px-5 py-4 border-b border-slate-700">
           <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">{title}</div>
           <div className="text-sm font-semibold mt-0.5 truncate">{user?.nome}</div>
+          {livelloLabel && (
+            <span data-testid="livello-badge" className="inline-block mt-1.5 text-[10px] font-bold uppercase tracking-wider bg-[#0033FF] text-white px-2 py-0.5">
+              {livelloLabel}
+            </span>
+          )}
         </div>
         <nav className="flex-1 py-3">
-          {links.map(([to, label, testid]) => {
+          {visibleLinks.map(([to, label, testid]) => {
             const active = location.pathname === to;
             return (
               <Link key={to} to={to} data-testid={testid}
@@ -47,10 +57,10 @@ export const BackofficeLayout = ({ title, links, children }) => {
 
 export const COMUNE_LINKS = [
   ["/comune", "Scrivania pratiche", "link-scrivania"],
-  ["/comune/spazi", "Catalogo spazi", "link-spazi"],
-  ["/comune/form", "Modulo dinamico", "link-form"],
+  ["/comune/spazi", "Catalogo spazi", "link-spazi", 3],
+  ["/comune/form", "Modulo dinamico", "link-form", 3],
   ["/comune/report", "Report & incassi", "link-report"],
-  ["/comune/profilo", "Profilo & tariffe", "link-profilo"],
+  ["/comune/profilo", "Profilo & tariffe", "link-profilo", 3],
 ];
 
 export const ADMIN_LINKS = [

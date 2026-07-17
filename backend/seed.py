@@ -14,6 +14,25 @@ def _uid():
     return str(uuid.uuid4())
 
 
+async def ensure_livelli(db, hash_password):
+    now = datetime.now(timezone.utc)
+    await db.users.update_many({"ruolo": "comune", "livello": {"$exists": False}}, {"$set": {"livello": 1}})
+    await db.users.update_one({"email": "comune.milano@demo.it"}, {"$set": {"livello": 3, "nome": "Responsabile Milano L3"}})
+    roma = await db.comuni.find_one({"nome": "Roma"}, {"_id": 0})
+    if not roma:
+        return
+    pwd = hash_password("demo123")
+    extra = [
+        {"email": "comune.l2@demo.it", "nome": "Referente Roma L2", "livello": 2},
+        {"email": "comune.l3@demo.it", "nome": "Responsabile Roma L3", "livello": 3},
+    ]
+    for u in extra:
+        if not await db.users.find_one({"email": u["email"]}):
+            await db.users.insert_one({"id": _uid(), "email": u["email"], "nome": u["nome"], "ruolo": "comune",
+                                       "comune_id": roma["id"], "livello": u["livello"],
+                                       "password_hash": pwd, "created_at": iso(now)})
+
+
 async def seed_all(db, hash_password):
     admin_email = os.environ.get("ADMIN_EMAIL", "admin@demo.it")
     if await db.users.find_one({"email": admin_email}):
@@ -43,8 +62,8 @@ async def seed_all(db, hash_password):
     users = [
         {"id": _uid(), "email": admin_email, "nome": "Mattia Fabrizi", "ruolo": "superadmin", "comune_id": None},
         {"id": _uid(), "email": "user@demo.it", "nome": "Luca Bianchi", "ruolo": "user", "comune_id": None},
-        {"id": _uid(), "email": "comune@demo.it", "nome": "Operatore Roma L1", "ruolo": "comune", "comune_id": roma["id"]},
-        {"id": _uid(), "email": "comune.milano@demo.it", "nome": "Referente Milano L2", "ruolo": "comune", "comune_id": milano["id"]},
+        {"id": _uid(), "email": "comune@demo.it", "nome": "Operatore Roma L1", "ruolo": "comune", "comune_id": roma["id"], "livello": 1},
+        {"id": _uid(), "email": "comune.milano@demo.it", "nome": "Responsabile Milano L3", "ruolo": "comune", "comune_id": milano["id"], "livello": 3},
     ]
     for u in users:
         u["created_at"] = iso(now)

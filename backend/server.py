@@ -79,6 +79,13 @@ def require_role(*roles):
         return user
     return checker
 
+async def require_comune_l3(user: dict = Depends(get_current_user)):
+    if user["ruolo"] != "comune":
+        raise HTTPException(status_code=403, detail="Permessi insufficienti")
+    if user.get("livello", 1) < 3:
+        raise HTTPException(status_code=403, detail="Operazione riservata al Responsabile (L3)")
+    return user
+
 async def notifica(user_id: str, titolo: str, messaggio: str, pratica_id: Optional[str] = None):
     await db.notifiche.insert_one({"id": str(uuid.uuid4()), "user_id": user_id, "titolo": titolo,
                                    "messaggio": messaggio, "pratica_id": pratica_id, "letta": False,
@@ -238,6 +245,12 @@ async def get_spazio(spazio_id: str):
     comune = await db.comuni.find_one({"id": spazio["comune_id"]}, {"_id": 0})
     return {**spazio, "comune": comune}
 
+@api_router.get("/spazi/{spazio_id}/occupazioni")
+async def occupazioni_spazio(spazio_id: str):
+    rows = await db.pratiche.find({"spazio_id": spazio_id, "stato": {"$in": STATI_ATTIVI}},
+                                  {"_id": 0, "data_inizio": 1, "data_fine": 1, "stato": 1}).to_list(200)
+    return sorted(rows, key=lambda r: r["data_inizio"])
+
 @api_router.get("/form-templates/comune/{comune_id}")
 async def get_template(comune_id: str):
     tpl = await db.form_templates.find_one({"comune_id": comune_id}, {"_id": 0})
@@ -250,11 +263,22 @@ def _giorni(inizio: str, fine: str) -> int:
     d2 = datetime.fromisoformat(fine)
     return max((d2 - d1).days + 1, 1)
 
+STATI_ATTIVI = ["INVIATA", "IN_ISTRUTTORIA", "INTEGRAZIONE_RICHIESTA", "APPROVATA"]
+
+async def _periodo_occupato(spazio_id: str, inizio: str, fine: str, exclude_id: Optional[str] = None) -> bool:
+    query = {"spazio_id": spazio_id, "stato": {"$in": STATI_ATTIVI},
+             "data_inizio": {"$lte": fine}, "data_fine": {"$gte": inizio}}
+    if exclude_id:
+        query["id"] = {"$ne": exclude_id}
+    return await db.pratiche.find_one(query, {"_id": 0, "id": 1}) is not None
+
 @api_router.post("/pratiche")
 async def crea_pratica(data: PraticaIn, user: dict = Depends(require_role("user"))):
     spazio = await db.spazi.find_one({"id": data.spazio_id}, {"_id": 0})
     if not spazio:
         raise HTTPException(status_code=404, detail="Spazio non trovato")
+    if await _periodo_occupato(spazio["id"], data.data_inizio, data.data_fine):
+        raise HTTPException(status_code=409, detail="Periodo non disponibile: lo spazio è già impegnato in queste date")
     importo = round(_giorni(data.data_inizio, data.data_fine) * spazio["canone_giornaliero"], 2)
     pratica = {"id": str(uuid.uuid4()), "user_id": user["id"], "user_nome": user["nome"],
                "spazio_id": spazio["id"], "spazio_nome": spazio["nome"], "comune_id": spazio["comune_id"],
@@ -277,6 +301,8 @@ async def aggiorna_pratica(pratica_id: str, data: PraticaUpdate, user: dict = De
     if data.dati_form is not None:
         updates["dati_form"] = data.dati_form
     if data.data_inizio and data.data_fine:
+        if await _periodo_occupato(pratica["spazio_id"], data.data_inizio, data.data_fine, exclude_id=pratica_id):
+            raise HTTPException(status_code=409, detail="Periodo non disponibile: lo spazio è già impegnato in queste date")
         spazio = await db.spazi.find_one({"id": pratica["spazio_id"]}, {"_id": 0})
         updates["data_inizio"] = data.data_inizio
         updates["data_fine"] = data.data_fine
@@ -392,7 +418,7 @@ async def comune_profilo(user: dict = Depends(require_role("comune"))):
     return await db.comuni.find_one({"id": user["comune_id"]}, {"_id": 0})
 
 @api_router.put("/comune/profilo")
-async def aggiorna_profilo(data: ComuneProfiloIn, user: dict = Depends(require_role("comune"))):
+async def aggiorna_profilo(data: ComuneProfiloIn, user: dict = Depends(require_comune_l3)):
     updates = {k: v for k, v in data.model_dump().items() if v is not None}
     if updates:
         await db.comuni.update_one({"id": user["comune_id"]}, {"$set": updates})
@@ -403,7 +429,7 @@ async def comune_spazi(user: dict = Depends(require_role("comune"))):
     return await db.spazi.find({"comune_id": user["comune_id"]}, {"_id": 0}).to_list(200)
 
 @api_router.post("/comune/spazi")
-async def crea_spazio(data: SpazioIn, user: dict = Depends(require_role("comune"))):
+async def crea_spazio(data: SpazioIn, user: dict = Depends(require_comune_l3)):
     comune = await db.comuni.find_one({"id": user["comune_id"]}, {"_id": 0})
     spazio = {"id": str(uuid.uuid4()), "comune_id": comune["id"], "citta": comune["nome"],
               "regione": comune["regione"], **data.model_dump(), "created_at": now_iso()}
@@ -411,14 +437,14 @@ async def crea_spazio(data: SpazioIn, user: dict = Depends(require_role("comune"
     return spazio
 
 @api_router.put("/comune/spazi/{spazio_id}")
-async def aggiorna_spazio(spazio_id: str, data: SpazioIn, user: dict = Depends(require_role("comune"))):
+async def aggiorna_spazio(spazio_id: str, data: SpazioIn, user: dict = Depends(require_comune_l3)):
     res = await db.spazi.update_one({"id": spazio_id, "comune_id": user["comune_id"]}, {"$set": data.model_dump()})
     if res.matched_count == 0:
         raise HTTPException(status_code=404, detail="Spazio non trovato")
     return await db.spazi.find_one({"id": spazio_id}, {"_id": 0})
 
 @api_router.delete("/comune/spazi/{spazio_id}")
-async def elimina_spazio(spazio_id: str, user: dict = Depends(require_role("comune"))):
+async def elimina_spazio(spazio_id: str, user: dict = Depends(require_comune_l3)):
     res = await db.spazi.delete_one({"id": spazio_id, "comune_id": user["comune_id"]})
     if res.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Spazio non trovato")
@@ -430,7 +456,7 @@ async def comune_template(user: dict = Depends(require_role("comune"))):
     return tpl or {"comune_id": user["comune_id"], "nome": "Modulo standard", "campi": []}
 
 @api_router.put("/comune/form-template")
-async def salva_template(data: TemplateIn, user: dict = Depends(require_role("comune"))):
+async def salva_template(data: TemplateIn, user: dict = Depends(require_comune_l3)):
     tpl = {"comune_id": user["comune_id"], "nome": data.nome,
            "campi": [c.model_dump() for c in data.campi], "updated_at": now_iso()}
     await db.form_templates.update_one({"comune_id": user["comune_id"]}, {"$set": tpl}, upsert=True)
@@ -450,6 +476,8 @@ TRANSIZIONI_COMUNE = {
     "rifiuta": {"da": ["IN_ISTRUTTORIA"], "a": "RIFIUTATA"},
 }
 
+LIVELLO_MIN_AZIONE = {"presa_in_carico": 1, "richiedi_integrazione": 1, "approva": 2, "rifiuta": 2}
+
 @api_router.post("/comune/pratiche/{pratica_id}/transizione")
 async def transizione(pratica_id: str, data: TransizioneIn, user: dict = Depends(require_role("comune"))):
     pratica = await db.pratiche.find_one({"id": pratica_id, "comune_id": user["comune_id"]}, {"_id": 0})
@@ -458,6 +486,8 @@ async def transizione(pratica_id: str, data: TransizioneIn, user: dict = Depends
     regola = TRANSIZIONI_COMUNE.get(data.azione)
     if not regola:
         raise HTTPException(status_code=400, detail="Azione non valida")
+    if user.get("livello", 1) < LIVELLO_MIN_AZIONE[data.azione]:
+        raise HTTPException(status_code=403, detail=f"Azione riservata al livello L{LIVELLO_MIN_AZIONE[data.azione]} o superiore")
     if pratica["stato"] not in regola["da"]:
         raise HTTPException(status_code=400, detail=f"Transizione non consentita da {pratica['stato']}")
     nuovo = regola["a"]
@@ -603,7 +633,7 @@ async def onboard_comune(data: ComuneOnboardIn, user: dict = Depends(require_rol
               "regole": "Regolamento comunale standard", "attivo": True, "created_at": now_iso()}
     await db.comuni.insert_one({**comune})
     referente = {"id": str(uuid.uuid4()), "email": email, "nome": data.referente_nome,
-                 "ruolo": "comune", "comune_id": comune["id"], "created_at": now_iso()}
+                 "ruolo": "comune", "comune_id": comune["id"], "livello": 3, "created_at": now_iso()}
     await db.users.insert_one({**referente, "password_hash": hash_password(data.referente_password)})
     return {"comune": comune, "referente": referente}
 
@@ -625,8 +655,9 @@ async def startup():
     await db.users.create_index("email", unique=True)
     await db.pratiche.create_index("user_id")
     await db.pratiche.create_index("comune_id")
-    from seed import seed_all
+    from seed import seed_all, ensure_livelli
     await seed_all(db, hash_password)
+    await ensure_livelli(db, hash_password)
 
 @app.on_event("shutdown")
 async def shutdown_db_client():

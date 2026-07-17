@@ -1,4 +1,5 @@
 import "@/App.css";
+import { useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Toaster } from "sonner";
 import { useAuth, homeFor } from "./store/auth";
@@ -27,6 +28,10 @@ const Protected = ({ role, children }) => {
 };
 
 function App() {
+  const refresh = useAuth((s) => s.refresh);
+  useEffect(() => {
+    if (localStorage.getItem("op_token")) refresh();
+  }, [refresh]);
   return (
     <div className="App">
       <BrowserRouter>

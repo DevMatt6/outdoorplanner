@@ -72,6 +72,52 @@ code, .font-mono {
     filter: none !important;
 }
 
+/* ---- Motion & texture (flat, no blur/shadow) ---- */
+@keyframes fadeUp {
+    from { opacity: 0; transform: translateY(18px); }
+    to { opacity: 1; transform: none; }
+}
+.reveal { animation: fadeUp 0.65s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.reveal-1 { animation-delay: 0.06s; }
+.reveal-2 { animation-delay: 0.14s; }
+.reveal-3 { animation-delay: 0.22s; }
+.reveal-4 { animation-delay: 0.3s; }
+.reveal-5 { animation-delay: 0.38s; }
+
+@keyframes marquee {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+}
+.marquee-track {
+    display: flex;
+    width: max-content;
+    animation: marquee 26s linear infinite;
+}
+.marquee-track:hover { animation-play-state: paused; }
+
+.grain::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.10;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");
+}
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: #F1F5F9; }
+::-webkit-scrollbar-thumb { background: #0A3D91; border: 2px solid #F1F5F9; }
+::-webkit-scrollbar-thumb:hover { background: #0033FF; }
+
+.link-underline {
+    background-image: linear-gradient(#0033FF, #0033FF);
+    background-size: 0% 2px;
+    background-position: 0 100%;
+    background-repeat: no-repeat;
+    transition: background-size 0.3s ease;
+}
+.link-underline:hover { background-size: 100% 2px; }
+
 /* Leaflet: transizione fluida hover regioni + look flat */
 path.leaflet-interactive {
     transition: fill 0.3s ease, fill-opacity 0.3s ease, stroke 0.3s ease;

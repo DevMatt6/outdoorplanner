@@ -20,12 +20,17 @@ export default function PraticaWizard() {
   const [docs, setDocs] = useState([]);
   const [paying, setPaying] = useState(false);
   const [error, setError] = useState("");
+  const [occupazioni, setOccupazioni] = useState([]);
 
   useEffect(() => {
     api.get(`/spazi/${spazioId}`).then(async ({ data }) => {
       setSpazio(data);
-      const tpl = await api.get(`/form-templates/comune/${data.comune_id}`);
+      const [tpl, occ] = await Promise.all([
+        api.get(`/form-templates/comune/${data.comune_id}`),
+        api.get(`/spazi/${spazioId}/occupazioni`),
+      ]);
       setTemplate(tpl.data);
+      setOccupazioni(occ.data);
     });
   }, [spazioId]);
 
@@ -137,6 +142,19 @@ export default function PraticaWizard() {
                 <div className="border border-slate-300 bg-slate-50 px-4 py-3 flex justify-between text-sm">
                   <span>{giorni} giorni × {spazio.canone_giornaliero} €</span>
                   <span className="font-heading font-extrabold" data-testid="importo-calcolato">{importo.toFixed(2)} €</span>
+                </div>
+              )}
+              {occupazioni.length > 0 && (
+                <div className="border border-[#F59E0B] bg-amber-50 px-4 py-3" data-testid="occupazioni-box">
+                  <div className="text-xs font-bold uppercase tracking-widest text-amber-700 mb-1.5">Periodi già impegnati per questo spazio</div>
+                  <div className="flex flex-wrap gap-2">
+                    {occupazioni.map((o, i) => (
+                      <span key={i} className="text-xs font-mono border border-amber-300 bg-white px-2 py-1">
+                        {o.data_inizio} → {o.data_fine}
+                      </span>
+                    ))}
+                  </div>
+                  <div className="text-xs text-amber-700 mt-1.5">Le date sovrapposte a questi periodi verranno rifiutate.</div>
                 </div>
               )}
             </div>

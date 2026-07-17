@@ -33,13 +33,13 @@ export default function UserDashboard() {
           </Link>
         </div>
 
-        <div className="mt-8 grid grid-cols-3 border border-slate-900 divide-x divide-slate-900 bg-white">
-          <div className="p-5"><div className="font-heading font-extrabold text-3xl">{pratiche.length}</div><div className="text-xs uppercase tracking-wider text-slate-500">Pratiche totali</div></div>
-          <div className="p-5"><div className="font-heading font-extrabold text-3xl text-[#F59E0B]">{attive}</div><div className="text-xs uppercase tracking-wider text-slate-500">In corso</div></div>
-          <div className="p-5"><div className="font-heading font-extrabold text-3xl text-[#EF4444]">{daIntegrare}</div><div className="text-xs uppercase tracking-wider text-slate-500">Da integrare</div></div>
+        <div className="reveal reveal-1 mt-8 grid grid-cols-3 border border-slate-900 divide-x divide-slate-900 bg-white">
+          <div className="p-5 hover:bg-blue-50 transition-colors"><div className="font-heading font-extrabold text-3xl">{pratiche.length}</div><div className="text-xs uppercase tracking-wider text-slate-500">Pratiche totali</div></div>
+          <div className="p-5 hover:bg-blue-50 transition-colors"><div className="font-heading font-extrabold text-3xl text-[#F59E0B]">{attive}</div><div className="text-xs uppercase tracking-wider text-slate-500">In corso</div></div>
+          <div className="p-5 hover:bg-blue-50 transition-colors"><div className="font-heading font-extrabold text-3xl text-[#EF4444]">{daIntegrare}</div><div className="text-xs uppercase tracking-wider text-slate-500">Da integrare</div></div>
         </div>
 
-        <div className="mt-8 border border-slate-900 bg-white">
+        <div className="reveal reveal-2 mt-8 border border-slate-900 bg-white">
           <div className="px-6 py-3 border-b border-slate-900 text-xs font-bold uppercase tracking-widest bg-slate-50">Le mie pratiche</div>
           {loading && <div className="p-8 text-slate-500">Caricamento...</div>}
           {!loading && pratiche.length === 0 && (

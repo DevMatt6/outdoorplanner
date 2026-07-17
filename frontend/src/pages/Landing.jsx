@@ -12,41 +12,57 @@ export default function Landing() {
       <section className="border-b border-slate-900">
         <div className="max-w-7xl mx-auto grid lg:grid-cols-2">
           <div className="px-6 py-16 lg:py-24 lg:pr-16">
-            <div className="text-xs font-bold uppercase tracking-[0.25em] text-[#0033FF] mb-6">
+            <div className="reveal text-xs font-bold uppercase tracking-[0.25em] text-[#0033FF] mb-6">
               Pubblicità · Occupazione suolo pubblico · Eventi
             </div>
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-heading font-extrabold tracking-tight leading-[1.02]">
+            <h1 className="reveal reveal-1 text-4xl sm:text-5xl lg:text-6xl font-heading font-extrabold tracking-tight leading-[1.02]">
               Lo spazio pubblico,<br />
               <span className="text-[#0A3D91]">digitalizzato.</span>
             </h1>
-            <p className="mt-6 text-base text-slate-700 max-w-lg leading-relaxed">
+            <p className="reveal reveal-2 mt-6 text-base text-slate-700 max-w-lg leading-relaxed">
               Trova lo spazio giusto sulla mappa, presenta la pratica online, paga e segui
               l'istruttoria del Comune in tempo reale. Niente sportelli, niente carta.
             </p>
-            <div className="mt-10 flex flex-wrap gap-3">
+            <div className="reveal reveal-3 mt-10 flex flex-wrap gap-3">
               <Link to="/spazi" data-testid="hero-cta-spazi"
-                className="inline-flex items-center gap-2 bg-[#0033FF] text-white px-7 py-3.5 font-bold hover:bg-[#0A3D91] transition-colors">
-                Cerca uno spazio <ArrowRight size={18} />
+                className="group inline-flex items-center gap-2 bg-[#0033FF] text-white px-7 py-3.5 font-bold hover:bg-[#0A3D91] transition-colors">
+                Cerca uno spazio <ArrowRight size={18} className="transition-transform group-hover:translate-x-1" />
               </Link>
               <Link to="/login" data-testid="hero-cta-login"
                 className="inline-flex items-center gap-2 border-2 border-slate-900 px-7 py-3.5 font-bold hover:bg-slate-900 hover:text-white transition-colors">
                 Area riservata
               </Link>
             </div>
-            <div className="mt-12 grid grid-cols-3 border border-slate-300 divide-x divide-slate-300">
+            <div className="reveal reveal-4 mt-12 grid grid-cols-3 border border-slate-300 divide-x divide-slate-300">
               {[["20", "regioni coperte"], ["16+", "spazi a catalogo"], ["5", "comuni attivi"]].map(([n, l]) => (
-                <div key={l} className="px-4 py-4">
+                <div key={l} className="px-4 py-4 hover:bg-blue-50 transition-colors">
                   <div className="font-heading font-extrabold text-2xl">{n}</div>
                   <div className="text-xs text-slate-500 uppercase tracking-wider">{l}</div>
                 </div>
               ))}
             </div>
           </div>
-          <div className="border-l border-slate-900 hidden lg:block">
+          <div className="border-l border-slate-900 hidden lg:block relative grain overflow-hidden">
             <img src={HERO_IMG} alt="Billboard" className="w-full h-full object-cover" />
+            <div className="absolute bottom-6 left-6 bg-white border border-slate-900 px-4 py-3 max-w-[260px]">
+              <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#0033FF]">In evidenza</div>
+              <div className="font-heading font-extrabold text-sm mt-0.5">Billboard 6x3 · alta visibilità</div>
+            </div>
           </div>
         </div>
       </section>
+
+      <div className="border-b border-slate-900 bg-[#020617] text-white overflow-hidden py-3" aria-hidden="true">
+        <div className="marquee-track font-mono text-xs uppercase tracking-[0.3em]">
+          {[0, 1].map((k) => (
+            <span key={k} className="flex shrink-0">
+              {["Billboard", "Poster", "Totem", "Suolo pubblico", "Eventi", "Fiere", "Mercati", "Affissioni"].map((t) => (
+                <span key={t} className="px-8 flex items-center gap-8">{t} <span className="text-[#0033FF]">●</span></span>
+              ))}
+            </span>
+          ))}
+        </div>
+      </div>
 
       <section className="max-w-7xl mx-auto px-6 py-16">
         <div className="flex items-end justify-between mb-8">
@@ -70,8 +86,8 @@ export default function Landing() {
               [CreditCard, "03 — Paga", "Checkout online del canone calcolato automaticamente sul periodo richiesto."],
               [MessageSquare, "04 — Segui", "Monitora lo stato della pratica, chatta con l'ufficio e scarica l'autorizzazione."],
             ].map(([Icon, t, d]) => (
-              <div key={t} className="p-8 hover:bg-blue-50 transition-colors">
-                <Icon size={28} className="text-[#0033FF]" />
+              <div key={t} className="group p-8 hover:bg-blue-50 transition-colors">
+                <Icon size={28} className="text-[#0033FF] transition-transform group-hover:-translate-y-1" />
                 <h3 className="font-heading font-extrabold text-lg mt-4">{t}</h3>
                 <p className="text-sm text-slate-600 mt-2 leading-relaxed">{d}</p>
               </div>

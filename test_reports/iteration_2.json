@@ -1,0 +1,34 @@
+{
+  "summary": "Iteration 2 fully tested: backend pytest 50/50 pass (auth, public, user pratica flow with randomized future dates, comune backoffice with L2/L3 for approva/rifiuta, superadmin, RBAC, chat/notifiche, NEW livelli L1/L2/L3 gating, NEW date-overlap 409 + occupazioni endpoint). Frontend Playwright verified: L1 sidebar shows only 2 links (Scrivania + Report) + 'OPERATORE · L1' badge; L3 shows all 5 links + 'RESPONSABILE · L3' badge; on IN_ISTRUTTORIA L1 sees livello-lock-msg and btn-integrazione but NOT btn-approva/btn-rifiuta while L3 sees both; wizard pratica shows occupazioni-box with 10 occupied ranges; selecting overlap dates (2026-05-10 → 2026-05-14) and clicking Avanti triggers wizard-error 'Periodo non disponibile: lo spazio è già impegnato in queste date' from 409 response; landing loads with italy-map + marquee striscia + grain effect intact.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "PraticaWizard step Periodo", "issues": ["Uses native browser <input type='date'> (mm/dd/yyyy placeholder) instead of a shadcn Calendar/DatePicker — locale-dependent format may confuse Italian users. Occupazioni-box is well styled but consider a visual calendar overlay to prevent overlap attempts."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/backend_test.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py grown to 665 lines but still within acceptable single-file limit; if any more features are added, split by router (auth, pratiche, comune, admin).",
+    "_periodo_occupato uses string comparison on ISO dates ('YYYY-MM-DD') which works because dates are consistently zero-padded — safe, but a datetime comparison would be more defensive if data ever mixes formats.",
+    "STATI_ATTIVI is declared AFTER the endpoint /spazi/{spazio_id}/occupazioni that references it (line 250 uses STATI_ATTIVI defined on line 266). At module import time this works because the endpoint body runs later; but a linter may flag the visual ordering. Cosmetic only.",
+    "seed.py `ensure_livelli` is idempotent (guarded with find_one) — good. seed_all still non-idempotent: if seed_all already ran and only ensure_livelli reruns, ensure_livelli won't create Roma L2/L3 users if Roma comune doesn't exist. Not a blocker in current state.",
+    "PraticaWizard.jsx: no client-side pre-check of overlap against `occupazioni` before POST — relies on server 409. Consider a visual highlight of overlapping input to reduce round-trips (UX enhancement, not a bug).",
+    "BackofficeLayout uses `l[3]` as level threshold in the LINKS tuple — magic-index; a named object `{to, label, testid, minLivello}` would be more readable."
+  ],
+  "updated_files": [
+    "/app/backend/tests/backend_test.py (added TestLivelliComune 9 tests, TestOverlapDate 3 tests; converted flow tests to randomized dates; split L1 vs L2 approva; L3 fixture for CRUD/form-template)"
+  ],
+  "success_rate": {"backend": "100% (50/50)", "frontend": "100% (all critical flows verified)"},
+  "test_credentials": "user@demo.it, comune@demo.it (L1), comune.l2@demo.it (L2), comune.l3@demo.it (L3), comune.milano@demo.it (L3), mattia.fabrizi92@gmail.com (superadmin) — password demo123 — all working",
+  "seed_data_creation": "Each test run creates several throwaway pratiche with randomized far-future dates (offset 400–3000 days) on Roma spazi to avoid overlap collisions, plus 2 TEST_Comune_* onboarded in Sicilia. No seed data disturbed.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Backend test file is stable and idempotent — reruns will not fail on overlap because each pratica uses randint offset. To rerun: `cd /app && python -m pytest backend/tests/backend_test.py -v`. Data-testids for L1/L3 features: livello-badge, livello-lock-msg, occupazioni-box, wizard-error, link-scrivania/spazi/form/report/profilo, btn-presa-in-carico/btn-approva/btn-rifiuta/btn-integrazione. Wizard route: /pratiche/nuova/{spazioId}. Login submit: [data-testid=auth-submit-button]. Landing has data-testid=italy-map; marquee is present (class-based).",
+  "rca of the issue": "No issues found."
+}
