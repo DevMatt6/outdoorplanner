@@ -86,6 +86,7 @@ export const COMUNE_LINKS = [
   ["/comune/spazi", "Catalogo spazi", "link-spazi", 3],
   ["/comune/form", "Modulo dinamico", "link-form", 3],
   ["/comune/report", "Report & incassi", "link-report"],
+  ["/comune/monitor", "Monitor anomalie", "link-monitor", 3],
   ["/comune/profilo", "Profilo & tariffe", "link-profilo", 3],
 ];
 

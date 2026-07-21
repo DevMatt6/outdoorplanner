@@ -18,6 +18,7 @@ import ComuneSpazi from "./pages/comune/ComuneSpazi";
 import FormBuilder from "./pages/comune/FormBuilder";
 import Report from "./pages/comune/Report";
 import ComuneProfilo from "./pages/comune/ComuneProfilo";
+import ComuneMonitor from "./pages/comune/ComuneMonitor";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminComuni from "./pages/admin/AdminComuni";
 import AdminMonitor from "./pages/admin/AdminMonitor";
@@ -55,6 +56,7 @@ function App() {
           <Route path="/comune/form" element={<Protected role="comune"><FormBuilder /></Protected>} />
           <Route path="/comune/report" element={<Protected role="comune"><Report /></Protected>} />
           <Route path="/comune/profilo" element={<Protected role="comune"><ComuneProfilo /></Protected>} />
+          <Route path="/comune/monitor" element={<Protected role="comune"><ComuneMonitor /></Protected>} />
           <Route path="/admin" element={<Protected role="superadmin"><AdminDashboard /></Protected>} />
           <Route path="/admin/comuni" element={<Protected role="superadmin"><AdminComuni /></Protected>} />
           <Route path="/admin/monitor" element={<Protected role="superadmin"><AdminMonitor /></Protected>} />

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { BackofficeLayout, ADMIN_LINKS } from "../../components/BackofficeLayout";
 import { api, apiError, imgSrc } from "../../lib/api";
 import { toast } from "sonner";
-import { Plus, Upload, Landmark } from "lucide-react";
+import { Plus, Upload, Landmark, Pencil, Trash2 } from "lucide-react";
 
 const EMPTY = { nome: "", regione: "", provincia: "", lat: "", lng: "", logo_url: "", referente_nome: "", referente_email: "", referente_password: "" };
 
@@ -31,9 +31,26 @@ export default function AdminComuni() {
   const submit = async (e) => {
     e.preventDefault();
     try {
-      await api.post("/admin/comuni", { ...form, lat: parseFloat(form.lat), lng: parseFloat(form.lng), logo_url: form.logo_url || null });
-      toast.success(`Comune ${form.nome} attivato con referente ${form.referente_email}`);
+      const payload = { ...form, lat: parseFloat(form.lat), lng: parseFloat(form.lng), logo_url: form.logo_url || null };
+      if (form.id) {
+        await api.put(`/admin/comuni/${form.id}`, payload);
+        toast.success(`Comune ${form.nome} aggiornato`);
+      } else {
+        await api.post("/admin/comuni", payload);
+        toast.success(`Comune ${form.nome} attivato con referente ${form.referente_email}`);
+      }
       setForm(null);
+      load();
+    } catch (err) { toast.error(apiError(err)); }
+  };
+
+  const openEdit = (c) => setForm({ id: c.id, nome: c.nome, regione: c.regione, provincia: c.provincia, lat: c.lat, lng: c.lng, logo_url: c.logo_url || "" });
+
+  const remove = async (c) => {
+    if (!window.confirm(`Eliminare definitivamente il Comune di ${c.nome}?\nVerranno rimossi anche ${c.spazi_count} spazi, ${c.pratiche_count} pratiche e gli account degli operatori. L'operazione non è reversibile.`)) return;
+    try {
+      await api.delete(`/admin/comuni/${c.id}`);
+      toast.success(`Comune ${c.nome} eliminato`);
       load();
     } catch (err) { toast.error(apiError(err)); }
   };
@@ -52,7 +69,7 @@ export default function AdminComuni() {
 
       {form && (
         <form onSubmit={submit} className="mt-6 border border-slate-100 bg-white rounded-2xl p-6" data-testid="onboard-form">
-          <h2 className="font-heading font-extrabold text-lg mb-4">Nuovo comune</h2>
+          <h2 className="font-heading font-extrabold text-lg mb-4">{form.id ? `Modifica Comune di ${form.nome}` : "Nuovo comune"}</h2>
           <div className="grid md:grid-cols-3 gap-3">
             <input data-testid="onboard-nome" className={input} placeholder="Nome comune" required value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} />
             <select data-testid="onboard-regione" className={input} required value={form.regione} onChange={(e) => setForm({ ...form, regione: e.target.value })}>
@@ -75,14 +92,18 @@ export default function AdminComuni() {
             </label>
             <span className="text-xs text-slate-400">PNG, SVG, JPG (facoltativo)</span>
           </div>
-          <div className="text-xs font-bold uppercase tracking-widest text-slate-500 mt-5 mb-2">Account referente</div>
-          <div className="grid md:grid-cols-3 gap-3">
-            <input data-testid="onboard-ref-nome" className={input} placeholder="Nome referente" required value={form.referente_nome} onChange={(e) => setForm({ ...form, referente_nome: e.target.value })} />
-            <input data-testid="onboard-ref-email" className={input} type="email" placeholder="Email referente" required value={form.referente_email} onChange={(e) => setForm({ ...form, referente_email: e.target.value })} />
-            <input data-testid="onboard-ref-password" className={input} placeholder="Password" required value={form.referente_password} onChange={(e) => setForm({ ...form, referente_password: e.target.value })} />
-          </div>
+          {!form.id && (
+            <>
+              <div className="text-xs font-bold uppercase tracking-widest text-slate-500 mt-5 mb-2">Account referente</div>
+              <div className="grid md:grid-cols-3 gap-3">
+                <input data-testid="onboard-ref-nome" className={input} placeholder="Nome referente" required value={form.referente_nome} onChange={(e) => setForm({ ...form, referente_nome: e.target.value })} />
+                <input data-testid="onboard-ref-email" className={input} type="email" placeholder="Email referente" required value={form.referente_email} onChange={(e) => setForm({ ...form, referente_email: e.target.value })} />
+                <input data-testid="onboard-ref-password" className={input} placeholder="Password" required value={form.referente_password} onChange={(e) => setForm({ ...form, referente_password: e.target.value })} />
+              </div>
+            </>
+          )}
           <div className="mt-5 flex gap-3">
-            <button data-testid="onboard-submit" className="px-6 py-2.5 font-bold rounded-full bg-[#2F5B41] text-white hover:bg-[#26492F] transition-colors">Attiva comune</button>
+            <button data-testid="onboard-submit" className="px-6 py-2.5 font-bold rounded-full bg-[#2F5B41] text-white hover:bg-[#26492F] transition-colors">{form.id ? "Salva modifiche" : "Attiva comune"}</button>
             <button type="button" onClick={() => setForm(null)} className="px-6 py-2.5 font-bold border border-slate-200 rounded-full hover:border-[#2F5B41] transition-colors">Annulla</button>
           </div>
         </form>
@@ -92,7 +113,7 @@ export default function AdminComuni() {
         <table className="w-full text-sm border-collapse">
           <thead>
             <tr className="bg-[#FAFAF8] border-b border-slate-100 text-left">
-              {["Comune", "Regione", "Spazi", "Pratiche", "Approvate", "Incasso", "Fee 5%", "Stato"].map((h) => (
+              {["Comune", "Regione", "Spazi", "Pratiche", "Approvate", "Incasso", "Fee 5%", "Stato", "Azioni"].map((h) => (
                 <th key={h} className="px-4 py-3 text-[11px] font-bold uppercase tracking-widest text-slate-500">{h}</th>
               ))}
             </tr>
@@ -118,6 +139,14 @@ export default function AdminComuni() {
                 <td className="px-4 py-3 font-mono text-slate-500">{c.incasso_piattaforma.toFixed(2)} €</td>
                 <td className="px-4 py-3">
                   <span className="text-[10px] font-bold rounded-full px-2.5 py-1 bg-[#D8EADB] text-[#1F5B33]">Attivo</span>
+                </td>
+                <td className="px-4 py-3">
+                  <div className="flex gap-2">
+                    <button data-testid={`edit-comune-${c.id}`} onClick={() => openEdit(c)} title="Modifica"
+                      className="border border-slate-200 rounded-lg p-1.5 hover:border-[#2F5B41] transition-colors"><Pencil size={14} /></button>
+                    <button data-testid={`delete-comune-${c.id}`} onClick={() => remove(c)} title="Elimina"
+                      className="border border-slate-200 rounded-lg p-1.5 hover:border-[#EF4444] hover:text-[#EF4444] transition-colors"><Trash2 size={14} /></button>
+                  </div>
                 </td>
               </tr>
             ))}

@@ -61,6 +61,10 @@ Su richiesta utente (screenshot stile "Donezo") il design è passato da flat bru
 - Wizard pratica ora usa il modulo assegnato allo spazio (GET /form-templates/spazio/{id})
 - Creato "Modulo OSP — Occupazione Suolo Pubblico" (7 campi con logica condizionale potenza_kw + 4 documenti: planimetria*, relazione tecnica, polizza RC*, doc identità*) e assegnato agli spazi Progetto Speciale (seed_osp.py idempotente)
 
+## Implementato (Iterazione 8 — gestione comuni superadmin + monitor L3, testato via curl + UI)
+- Superadmin /admin/comuni: modifica comune (PUT /admin/comuni/{id}, form pre-compilato senza sezione referente; rinomina propaga citta/regione agli spazi) ed eliminazione con cascade (DELETE: spazi, pratiche + log/chat, form template, account operatori) previa conferma
+- Monitor anomalie per Comune L3: GET /comune/anomalie (scoped al proprio comune, 403 per L1/L2), pagina /comune/monitor con voce sidebar visibile solo a L3
+
 ## Backlog prioritizzato
 - P2: date picker anche per modifica pratiche in INTEGRAZIONE_RICHIESTA
 - P2: Stripe test mode reale al posto del mock; export report CSV/PDF

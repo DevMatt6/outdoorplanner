@@ -194,6 +194,14 @@ class ComuneOnboardIn(BaseModel):
     referente_password: str
     referente_nome: str
 
+class ComuneUpdateIn(BaseModel):
+    nome: Optional[str] = None
+    regione: Optional[str] = None
+    provincia: Optional[str] = None
+    lat: Optional[float] = None
+    lng: Optional[float] = None
+    logo_url: Optional[str] = None
+
 class ComuneProfiloIn(BaseModel):
     tariffe: Optional[List[dict]] = None
     regole: Optional[str] = None
@@ -860,11 +868,10 @@ async def admin_kpi(user: dict = Depends(require_role("superadmin"))):
             "revenue_totale": round(revenue, 2),
             "pratiche_per_comune": [{"comune": nomi.get(k, k), "count": v} for k, v in per_comune.items()]}
 
-@api_router.get("/admin/anomalie")
-async def admin_anomalie(user: dict = Depends(require_role("superadmin"))):
+async def _calc_anomalie(match: dict):
     ora = datetime.now(timezone.utc)
     anomalie = []
-    pratiche = await db.pratiche.find({"stato": {"$in": ["INVIATA", "IN_ISTRUTTORIA"]}}, {"_id": 0}).to_list(1000)
+    pratiche = await db.pratiche.find({**match, "stato": {"$in": ["INVIATA", "IN_ISTRUTTORIA"]}}, {"_id": 0}).to_list(1000)
     for p in pratiche:
         updated = datetime.fromisoformat(p["updated_at"])
         giorni = (ora - updated).days
@@ -875,6 +882,14 @@ async def admin_anomalie(user: dict = Depends(require_role("superadmin"))):
             anomalie.append({"tipo": "ISTRUTTORIA_LENTA", "pratica_id": p["id"],
                              "descrizione": f"Pratica '{p['spazio_nome']}' in istruttoria da {giorni} giorni"})
     return anomalie
+
+@api_router.get("/admin/anomalie")
+async def admin_anomalie(user: dict = Depends(require_role("superadmin"))):
+    return await _calc_anomalie({})
+
+@api_router.get("/comune/anomalie")
+async def comune_anomalie(user: dict = Depends(require_comune_l3)):
+    return await _calc_anomalie({"comune_id": user["comune_id"]})
 
 @api_router.post("/admin/upload-logo")
 async def upload_logo(file: UploadFile = File(...), user: dict = Depends(require_role("superadmin"))):
@@ -941,6 +956,41 @@ async def onboard_comune(data: ComuneOnboardIn, user: dict = Depends(require_rol
                  "ruolo": "comune", "comune_id": comune["id"], "livello": 3, "created_at": now_iso()}
     await db.users.insert_one({**referente, "password_hash": hash_password(data.referente_password)})
     return {"comune": comune, "referente": referente}
+
+@api_router.put("/admin/comuni/{comune_id}")
+async def aggiorna_comune(comune_id: str, data: ComuneUpdateIn, user: dict = Depends(require_role("superadmin"))):
+    comune = await db.comuni.find_one({"id": comune_id}, {"_id": 0})
+    if not comune:
+        raise HTTPException(status_code=404, detail="Comune non trovato")
+    updates = {k: v for k, v in data.model_dump().items() if v is not None}
+    if updates:
+        await db.comuni.update_one({"id": comune_id}, {"$set": updates})
+        spazi_updates = {}
+        if "nome" in updates:
+            spazi_updates["citta"] = updates["nome"]
+        if "regione" in updates:
+            spazi_updates["regione"] = updates["regione"]
+        if spazi_updates:
+            await db.spazi.update_many({"comune_id": comune_id}, {"$set": spazi_updates})
+    return await db.comuni.find_one({"id": comune_id}, {"_id": 0})
+
+@api_router.delete("/admin/comuni/{comune_id}")
+async def elimina_comune(comune_id: str, user: dict = Depends(require_role("superadmin"))):
+    comune = await db.comuni.find_one({"id": comune_id}, {"_id": 0})
+    if not comune:
+        raise HTTPException(status_code=404, detail="Comune non trovato")
+    pratiche = await db.pratiche.find({"comune_id": comune_id}, {"_id": 0, "id": 1}).to_list(5000)
+    pids = [p["id"] for p in pratiche]
+    if pids:
+        await db.log_stato.delete_many({"pratica_id": {"$in": pids}})
+        await db.chat.delete_many({"pratica_id": {"$in": pids}})
+        await db.pratiche.delete_many({"id": {"$in": pids}})
+    spazi_res = await db.spazi.delete_many({"comune_id": comune_id})
+    await db.form_templates.delete_many({"comune_id": comune_id})
+    utenti_res = await db.users.delete_many({"ruolo": "comune", "comune_id": comune_id})
+    await db.comuni.delete_one({"id": comune_id})
+    return {"ok": True, "pratiche_eliminate": len(pids), "spazi_eliminati": spazi_res.deleted_count,
+            "utenti_eliminati": utenti_res.deleted_count}
 
 # ---------- app setup ----------
 
