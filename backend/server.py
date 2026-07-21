@@ -177,6 +177,7 @@ class ComuneOnboardIn(BaseModel):
     provincia: str
     lat: float
     lng: float
+    logo_url: Optional[str] = None
     referente_email: str
     referente_password: str
     referente_nome: str

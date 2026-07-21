@@ -9,7 +9,7 @@ from motor.motor_asyncio import AsyncIOMotorClient
 
 IMG_BILLBOARD = "https://images.unsplash.com/photo-1699480114704-ac153307d2a0?crop=entropy&cs=srgb&fm=jpg&q=85"
 IMG_PIAZZA = "https://images.unsplash.com/photo-1777403705903-9704d002ca8a?crop=entropy&cs=srgb&fm=jpg&q=85"
-IMG_URBAN = "https://images.unsplash.com/photo-1567967455389-e696c1a95d21?crop=entropy&cs=srgb&fm=jpg&q=85&w=1200"
+IMG_URBAN = "/api/uploads/spazi/mupi_urban.jpeg"
 IMG_LED = "https://images.unsplash.com/photo-1563089145-599997674d42?crop=entropy&cs=srgb&fm=jpg&q=85&w=1200"
 
 def uid():

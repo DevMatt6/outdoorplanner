@@ -365,17 +365,30 @@ class TestComuneBackoffice:
         assert r3.status_code == 200
 
     def test_form_template_get_put(self, session, comune_token, comune_l3_token):
-        r = session.get(f"{API}/comune/form-template", headers=h(comune_token), timeout=10)
+        # backend expone list endpoint /comune/form-templates (plural)
+        r = session.get(f"{API}/comune/form-templates", headers=h(comune_token), timeout=10)
         assert r.status_code == 200
-        tpl = r.json()
-        # PUT (aggiungi un campo TEST) — solo L3
-        campi = tpl.get("campi", []) + [
+        tpls = r.json()
+        assert isinstance(tpls, list)
+        if not tpls:
+            # crea un template
+            r_new = session.post(f"{API}/comune/form-templates",
+                                 json={"nome": "TEST_mod", "campi": [
+                                     {"id": "test_campo", "label": "TEST", "tipo": "text",
+                                      "opzioni": [], "required": False, "condizione": None}]},
+                                 headers=h(comune_l3_token), timeout=10)
+            assert r_new.status_code == 200
+            tpl = r_new.json()
+        else:
+            tpl = tpls[0]
+        # PUT (aggiungi/aggiorna campo TEST) — solo L3
+        campi = [c for c in tpl.get("campi", []) if c.get("id") != "test_campo"] + [
             {"id": "test_campo", "label": "TEST", "tipo": "text", "opzioni": [], "required": False, "condizione": None}
         ]
-        r2 = session.put(f"{API}/comune/form-template",
+        r2 = session.put(f"{API}/comune/form-templates/{tpl['id']}",
                          json={"nome": tpl.get("nome", "Test"), "campi": campi},
                          headers=h(comune_l3_token), timeout=10)
-        assert r2.status_code == 200
+        assert r2.status_code == 200, r2.text
         assert any(c["id"] == "test_campo" for c in r2.json()["campi"])
 
     def test_comune_report(self, session, comune_token):
@@ -507,8 +520,19 @@ class TestLivelliComune:
         r = session.post(f"{API}/comune/spazi", json=payload, headers=h(comune_token), timeout=10)
         assert r.status_code == 403
 
-    def test_l1_cannot_put_form_template(self, session, comune_token):
-        r = session.put(f"{API}/comune/form-template",
+    def test_l1_cannot_put_form_template(self, session, comune_token, comune_l3_token):
+        # get an existing template id, then try PUT as L1
+        tpls = session.get(f"{API}/comune/form-templates", headers=h(comune_l3_token), timeout=10).json()
+        if not tpls:
+            # crea prima
+            r_new = session.post(f"{API}/comune/form-templates",
+                                 json={"nome": "TEST_L1_denied", "campi": []},
+                                 headers=h(comune_l3_token), timeout=10)
+            assert r_new.status_code == 200
+            tid = r_new.json()["id"]
+        else:
+            tid = tpls[0]["id"]
+        r = session.put(f"{API}/comune/form-templates/{tid}",
                         json={"nome": "Test", "campi": []},
                         headers=h(comune_token), timeout=10)
         assert r.status_code == 403
@@ -958,45 +982,47 @@ class TestCampagnaDatiForm:
         camp = r.json()
         return {"user_tok": user_tok, "camp": camp, "s_roma": s_roma, "s_mi": s_mi}
 
-    def test_put_dati_form_aggiorna_solo_comune_target(self, session, camp_ctx):
+    def test_put_dati_form_aggiorna_solo_target(self, session, camp_ctx):
         camp = camp_ctx["camp"]
         tok = camp_ctx["user_tok"]
         comune_roma = camp_ctx["s_roma"]["comune_id"]
         comune_mi = camp_ctx["s_mi"]["comune_id"]
+        pratica_roma = next(p for p in camp["pratiche"] if p["comune_id"] == comune_roma)
 
         dati_roma = {"tipo_richiedente": "Azienda", "ragione_sociale": "TESTCO Roma",
                      "partita_iva": "99999999999", "codice_fiscale": "TSTCFS80A01H501X",
                      "descrizione_contenuto": "Contenuto Roma"}
         r = session.put(f"{API}/campagne/{camp['id']}/dati-form",
-                        json={"comune_id": comune_roma, "dati_form": dati_roma},
+                        json={"pratica_ids": [pratica_roma["id"]], "dati_form": dati_roma},
                         headers=h(tok), timeout=10)
-        assert r.status_code == 200
-        assert r.json()["aggiornate"] >= 1
+        assert r.status_code == 200, r.text
+        assert r.json()["aggiornate"] == 1
 
         # GET campagna → pratica Roma ha nuovi dati; pratica Milano invariata
         rc = session.get(f"{API}/campagne/{camp['id']}", headers=h(tok), timeout=10)
         assert rc.status_code == 200
         cd = rc.json()
         for p in cd["pratiche"]:
-            if p["comune_id"] == comune_roma:
+            if p["id"] == pratica_roma["id"]:
                 assert p["dati_form"]["ragione_sociale"] == "TESTCO Roma"
                 assert p["dati_form"]["descrizione_contenuto"] == "Contenuto Roma"
             elif p["comune_id"] == comune_mi:
-                # non contiene la stessa ragione sociale (era default con solo descrizione_contenuto)
                 assert p["dati_form"].get("ragione_sociale") != "TESTCO Roma"
 
-    def test_put_dati_form_secondo_comune(self, session, camp_ctx):
+    def test_put_dati_form_seconda_pratica(self, session, camp_ctx):
         camp = camp_ctx["camp"]
         tok = camp_ctx["user_tok"]
         comune_mi = camp_ctx["s_mi"]["comune_id"]
+        pratica_mi = next(p for p in camp["pratiche"] if p["comune_id"] == comune_mi)
         dati_mi = {"tipo_richiedente": "Privato", "codice_fiscale": "PRVCFS80A01H501X",
                    "descrizione_contenuto": "Contenuto Milano"}
         r = session.put(f"{API}/campagne/{camp['id']}/dati-form",
-                        json={"comune_id": comune_mi, "dati_form": dati_mi},
+                        json={"pratica_ids": [pratica_mi["id"]], "dati_form": dati_mi},
                         headers=h(tok), timeout=10)
         assert r.status_code == 200
+        assert r.json()["aggiornate"] == 1
         rc = session.get(f"{API}/campagne/{camp['id']}", headers=h(tok), timeout=10)
-        prm = next(p for p in rc.json()["pratiche"] if p["comune_id"] == comune_mi)
+        prm = next(p for p in rc.json()["pratiche"] if p["id"] == pratica_mi["id"])
         assert prm["dati_form"]["descrizione_contenuto"] == "Contenuto Milano"
         assert prm["dati_form"]["tipo_richiedente"] == "Privato"
 
@@ -1008,8 +1034,9 @@ class TestCampagnaDatiForm:
                                 "tipo_soggetto": "Privato"}, timeout=10)
         assert rr.status_code == 200
         other_tok = rr.json()["access_token"]
+        prid = camp_ctx["camp"]["pratiche"][0]["id"]
         r = session.put(f"{API}/campagne/{camp_ctx['camp']['id']}/dati-form",
-                        json={"comune_id": camp_ctx["s_roma"]["comune_id"], "dati_form": {"x": 1}},
+                        json={"pratica_ids": [prid], "dati_form": {"x": 1}},
                         headers=h(other_tok), timeout=10)
         assert r.status_code == 404
 
@@ -1019,9 +1046,238 @@ class TestCampagnaDatiForm:
         tok = camp_ctx["user_tok"]
         session.post(f"{API}/campagne/{camp['id']}/checkout", headers=h(tok), timeout=10)
         session.post(f"{API}/campagne/{camp['id']}/invia", headers=h(tok), timeout=10)
+        prids = [p["id"] for p in camp["pratiche"]]
         r = session.put(f"{API}/campagne/{camp['id']}/dati-form",
-                        json={"comune_id": camp_ctx["s_roma"]["comune_id"],
+                        json={"pratica_ids": prids,
                               "dati_form": {"descrizione_contenuto": "post-invio"}},
                         headers=h(tok), timeout=10)
         assert r.status_code == 200
         assert r.json()["aggiornate"] == 0
+
+
+# ---------- ITERAZIONE 6: DELETE bozza + zone + report per spazio + admin KPI ----------
+
+class TestDeletePratica:
+    """DELETE /pratiche/{id} — solo BOZZA del proprietario."""
+
+    def test_delete_bozza_ok(self, session, user_token):
+        import random
+        offset = random.randint(4800, 5000)
+        d1 = (datetime.now() + timedelta(days=offset)).date().isoformat()
+        d2 = (datetime.now() + timedelta(days=offset + 1)).date().isoformat()
+        spazi = session.get(f"{API}/spazi", params={"regione": "Lazio"}, timeout=10).json()
+        r = session.post(f"{API}/pratiche",
+                         json={"spazio_id": spazi[0]["id"], "data_inizio": d1, "data_fine": d2, "dati_form": {}},
+                         headers=h(user_token), timeout=15)
+        assert r.status_code == 200
+        pid = r.json()["id"]
+        rd = session.delete(f"{API}/pratiche/{pid}", headers=h(user_token), timeout=10)
+        assert rd.status_code == 200
+        assert rd.json()["ok"] is True
+        # verifica cancellazione
+        rg = session.get(f"{API}/pratiche/{pid}", headers=h(user_token), timeout=10)
+        assert rg.status_code == 404
+
+    def test_delete_non_bozza_400(self, session, user_token):
+        # find a pratica INVIATA (or move one to INVIATA)
+        pratiche = session.get(f"{API}/pratiche", headers=h(user_token), timeout=10).json()
+        inviata = next((p for p in pratiche if p["stato"] != "BOZZA"), None)
+        assert inviata, "serve almeno una pratica non BOZZA per user@demo.it"
+        r = session.delete(f"{API}/pratiche/{inviata['id']}", headers=h(user_token), timeout=10)
+        assert r.status_code == 400
+        assert "bozze" in r.text.lower()
+
+    def test_delete_altrui_404(self, session, user_token):
+        # crea altro user con pratica, poi user@demo prova a cancellarla
+        import random
+        email = f"TEST_delp_{int(time.time() * 1000)}@demo.it"
+        rr = session.post(f"{API}/auth/register",
+                          json={"email": email, "password": "demo123", "nome": "Del",
+                                "tipo_soggetto": "Privato"}, timeout=10)
+        other_tok = rr.json()["access_token"]
+        spazi = session.get(f"{API}/spazi", params={"regione": "Lazio"}, timeout=10).json()
+        offset = random.randint(5100, 5300)
+        d1 = (datetime.now() + timedelta(days=offset)).date().isoformat()
+        d2 = (datetime.now() + timedelta(days=offset + 1)).date().isoformat()
+        r = session.post(f"{API}/pratiche",
+                         json={"spazio_id": spazi[0]["id"], "data_inizio": d1, "data_fine": d2, "dati_form": {}},
+                         headers=h(other_tok), timeout=15)
+        pid = r.json()["id"]
+        rd = session.delete(f"{API}/pratiche/{pid}", headers=h(user_token), timeout=10)
+        assert rd.status_code == 404
+
+
+class TestSpaziZone:
+    """GET /spazi/zone + filtro zona su /spazi."""
+
+    def test_zone_all(self, session):
+        r = session.get(f"{API}/spazi/zone", timeout=10)
+        assert r.status_code == 200
+        zones = r.json()
+        assert isinstance(zones, list)
+        assert len(zones) >= 1
+        # nessuna stringa vuota
+        assert all(z and z.strip() for z in zones)
+
+    def test_zone_filter_citta(self, session):
+        r = session.get(f"{API}/spazi/zone", params={"citta": "Roma"}, timeout=10)
+        assert r.status_code == 200
+        zones = r.json()
+        assert isinstance(zones, list)
+        # tutte le zone appartengono a Roma
+        spazi_roma = session.get(f"{API}/spazi", params={"citta": "Roma"}, timeout=10).json()
+        zone_roma = {s.get("zona") for s in spazi_roma if s.get("zona")}
+        assert set(zones).issubset(zone_roma)
+
+    def test_spazi_filter_zona(self, session):
+        # prendi una zona esistente da Roma e verifica il filtro
+        zones = session.get(f"{API}/spazi/zone", params={"citta": "Roma"}, timeout=10).json()
+        if not zones:
+            pytest.skip("Nessuna zona seeded")
+        z = zones[0]
+        r = session.get(f"{API}/spazi", params={"zona": z}, timeout=10)
+        assert r.status_code == 200
+        for s in r.json():
+            assert s["zona"] == z
+
+
+class TestComuneReportSpazi:
+    """GET /comune/report/spazi + PATCH /comune/spazi/{id}/canone."""
+
+    def test_report_per_spazio(self, session, comune_token):
+        r = session.get(f"{API}/comune/report/spazi", headers=h(comune_token), timeout=10)
+        assert r.status_code == 200
+        rows = r.json()
+        assert isinstance(rows, list) and len(rows) >= 1
+        row = rows[0]
+        for k in ("spazio_id", "nome", "tipologia", "incassato", "pratiche_pagate", "pratiche_totali", "storico"):
+            assert k in row, f"missing key {k}"
+        assert isinstance(row["storico"], list)
+
+    def test_patch_canone_l3(self, session, comune_l3_token):
+        spazi = session.get(f"{API}/comune/spazi", headers=h(comune_l3_token), timeout=10).json()
+        assert spazi
+        sid = spazi[0]["id"]
+        old = spazi[0]["canone_giornaliero"]
+        new_val = round(old + 3.33, 2)
+        r = session.patch(f"{API}/comune/spazi/{sid}/canone",
+                          json={"canone_giornaliero": new_val},
+                          headers=h(comune_l3_token), timeout=10)
+        assert r.status_code == 200
+        # verifica persistenza
+        rget = session.get(f"{API}/spazi/{sid}", timeout=10)
+        assert rget.status_code == 200
+        assert rget.json()["canone_giornaliero"] == new_val
+        # restore
+        session.patch(f"{API}/comune/spazi/{sid}/canone",
+                      json={"canone_giornaliero": old},
+                      headers=h(comune_l3_token), timeout=10)
+
+    def test_patch_canone_l1_forbidden(self, session, comune_token, comune_l3_token):
+        spazi = session.get(f"{API}/comune/spazi", headers=h(comune_l3_token), timeout=10).json()
+        sid = spazi[0]["id"]
+        r = session.patch(f"{API}/comune/spazi/{sid}/canone",
+                          json={"canone_giornaliero": 99.9},
+                          headers=h(comune_token), timeout=10)
+        assert r.status_code == 403
+
+    def test_patch_canone_invalid(self, session, comune_l3_token):
+        spazi = session.get(f"{API}/comune/spazi", headers=h(comune_l3_token), timeout=10).json()
+        sid = spazi[0]["id"]
+        r = session.patch(f"{API}/comune/spazi/{sid}/canone",
+                          json={"canone_giornaliero": 0},
+                          headers=h(comune_l3_token), timeout=10)
+        assert r.status_code == 400
+
+
+class TestAdminComuniKPI:
+    """GET /admin/comuni con nuovi campi + drill-down report per comune."""
+
+    def test_admin_comuni_new_fields(self, session, admin_token):
+        r = session.get(f"{API}/admin/comuni", headers=h(admin_token), timeout=10)
+        assert r.status_code == 200
+        comuni = r.json()
+        assert len(comuni) >= 1
+        for c in comuni:
+            for k in ("spazi_count", "spazi_attivi", "pratiche_count", "approvate",
+                      "incasso_totale", "incasso_piattaforma"):
+                assert k in c, f"missing key {k} in comune {c.get('nome')}"
+            # incasso_piattaforma == 5% dell'incasso_totale
+            assert abs(c["incasso_piattaforma"] - round(c["incasso_totale"] * 0.05, 2)) < 0.02
+
+    def test_admin_report_per_comune(self, session, admin_token):
+        comuni = session.get(f"{API}/admin/comuni", headers=h(admin_token), timeout=10).json()
+        # scegli Roma se presente
+        roma = next((c for c in comuni if c["nome"] == "Roma"), comuni[0])
+        r = session.get(f"{API}/admin/comuni/{roma['id']}/report",
+                        headers=h(admin_token), timeout=10)
+        assert r.status_code == 200
+        data = r.json()
+        for k in ("comune", "pratiche_totali", "per_stato", "incasso_totale",
+                  "incasso_piattaforma", "incassi_mese", "ultime_pratiche"):
+            assert k in data
+        assert data["comune"]["id"] == roma["id"]
+        assert isinstance(data["incassi_mese"], list)
+        assert isinstance(data["ultime_pratiche"], list)
+
+    def test_admin_report_comune_404(self, session, admin_token):
+        r = session.get(f"{API}/admin/comuni/does-not-exist/report",
+                        headers=h(admin_token), timeout=10)
+        assert r.status_code == 404
+
+    def test_admin_report_only_superadmin(self, session, comune_token):
+        comuni = session.get(f"{API}/comuni", timeout=10).json()
+        r = session.get(f"{API}/admin/comuni/{comuni[0]['id']}/report",
+                        headers=h(comune_token), timeout=10)
+        assert r.status_code == 403
+
+
+class TestOnboardComuneLogo:
+    """POST /admin/comuni con optional logo_url."""
+
+    def test_onboard_with_logo_url(self, session, admin_token):
+        unique = f"TEST_lgo_{int(time.time() * 1000)}@demo.it"
+        payload = {"nome": f"TEST_Comune_LOGO_{int(time.time())}", "regione": "Sardegna",
+                   "provincia": "CA", "lat": 39.22, "lng": 9.11,
+                   "logo_url": "/api/uploads/loghi/abc123.png",
+                   "referente_email": unique, "referente_password": "demo123",
+                   "referente_nome": "TEST Logo"}
+        r = session.post(f"{API}/admin/comuni", json=payload, headers=h(admin_token), timeout=15)
+        assert r.status_code == 200, r.text
+        cid = r.json()["comune"]["id"]
+        # verifica presenza logo_url
+        comuni = session.get(f"{API}/admin/comuni", headers=h(admin_token), timeout=10).json()
+        my = next(c for c in comuni if c["id"] == cid)
+        assert my["logo_url"] == "/api/uploads/loghi/abc123.png"
+
+    def test_onboard_without_logo_url(self, session, admin_token):
+        unique = f"TEST_nlg_{int(time.time() * 1000)}@demo.it"
+        payload = {"nome": f"TEST_Comune_NOLOGO_{int(time.time())}", "regione": "Sardegna",
+                   "provincia": "SS", "lat": 40.72, "lng": 8.55,
+                   "referente_email": unique, "referente_password": "demo123",
+                   "referente_nome": "TEST NoLogo"}
+        r = session.post(f"{API}/admin/comuni", json=payload, headers=h(admin_token), timeout=15)
+        assert r.status_code == 200, r.text
+        cid = r.json()["comune"]["id"]
+        comuni = session.get(f"{API}/admin/comuni", headers=h(admin_token), timeout=10).json()
+        my = next(c for c in comuni if c["id"] == cid)
+        assert my.get("logo_url") in (None, "")
+
+
+class TestFormTemplateSpazio:
+    """GET /form-templates/spazio/{id} — fallback su comune template."""
+
+    def test_template_spazio_fallback_comune(self, session):
+        # scegli spazio Roma senza form_template_id specifico
+        spazi = session.get(f"{API}/spazi", params={"citta": "Roma"}, timeout=10).json()
+        assert spazi
+        sid = spazi[0]["id"]
+        r = session.get(f"{API}/form-templates/spazio/{sid}", timeout=10)
+        assert r.status_code == 200
+        tpl = r.json()
+        assert "campi" in tpl
+
+    def test_template_spazio_404(self, session):
+        r = session.get(f"{API}/form-templates/spazio/does-not-exist", timeout=10)
+        assert r.status_code == 404
+

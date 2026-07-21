@@ -1,14 +1,18 @@
 import { useEffect, useState } from "react";
 import { BarChart, Bar, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { BackofficeLayout, COMUNE_LINKS } from "../../components/BackofficeLayout";
-import { STATO_COLORS } from "../../components/StatusBadge";
+import { STATO_COLORS, StatusBadge } from "../../components/StatusBadge";
 import { api } from "../../lib/api";
+import { ChevronDown, ChevronUp } from "lucide-react";
 
 export default function Report() {
   const [report, setReport] = useState(null);
+  const [perSpazio, setPerSpazio] = useState([]);
+  const [expanded, setExpanded] = useState(null);
 
   useEffect(() => {
     api.get("/comune/report").then(({ data }) => setReport(data));
+    api.get("/comune/report/spazi").then(({ data }) => setPerSpazio(data));
   }, []);
 
   if (!report) return <BackofficeLayout title="Backoffice Comune" links={COMUNE_LINKS}><div className="text-slate-500">Caricamento...</div></BackofficeLayout>;
@@ -59,6 +63,56 @@ export default function Report() {
             </BarChart>
           </ResponsiveContainer>
         </div>
+      </div>
+
+      <div className="mt-6 border border-slate-100 bg-white rounded-2xl overflow-hidden" data-testid="report-per-spazio">
+        <div className="px-5 py-3 border-b border-slate-100 text-xs font-bold uppercase tracking-widest bg-[#FAFAF8]">Dettaglio per spazio</div>
+        <table className="w-full text-sm border-collapse">
+          <thead>
+            <tr className="border-b border-slate-100 text-left">
+              {["Spazio", "Pratiche", "Pagate", "Incassato", ""].map((h) => (
+                <th key={h} className="px-4 py-3 text-[11px] font-bold uppercase tracking-widest text-slate-500">{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {perSpazio.map((s) => (
+              <>
+                <tr key={s.spazio_id} className="border-b border-slate-100 hover:bg-[#F1F5F0] transition-colors cursor-pointer"
+                  data-testid={`report-spazio-${s.spazio_id}`}
+                  onClick={() => setExpanded(expanded === s.spazio_id ? null : s.spazio_id)}>
+                  <td className="px-4 py-3">
+                    <div className="font-bold">{s.nome}</div>
+                    <div className="text-xs text-slate-400">{s.tipologia}{s.formato ? ` · ${s.formato}` : ""}</div>
+                  </td>
+                  <td className="px-4 py-3 font-mono">{s.pratiche_totali}</td>
+                  <td className="px-4 py-3 font-mono">{s.pratiche_pagate}</td>
+                  <td className="px-4 py-3 font-heading font-extrabold">{s.incassato.toFixed(2)} €</td>
+                  <td className="px-4 py-3 text-slate-400">{expanded === s.spazio_id ? <ChevronUp size={16} /> : <ChevronDown size={16} />}</td>
+                </tr>
+                {expanded === s.spazio_id && (
+                  <tr key={`${s.spazio_id}-detail`}>
+                    <td colSpan={5} className="bg-[#FAFAF8] px-4 py-3 border-b border-slate-100">
+                      {s.storico.length === 0 && <div className="text-xs text-slate-500">Nessuna pratica su questo spazio.</div>}
+                      <div className="space-y-1.5">
+                        {s.storico.map((r, i) => (
+                          <div key={i} className="flex flex-wrap items-center gap-3 text-xs bg-white border border-slate-100 rounded-xl px-3 py-2">
+                            <span className="font-mono text-slate-500">{r.data}</span>
+                            <span className="font-bold flex-1 min-w-[140px]">{r.user_nome}</span>
+                            <span className="font-mono text-slate-500">{r.periodo}</span>
+                            <StatusBadge stato={r.stato} />
+                            <span className="font-bold">{r.importo.toFixed(2)} €</span>
+                          </div>
+                        ))}
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </>
+            ))}
+            {perSpazio.length === 0 && <tr><td colSpan={5} className="px-4 py-6 text-center text-slate-500">Nessuno spazio a catalogo.</td></tr>}
+          </tbody>
+        </table>
       </div>
     </BackofficeLayout>
   );

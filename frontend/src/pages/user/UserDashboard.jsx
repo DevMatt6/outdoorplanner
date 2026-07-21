@@ -1,14 +1,16 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { NavBar } from "../../components/NavBar";
-import { StatusBadge } from "../../components/StatusBadge";
-import { api } from "../../lib/api";
+import { StatusBadge, STATO_COLORS } from "../../components/StatusBadge";
+import { api, apiError } from "../../lib/api";
 import { useAuth } from "../../store/auth";
-import { Plus, ArrowRight, Megaphone } from "lucide-react";
+import { toast } from "sonner";
+import { Plus, ArrowRight, Megaphone, Trash2 } from "lucide-react";
 
 export default function UserDashboard() {
   const [pratiche, setPratiche] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [filtro, setFiltro] = useState("");
   const { user } = useAuth();
 
   useEffect(() => {
@@ -17,6 +19,18 @@ export default function UserDashboard() {
 
   const attive = pratiche.filter((p) => !["APPROVATA", "RIFIUTATA"].includes(p.stato)).length;
   const daIntegrare = pratiche.filter((p) => p.stato === "INTEGRAZIONE_RICHIESTA").length;
+  const visibili = filtro ? pratiche.filter((p) => p.stato === filtro) : pratiche;
+
+  const removeBozza = async (e, id) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!window.confirm("Eliminare definitivamente questa bozza?")) return;
+    try {
+      await api.delete(`/pratiche/${id}`);
+      setPratiche((ps) => ps.filter((p) => p.id !== id));
+      toast.success("Bozza eliminata");
+    } catch (err) { toast.error(apiError(err)); }
+  };
 
   return (
     <div className="min-h-screen">
@@ -45,7 +59,24 @@ export default function UserDashboard() {
           <div className="p-5 hover:bg-[#F1F5F0] transition-colors"><div className="font-heading font-extrabold text-3xl text-[#EF4444]">{daIntegrare}</div><div className="text-xs uppercase tracking-wider text-slate-500">Da integrare</div></div>
         </div>
 
-        <div className="mt-8 border border-slate-100 bg-white rounded-2xl overflow-hidden">
+        <div className="mt-8 flex flex-wrap items-center gap-2" data-testid="filtri-stato">
+          <button data-testid="filtro-tutte" onClick={() => setFiltro("")}
+            className={`px-4 py-1.5 text-xs font-bold rounded-full border transition-colors ${!filtro ? "bg-[#2F5B41] text-white border-[#2F5B41]" : "bg-white border-slate-200 text-slate-600 hover:border-[#2F5B41]"}`}>
+            Tutte ({pratiche.length})
+          </button>
+          {Object.entries(STATO_COLORS).map(([stato, cfg]) => {
+            const n = pratiche.filter((p) => p.stato === stato).length;
+            if (n === 0) return null;
+            return (
+              <button key={stato} data-testid={`filtro-${stato}`} onClick={() => setFiltro(filtro === stato ? "" : stato)}
+                className={`px-4 py-1.5 text-xs font-bold rounded-full border transition-colors ${filtro === stato ? "bg-[#2F5B41] text-white border-[#2F5B41]" : "bg-white border-slate-200 text-slate-600 hover:border-[#2F5B41]"}`}>
+                {cfg.label} ({n})
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="mt-4 border border-slate-100 bg-white rounded-2xl overflow-hidden">
           <div className="px-6 py-3 border-b border-slate-100 text-xs font-bold uppercase tracking-widest bg-[#FAFAF8]">Le mie pratiche</div>
           {loading && <div className="p-8 text-slate-500">Caricamento...</div>}
           {!loading && pratiche.length === 0 && (
@@ -54,7 +85,10 @@ export default function UserDashboard() {
               <Link to="/spazi" className="inline-block mt-4 border border-slate-200 rounded-full px-6 py-2.5 font-bold hover:bg-[#2F5B41] hover:text-white transition-colors">Cerca spazi</Link>
             </div>
           )}
-          {pratiche.map((p) => (
+          {!loading && pratiche.length > 0 && visibili.length === 0 && (
+            <div className="p-8 text-center text-slate-500 text-sm">Nessuna pratica con questo stato.</div>
+          )}
+          {visibili.map((p) => (
             <Link key={p.id} to={`/pratiche/${p.id}`} data-testid={`pratica-row-${p.id}`}
               className="flex flex-wrap items-center gap-4 px-6 py-4 border-b border-slate-200 hover:bg-[#F1F5F0] transition-colors">
               <div className="flex-1 min-w-[200px]">
@@ -62,6 +96,12 @@ export default function UserDashboard() {
                 <div className="text-xs text-slate-500 font-mono mt-0.5">{p.data_inizio} → {p.data_fine} · {p.importo.toFixed(2)} €</div>
               </div>
               <StatusBadge stato={p.stato} />
+              {p.stato === "BOZZA" && (
+                <button data-testid={`delete-pratica-${p.id}`} onClick={(e) => removeBozza(e, p.id)}
+                  className="border border-slate-200 rounded-lg p-1.5 hover:border-[#EF4444] hover:text-[#EF4444] transition-colors" title="Elimina bozza">
+                  <Trash2 size={14} />
+                </button>
+              )}
               <ArrowRight size={16} className="text-slate-400" />
             </Link>
           ))}

@@ -1,5 +1,7 @@
+import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../store/auth";
+import { api, imgSrc } from "../lib/api";
 import { NotificationBell } from "./NotificationBell";
 import { LayoutGrid, Inbox, Map, FileSliders, ChartColumn, Settings, LogOut, Landmark, Radar } from "lucide-react";
 
@@ -19,6 +21,10 @@ export const BackofficeLayout = ({ title, links, children }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const livello = user?.livello || 1;
+  const [comuneInfo, setComuneInfo] = useState(null);
+  useEffect(() => {
+    if (user?.ruolo === "comune") api.get("/comune/profilo").then(({ data }) => setComuneInfo(data));
+  }, [user?.ruolo]);
   const visibleLinks = links.filter((l) => !l[3] || livello >= l[3]);
   const livelloLabel = user?.ruolo === "comune"
     ? (livello === 3 ? "Responsabile · L3" : livello === 2 ? "Referente · L2" : "Operatore · L1")
@@ -32,6 +38,12 @@ export const BackofficeLayout = ({ title, links, children }) => {
           <span className="font-heading font-extrabold text-sm">Outdoor Planner</span>
         </Link>
         <div className="px-6 py-4 border-b border-slate-100">
+          {comuneInfo && (
+            <div className="flex items-center gap-2 mb-2" data-testid="comune-logo-sidebar">
+              {comuneInfo.logo_url && <img src={imgSrc(comuneInfo.logo_url)} alt="" className="w-8 h-8 rounded-lg object-contain border border-slate-100 bg-white" />}
+              <span className="text-xs font-bold">Comune di {comuneInfo.nome}</span>
+            </div>
+          )}
           <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">{title}</div>
           <div className="text-sm font-bold mt-0.5 truncate">{user?.nome}</div>
           {livelloLabel && (

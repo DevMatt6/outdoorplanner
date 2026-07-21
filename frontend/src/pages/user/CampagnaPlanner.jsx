@@ -17,7 +17,8 @@ export default function CampagnaPlanner() {
   const [step, setStep] = useState(0);
   const [nome, setNome] = useState("");
   const [range, setRange] = useState();
-  const [filtri, setFiltri] = useState({ citta: "", tipologia: "", formato: "" });
+  const [filtri, setFiltri] = useState({ citta: "", tipologia: "", formato: "", zona: "" });
+  const [zone, setZone] = useState([]);
   const [comuniList, setComuniList] = useState([]);
   const [disponibili, setDisponibili] = useState([]);
   const [selected, setSelected] = useState([]);
@@ -36,6 +37,10 @@ export default function CampagnaPlanner() {
   useEffect(() => {
     api.get("/comuni").then(({ data }) => setComuniList(data));
   }, []);
+
+  useEffect(() => {
+    api.get("/spazi/zone", { params: filtri.citta ? { citta: filtri.citta } : {} }).then(({ data }) => setZone(data));
+  }, [filtri.citta]);
 
   useEffect(() => {
     if (step !== 1 || !dal || !al) return;
@@ -83,29 +88,28 @@ export default function CampagnaPlanner() {
           ? { data: campagna }
           : await api.post("/campagne", { nome, data_inizio: dal, data_fine: al, spazi_ids: selected });
         setCampagna(data);
-        const cids = [...new Set(data.pratiche.map((p) => p.comune_id))];
         const tpls = {};
-        for (const cid of cids) {
-          const res = await api.get(`/form-templates/comune/${cid}`);
-          tpls[cid] = res.data;
+        for (const p of data.pratiche) {
+          const res = await api.get(`/form-templates/spazio/${p.spazio_id}`);
+          tpls[p.id] = res.data;
         }
         setTemplates(tpls);
         if (!campagna) toast.success(`Campagna creata: ${data.pratiche.length} pratiche generate`);
         setStep(2);
       } catch (e) { setError(apiError(e)); } finally { setBusy(false); }
     } else if (step === 2) {
-      for (const g of comuniCoinvolti) {
-        const tpl = templates[g.comune_id];
-        const values = formValues[g.comune_id] || {};
+      for (const p of campagna.pratiche) {
+        const tpl = templates[p.id];
+        const values = formValues[p.id] || {};
         const visibili = (tpl?.campi || []).filter((c) => isVisible(c, values));
         const mancanti = visibili.filter((c) => c.required && (values[c.id] === undefined || values[c.id] === "" || values[c.id] === null));
-        if (mancanti.length) return setError(`Comune di ${g.nome}: compila ${mancanti.map((c) => c.label).join(", ")}`);
+        if (mancanti.length) return setError(`${p.spazio_nome}: compila ${mancanti.map((c) => c.label).join(", ")}`);
       }
       setBusy(true);
       try {
-        for (const g of comuniCoinvolti) {
+        for (const p of campagna.pratiche) {
           await api.put(`/campagne/${campagna.id}/dati-form`, {
-            comune_id: g.comune_id, dati_form: formValues[g.comune_id] || {},
+            pratica_ids: [p.id], dati_form: formValues[p.id] || {},
           });
         }
         setStep(3);
@@ -113,17 +117,15 @@ export default function CampagnaPlanner() {
     }
   };
 
-  const uploadDoc = async (e, gruppo) => {
+  const uploadDoc = async (e, p) => {
     const file = e.target.files[0];
     if (!file) return;
     try {
-      for (const p of gruppo.pratiche) {
-        const fd = new FormData();
-        fd.append("file", file);
-        await api.post(`/pratiche/${p.id}/documenti?tipo=allegato`, fd);
-      }
-      setDocsCount((d) => ({ ...d, [gruppo.comune_id]: (d[gruppo.comune_id] || 0) + 1 }));
-      toast.success(`${file.name} allegato alle pratiche di ${gruppo.nome}`);
+      const fd = new FormData();
+      fd.append("file", file);
+      await api.post(`/pratiche/${p.id}/documenti?tipo=allegato`, fd);
+      setDocsCount((d) => ({ ...d, [p.id]: (d[p.id] || 0) + 1 }));
+      toast.success(`${file.name} allegato a ${p.spazio_nome}`);
     } catch (err) { toast.error(apiError(err)); }
     e.target.value = "";
   };
@@ -180,7 +182,7 @@ export default function CampagnaPlanner() {
                 <h2 className="font-heading font-extrabold text-xl flex-1">Spazi disponibili {dal} → {al}</h2>
               </div>
               <div className="flex flex-wrap gap-3">
-                <select data-testid="planner-filter-comune" className={input} value={filtri.citta} onChange={(e) => setFiltri({ ...filtri, citta: e.target.value })}>
+                <select data-testid="planner-filter-comune" className={input} value={filtri.citta} onChange={(e) => setFiltri({ ...filtri, citta: e.target.value, zona: "" })}>
                   <option value="">Tutti i Comuni</option>
                   {comuniList.map((c) => <option key={c.id} value={c.nome}>{c.nome}</option>)}
                 </select>
@@ -191,6 +193,10 @@ export default function CampagnaPlanner() {
                 <select data-testid="planner-filter-formato" className={input} value={filtri.formato} onChange={(e) => setFiltri({ ...filtri, formato: e.target.value })}>
                   <option value="">Formato</option>
                   {FORMATI.map((f) => <option key={f}>{f}</option>)}
+                </select>
+                <select data-testid="planner-filter-zona" className={input} value={filtri.zona} onChange={(e) => setFiltri({ ...filtri, zona: e.target.value })}>
+                  <option value="">Zona / quartiere</option>
+                  {zone.map((z) => <option key={z} value={z}>{z}</option>)}
                 </select>
                 <span className="ml-auto text-sm text-slate-500 font-mono self-center">{disponibili.length} disponibili</span>
               </div>
@@ -248,32 +254,32 @@ export default function CampagnaPlanner() {
           {step === 2 && campagna && (
             <div className="space-y-6">
               <div>
-                <h2 className="font-heading font-extrabold text-xl">Moduli dei Comuni</h2>
-                <p className="text-sm text-slate-500 mt-1">Ogni Comune coinvolto richiede il proprio modulo e i documenti. I dati vengono applicati a tutte le pratiche di quel Comune.</p>
+                <h2 className="font-heading font-extrabold text-xl">Moduli per spazio</h2>
+                <p className="text-sm text-slate-500 mt-1">Ogni spazio richiede il modulo previsto dal proprio Comune. Compila i dati e allega i documenti per ciascuno spazio.</p>
               </div>
-              {comuniCoinvolti.map((g) => {
-                const tpl = templates[g.comune_id];
-                const values = formValues[g.comune_id] || {};
+              {campagna.pratiche.map((p) => {
+                const tpl = templates[p.id];
+                const values = formValues[p.id] || {};
                 const visibili = (tpl?.campi || []).filter((c) => isVisible(c, values));
                 return (
-                  <div key={g.comune_id} className="border border-slate-100 rounded-2xl overflow-hidden" data-testid={`modulo-comune-${g.comune_id}`}>
+                  <div key={p.id} className="border border-slate-100 rounded-2xl overflow-hidden" data-testid={`modulo-pratica-${p.id}`}>
                     <div className="px-5 py-3 bg-[#FAFAF8] border-b border-slate-100 flex flex-wrap items-center justify-between gap-2">
-                      <div className="font-heading font-extrabold">Comune di {g.nome}</div>
-                      <div className="text-xs text-slate-500">{g.pratiche.map((p) => p.spazio_nome).join(" · ")}</div>
+                      <div className="font-heading font-extrabold">{p.spazio_nome}</div>
+                      <div className="text-xs text-slate-500">Comune di {(comuniList.find((c) => c.id === p.comune_id)?.nome) || "—"} · modulo "{tpl?.nome || "standard"}"</div>
                     </div>
                     <div className="p-5 grid sm:grid-cols-2 gap-4">
                       {visibili.map((c) => (
                         <DynamicField key={c.id} campo={c} value={values[c.id]}
-                          onChange={(v) => setFormValues({ ...formValues, [g.comune_id]: { ...values, [c.id]: v } })} />
+                          onChange={(v) => setFormValues({ ...formValues, [p.id]: { ...values, [c.id]: v } })} />
                       ))}
                       {visibili.length === 0 && <div className="text-sm text-slate-500">Nessun campo aggiuntivo richiesto.</div>}
                     </div>
                     <div className="px-5 pb-5 flex flex-wrap items-center gap-3">
                       <label className="cursor-pointer inline-flex items-center gap-2 border border-slate-200 rounded-full px-5 py-2 text-sm font-bold hover:border-[#2F5B41] hover:text-[#2F5B41] transition-colors">
                         <Upload size={15} /> Allega documento
-                        <input data-testid={`upload-comune-${g.comune_id}`} type="file" className="hidden" onChange={(e) => uploadDoc(e, g)} />
+                        <input data-testid={`upload-pratica-${p.id}`} type="file" className="hidden" onChange={(e) => uploadDoc(e, p)} />
                       </label>
-                      <span className="text-xs text-slate-500">{docsCount[g.comune_id] || 0} documenti allegati (bozzetto, planimetria, doc identità)</span>
+                      <span className="text-xs text-slate-500">{docsCount[p.id] || 0} documenti allegati (bozzetto, planimetria, doc identità)</span>
                     </div>
                   </div>
                 );

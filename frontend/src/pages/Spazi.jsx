@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { MapContainer, TileLayer, CircleMarker, Popup } from "react-leaflet";
+import { MapContainer, TileLayer, CircleMarker, Popup, Tooltip } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import { NavBar } from "../components/NavBar";
-import { api } from "../lib/api";
+import { api, imgSrc } from "../lib/api";
 import { TIPOLOGIE, FORMATI } from "../lib/catalogo";
 import { MapPin, Megaphone } from "lucide-react";
 
@@ -11,6 +11,7 @@ export default function Spazi() {
   const [params, setParams] = useSearchParams();
   const [spazi, setSpazi] = useState([]);
   const [comuni, setComuni] = useState([]);
+  const [zone, setZone] = useState([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
   const filters = {
@@ -18,12 +19,17 @@ export default function Spazi() {
     citta: params.get("citta") || "",
     tipologia: params.get("tipologia") || "",
     formato: params.get("formato") || "",
+    zona: params.get("zona") || "",
     q: params.get("q") || "",
   };
 
   useEffect(() => {
     api.get("/comuni").then(({ data }) => setComuni(data));
   }, []);
+
+  useEffect(() => {
+    api.get("/spazi/zone", { params: filters.citta ? { citta: filters.citta } : {} }).then(({ data }) => setZone(data));
+  }, [filters.citta]);
 
   useEffect(() => {
     setLoading(true);
@@ -35,6 +41,7 @@ export default function Spazi() {
   const setFilter = (k, v) => {
     const next = new URLSearchParams(params);
     if (v) next.set(k, v); else next.delete(k);
+    if (k === "citta") next.delete("zona");
     setParams(next);
   };
 
@@ -75,6 +82,10 @@ export default function Spazi() {
             <option value="">Formato</option>
             {FORMATI.map((f) => <option key={f} value={f}>{f}</option>)}
           </select>
+          <select data-testid="filter-zona" className={input} value={filters.zona} onChange={(e) => setFilter("zona", e.target.value)}>
+            <option value="">Zona / quartiere</option>
+            {zone.map((z) => <option key={z} value={z}>{z}</option>)}
+          </select>
           {filters.regione && (
             <button data-testid="clear-regione" onClick={() => setFilter("regione", "")}
               className="px-3 py-2 text-sm font-semibold rounded-full bg-[#2F5B41] text-white hover:bg-[#26492F] transition-colors">
@@ -94,7 +105,7 @@ export default function Spazi() {
               <Link key={s.id} to={`/spazi/${s.id}`} data-testid={`spazio-card-${s.id}`}
                 className="grid grid-cols-[140px_1fr] border border-slate-100 bg-white rounded-2xl overflow-hidden hover:border-[#2F5B41] transition-colors group">
                 <div className="border-r border-slate-100 overflow-hidden">
-                  <img src={s.foto_url} alt={s.nome} className="w-full h-full object-cover min-h-[120px]" />
+                  <img src={imgSrc(s.foto_url)} alt={s.nome} className="w-full h-full object-cover min-h-[120px]" />
                 </div>
                 <div className="p-4">
                   <div className="flex items-start justify-between gap-2">
@@ -105,7 +116,7 @@ export default function Spazi() {
                     {!s.disponibile && <span className="text-[10px] font-bold rounded-full bg-[#26292B] text-white px-2.5 py-1">Occupato</span>}
                   </div>
                   <div className="text-sm text-slate-600 mt-1 flex items-center gap-1">
-                    <MapPin size={13} /> {s.indirizzo} — {s.citta} ({s.regione})
+                    <MapPin size={13} /> {s.indirizzo} — {s.citta} ({s.regione}){s.zona ? ` · ${s.zona}` : ""}
                   </div>
                   <div className="mt-3 flex items-center justify-between">
                     <span className="text-xs font-bold rounded-full bg-[#F5F6F3] px-2.5 py-1 text-slate-600">{s.formato || s.dimensioni}</span>
@@ -123,6 +134,13 @@ export default function Spazi() {
                 {spazi.map((s) => (
                   <CircleMarker key={s.id} center={[s.lat, s.lng]} radius={9}
                     pathOptions={{ color: "#1F3D2B", weight: 1.5, fillColor: s.disponibile ? "#2F5B41" : "#94A3B8", fillOpacity: 1 }}>
+                    <Tooltip direction="top" offset={[0, -10]} opacity={1}>
+                      <div style={{ width: 150 }}>
+                        <img src={imgSrc(s.foto_url)} alt="" style={{ width: 150, height: 84, objectFit: "cover", borderRadius: 8 }} />
+                        <div style={{ fontWeight: 700, fontSize: 12, marginTop: 4 }}>{s.nome}</div>
+                        <div style={{ fontSize: 10 }}>{s.zona ? `${s.zona} · ` : ""}{s.canone_giornaliero} €/giorno</div>
+                      </div>
+                    </Tooltip>
                     <Popup>
                       <div className="font-bold">{s.nome}</div>
                       <div className="text-xs">{s.canone_giornaliero} €/giorno · {s.formato}</div>
