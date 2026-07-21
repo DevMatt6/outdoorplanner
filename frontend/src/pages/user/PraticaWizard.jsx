@@ -28,7 +28,7 @@ export default function PraticaWizard() {
     api.get(`/spazi/${spazioId}`).then(async ({ data }) => {
       setSpazio(data);
       const [tpl, occ] = await Promise.all([
-        api.get(`/form-templates/comune/${data.comune_id}`),
+        api.get(`/form-templates/spazio/${spazioId}`),
         api.get(`/spazi/${spazioId}/occupazioni`),
       ]);
       setTemplate(tpl.data);
@@ -42,6 +42,7 @@ export default function PraticaWizard() {
     ? Math.max(Math.floor((new Date(date.fine) - new Date(date.inizio)) / 86400000) + 1, 1) : 0;
   const importo = giorni * spazio.canone_giornaliero;
   const campiVisibili = template.campi.filter((c) => isVisible(c, values));
+  const docsRichiesti = template.documenti_richiesti || [];
 
   const next = async () => {
     setError("");
@@ -61,6 +62,10 @@ export default function PraticaWizard() {
         if (mancanti.length) return setError(`Compila i campi obbligatori: ${mancanti.map((c) => c.label).join(", ")}`);
         const { data } = await api.put(`/pratiche/${pratica.id}`, { dati_form: values });
         setPratica(data);
+      }
+      if (step === 2) {
+        const mancanti = docsRichiesti.filter((d) => d.required && !docs.some((x) => x.tipo === d.id));
+        if (mancanti.length) return setError(`Carica i documenti obbligatori: ${mancanti.map((d) => d.label).join(", ")}`);
       }
       setStep(step + 1);
     } catch (e) {
@@ -162,18 +167,20 @@ export default function PraticaWizard() {
           {step === 2 && (
             <div className="space-y-5">
               <h2 className="font-heading font-extrabold text-xl">Documenti allegati</h2>
-              {[["bozzetto", "Bozzetto / grafica"], ["planimetria", "Planimetria"], ["doc_identita", "Documento d'identità"]].map(([tipo, label]) => (
-                <div key={tipo} className="border border-slate-100 rounded-xl p-4 flex items-center justify-between gap-4">
+              <p className="text-sm text-slate-500">Documenti richiesti dal Comune di {spazio.comune?.nome} per il modulo "{template.nome}".</p>
+              {docsRichiesti.map((d) => (
+                <div key={d.id} className="border border-slate-100 rounded-xl p-4 flex items-center justify-between gap-4">
                   <div>
-                    <div className="font-bold text-sm">{label}</div>
-                    <div className="text-xs text-slate-500">{docs.filter((d) => d.tipo === tipo).map((d) => d.nome).join(", ") || "Nessun file caricato"}</div>
+                    <div className="font-bold text-sm">{d.label}{d.required && <span className="text-[#B91C1C]"> *</span>}</div>
+                    <div className="text-xs text-slate-500">{docs.filter((x) => x.tipo === d.id).map((x) => x.nome).join(", ") || "Nessun file caricato"}</div>
                   </div>
                   <label className="cursor-pointer inline-flex items-center gap-2 border border-slate-200 rounded-full px-4 py-2 text-sm font-bold hover:bg-[#2F5B41] hover:text-white transition-colors">
                     <Upload size={15} /> Carica
-                    <input data-testid={`upload-${tipo}`} type="file" className="hidden" onChange={(e) => uploadFile(e, tipo)} />
+                    <input data-testid={`upload-${d.id}`} type="file" className="hidden" onChange={(e) => uploadFile(e, d.id)} />
                   </label>
                 </div>
               ))}
+              {docsRichiesti.length === 0 && <div className="text-sm text-slate-500">Nessun documento richiesto per questo modulo.</div>}
               <p className="text-xs text-slate-500">I file sono archiviati in locale (demo). Formati consigliati: PDF, PNG, JPG.</p>
             </div>
           )}

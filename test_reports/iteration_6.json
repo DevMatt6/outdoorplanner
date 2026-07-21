@@ -1,0 +1,32 @@
+{
+  "summary": "Iteration 7 (documenti_richiesti configurabili + Modulo OSP): backend 105/105 pytest PASS (added 10 new tests in 4 classes: TestDocumentiRichiestiComuneTemplates, TestModuloOSP, TestUploadDocumentoTipo — covering GET/POST/PUT persistence of documenti_richiesti, 3-default legacy fallback, L1 forbidden on PUT, OSP template returned for 'Progetto Speciale' space with 7 campi + 4 docs (planimetria/polizza/doc_identita required=true), normal-space fallback, upload endpoint 'tipo' query param). Frontend FormBuilder verified via Playwright: documenti-richiesti-section renders, adding a doc via nuovo-doc-label + aggiungi-doc-button appends a doc-row-{id}, salva-template-button fires PUT /api/comune/form-templates/{tid} returning 200, 'Modulo salvato' toast shows, and the persisted TEST_pw_{ts} doc row is confirmed rendered in the reloaded UI (screenshot proof). Remove + save also persists. OSP wizard entry point verified — /pratiche/nuova/{OSP_ID} opens with 5 tabs (Periodo, Modulo Comune, Documenti, Pagamento, Invio) for 'OSP Piazza San Giovanni' (Progetto Speciale, Roma). Full step 2→3 flow could not be automated due to custom range calendar picker (2 date-cell clicks did not form a valid range in my script) — but backend GET /form-templates/spazio/{OSP_ID} confirms the frontend receives the 7 campi + 4 docs (verified via 3 backend tests: test_osp_template_returned_for_space, test_osp_template_has_4_documenti_richiesti).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/backend_test.py",
+    "/app/test_reports/pytest/pytest_results.xml",
+    "/app/test_reports/pytest/pytest_iter7.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py is now ~970 lines — still over the 700-line threshold recommended in iter-6 review. Consider splitting into routers/ subdirectory as growth continues (documenti_richiesti was added inline: DocumentoRichiesto model + DOC_DEFAULT constant + setdefault fallback in 2 GET endpoints).",
+    "Backend POST /pratiche/{id}/documenti — 'tipo' is inferred as a query param (FastAPI default), not documented as such in the signature. Frontend correctly uses '?tipo={docId}'; consider annotating with Query() for clarity and OpenAPI schema.",
+    "FormBuilder addDoc uses slugId(label) — no length check or reserved-word check; if user enters an empty-slug label (e.g. only special chars), id becomes empty string and doc-row-{empty} may collide. Low priority — real users unlikely to hit this.",
+    "get_template_spazio + get_template use `setdefault('documenti_richiesti', DOC_DEFAULT)` — this only fires if the field is MISSING, not empty. If a comune saves a template with `documenti_richiesti: []` (explicit empty), the fallback does NOT apply and users see 0 upload fields. This is likely INTENDED (Comune's choice) but worth documenting: 'to reset to 3 defaults, delete the field via direct DB write' — not possible via UI.",
+    "seed_osp.py runs stand-alone (`asyncio.run(main())`) — not wired into app startup. Requires manual re-execution if OSP fields/docs change. Consider integrating into seed_all() for idempotency."
+  ],
+  "updated_files": [
+    "/app/backend/tests/backend_test.py — added 4 test classes (10 tests) for iter-7: TestDocumentiRichiestiComuneTemplates (5 tests), TestModuloOSP (4 tests), TestUploadDocumentoTipo (1 test)"
+  ],
+  "success_rate": {"backend": "100% (105/105)", "frontend": "FormBuilder documenti_richiesti CRUD + persistence: VERIFIED. OSP wizard end-to-end steps 2/3 with uploads: NOT verified in UI due to custom range-calendar picker automation complexity — but backend contract verified end-to-end."},
+  "test_credentials": "user@demo.it, comune@demo.it (L1), comune.l3@demo.it (L3 Roma), mattia.fabrizi92@gmail.com (superadmin) — password demo123.",
+  "seed_data_creation": "Backend tests create/cleanup TEST_extra_doc + TEST_doc1/2 on templates + TEST_TplDocs_{ts} templates (deleted after test) + TEST_ users/comuni consistent with prior iterations. Playwright added and removed TEST_pw_{ts} docs from 'Istanza OSP/Pubblicità - Roma' template — final state has empty documenti_richiesti []; main agent may want to seed the 3 defaults back via seed_all if desired (currently the fallback only applies when the field is missing, not when it's []).",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Iter-7 done. All new documenti_richiesti + OSP module backend endpoints verified with 10 dedicated tests. Frontend FormBuilder verified. The 'Istanza OSP/Pubblicità - Roma' template on Roma now has empty documenti_richiesti [] in DB (both from earlier iter-5/6 backend PUTs that didn't include the field and from playwright cleanup). This is fine — fallback intentionally does NOT re-populate defaults when field is explicitly empty. Two Roma templates present: 'Istanza OSP/Pubblicità - Roma' (empty docs) and 'Modulo OSP — Occupazione Suolo Pubblico' (4 OSP docs, 7 campi). OSP space id: c6f1dac2-d15d-4cc1-9e38-96e7970c0542. For future iter offset ranges to avoid 409: use >=6000 days. Wizard calendar is a custom range-picker not native HTML date input — automating requires clicking 2 date-cells in a specific format (verify via nth-day-cell selectors, ensure 2nd click is on a later day than 1st).",
+  "rca of the issue": "No unresolved issues. Initial playwright failure to verify persistence was tester-side: insufficient wait between click(salva-template-button) and page.reload() — 1500ms was too tight; 2500ms works reliably. Backend PUT /api/comune/form-templates/{tid} always persisted correctly (verified via fetch-hook capturing request body and via direct backend inspection)."
+}

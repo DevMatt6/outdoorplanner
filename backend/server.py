@@ -37,6 +37,12 @@ logger = logging.getLogger(__name__)
 
 STATI = ["BOZZA", "INVIATA", "IN_ISTRUTTORIA", "INTEGRAZIONE_RICHIESTA", "APPROVATA", "RIFIUTATA"]
 
+DOC_DEFAULT = [
+    {"id": "bozzetto", "label": "Bozzetto / grafica", "required": False},
+    {"id": "planimetria", "label": "Planimetria", "required": False},
+    {"id": "doc_identita", "label": "Documento d'identità", "required": False},
+]
+
 # ---------- helpers ----------
 
 def now_iso():
@@ -138,9 +144,15 @@ class CampoTemplate(BaseModel):
     required: bool = False
     condizione: Optional[dict] = None
 
+class DocumentoRichiesto(BaseModel):
+    id: str
+    label: str
+    required: bool = False
+
 class TemplateIn(BaseModel):
     nome: str
     campi: List[CampoTemplate]
+    documenti_richiesti: List[DocumentoRichiesto] = []
 
 class PraticaIn(BaseModel):
     spazio_id: str
@@ -313,7 +325,10 @@ async def occupazioni_spazio(spazio_id: str):
 @api_router.get("/form-templates/comune/{comune_id}")
 async def get_template(comune_id: str):
     tpl = await db.form_templates.find_one({"comune_id": comune_id}, {"_id": 0})
-    return tpl or {"comune_id": comune_id, "nome": "Modulo standard", "campi": []}
+    if tpl:
+        tpl.setdefault("documenti_richiesti", DOC_DEFAULT)
+        return tpl
+    return {"comune_id": comune_id, "nome": "Modulo standard", "campi": [], "documenti_richiesti": DOC_DEFAULT}
 
 @api_router.get("/form-templates/spazio/{spazio_id}")
 async def get_template_spazio(spazio_id: str):
@@ -325,7 +340,10 @@ async def get_template_spazio(spazio_id: str):
         tpl = await db.form_templates.find_one({"id": spazio["form_template_id"]}, {"_id": 0})
     if not tpl:
         tpl = await db.form_templates.find_one({"comune_id": spazio["comune_id"]}, {"_id": 0})
-    return tpl or {"comune_id": spazio["comune_id"], "nome": "Modulo standard", "campi": []}
+    if tpl:
+        tpl.setdefault("documenti_richiesti", DOC_DEFAULT)
+        return tpl
+    return {"comune_id": spazio["comune_id"], "nome": "Modulo standard", "campi": [], "documenti_richiesti": DOC_DEFAULT}
 
 # ---------- pratiche (user) ----------
 
@@ -637,20 +655,27 @@ async def elimina_spazio(spazio_id: str, user: dict = Depends(require_comune_l3)
 
 @api_router.get("/comune/form-templates")
 async def comune_templates(user: dict = Depends(require_role("comune"))):
-    return await db.form_templates.find({"comune_id": user["comune_id"]}, {"_id": 0}).to_list(50)
+    tpls = await db.form_templates.find({"comune_id": user["comune_id"]}, {"_id": 0}).to_list(50)
+    for t in tpls:
+        t.setdefault("documenti_richiesti", DOC_DEFAULT)
+    return tpls
 
 @api_router.post("/comune/form-templates")
 async def crea_template(data: TemplateIn, user: dict = Depends(require_comune_l3)):
     campi_unici = list({c.id: c for c in data.campi}.values())
     tpl = {"id": str(uuid.uuid4()), "comune_id": user["comune_id"], "nome": data.nome,
-           "campi": [c.model_dump() for c in campi_unici], "updated_at": now_iso()}
+           "campi": [c.model_dump() for c in campi_unici],
+           "documenti_richiesti": [d.model_dump() for d in data.documenti_richiesti],
+           "updated_at": now_iso()}
     await db.form_templates.insert_one({**tpl})
     return tpl
 
 @api_router.put("/comune/form-templates/{tid}")
 async def salva_template(tid: str, data: TemplateIn, user: dict = Depends(require_comune_l3)):
     campi_unici = list({c.id: c for c in data.campi}.values())
-    updates = {"nome": data.nome, "campi": [c.model_dump() for c in campi_unici], "updated_at": now_iso()}
+    updates = {"nome": data.nome, "campi": [c.model_dump() for c in campi_unici],
+               "documenti_richiesti": [d.model_dump() for d in data.documenti_richiesti],
+               "updated_at": now_iso()}
     res = await db.form_templates.update_one({"id": tid, "comune_id": user["comune_id"]}, {"$set": updates})
     if res.matched_count == 0:
         raise HTTPException(status_code=404, detail="Modulo non trovato")

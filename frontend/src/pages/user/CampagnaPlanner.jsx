@@ -25,7 +25,7 @@ export default function CampagnaPlanner() {
   const [campagna, setCampagna] = useState(null);
   const [templates, setTemplates] = useState({});
   const [formValues, setFormValues] = useState({});
-  const [docsCount, setDocsCount] = useState({});
+  const [docsUp, setDocsUp] = useState({});
   const [pagata, setPagata] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -91,6 +91,8 @@ export default function CampagnaPlanner() {
         const visibili = (tpl?.campi || []).filter((c) => isVisible(c, values));
         const mancanti = visibili.filter((c) => c.required && (values[c.id] === undefined || values[c.id] === "" || values[c.id] === null));
         if (mancanti.length) return setError(`${p.spazio_nome}: compila ${mancanti.map((c) => c.label).join(", ")}`);
+        const docMancanti = (tpl?.documenti_richiesti || []).filter((d) => d.required && !docsUp[`${p.id}:${d.id}`]);
+        if (docMancanti.length) return setError(`${p.spazio_nome}: carica ${docMancanti.map((d) => d.label).join(", ")}`);
       }
       setBusy(true);
       try {
@@ -104,14 +106,14 @@ export default function CampagnaPlanner() {
     }
   };
 
-  const uploadDoc = async (e, p) => {
+  const uploadDoc = async (e, p, d) => {
     const file = e.target.files[0];
     if (!file) return;
     try {
       const fd = new FormData();
       fd.append("file", file);
-      await api.post(`/pratiche/${p.id}/documenti?tipo=allegato`, fd);
-      setDocsCount((d) => ({ ...d, [p.id]: (d[p.id] || 0) + 1 }));
+      await api.post(`/pratiche/${p.id}/documenti?tipo=${d.id}`, fd);
+      setDocsUp((x) => ({ ...x, [`${p.id}:${d.id}`]: file.name }));
       toast.success(`${file.name} allegato a ${p.spazio_nome}`);
     } catch (err) { toast.error(apiError(err)); }
     e.target.value = "";
@@ -261,12 +263,20 @@ export default function CampagnaPlanner() {
                       ))}
                       {visibili.length === 0 && <div className="text-sm text-slate-500">Nessun campo aggiuntivo richiesto.</div>}
                     </div>
-                    <div className="px-5 pb-5 flex flex-wrap items-center gap-3">
-                      <label className="cursor-pointer inline-flex items-center gap-2 border border-slate-200 rounded-full px-5 py-2 text-sm font-bold hover:border-[#2F5B41] hover:text-[#2F5B41] transition-colors">
-                        <Upload size={15} /> Allega documento
-                        <input data-testid={`upload-pratica-${p.id}`} type="file" className="hidden" onChange={(e) => uploadDoc(e, p)} />
-                      </label>
-                      <span className="text-xs text-slate-500">{docsCount[p.id] || 0} documenti allegati (bozzetto, planimetria, doc identità)</span>
+                    <div className="px-5 pb-5 space-y-2">
+                      {(tpl?.documenti_richiesti || []).map((d) => (
+                        <div key={d.id} className="flex flex-wrap items-center gap-3 border border-slate-100 rounded-xl px-4 py-2" data-testid={`doc-pratica-${p.id}-${d.id}`}>
+                          <span className="text-sm font-semibold flex-1 min-w-[160px]">{d.label}{d.required && <span className="text-[#B91C1C]"> *</span>}</span>
+                          <span className="text-xs text-slate-500">{docsUp[`${p.id}:${d.id}`] || "Nessun file"}</span>
+                          <label className="cursor-pointer inline-flex items-center gap-2 border border-slate-200 rounded-full px-4 py-1.5 text-xs font-bold hover:border-[#2F5B41] hover:text-[#2F5B41] transition-colors">
+                            <Upload size={13} /> Carica
+                            <input data-testid={`upload-pratica-${p.id}-${d.id}`} type="file" className="hidden" onChange={(e) => uploadDoc(e, p, d)} />
+                          </label>
+                        </div>
+                      ))}
+                      {(tpl?.documenti_richiesti || []).length === 0 && (
+                        <span className="text-xs text-slate-500">Nessun documento richiesto per questo spazio.</span>
+                      )}
                     </div>
                   </div>
                 );

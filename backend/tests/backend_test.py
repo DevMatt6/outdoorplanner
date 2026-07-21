@@ -1281,3 +1281,207 @@ class TestFormTemplateSpazio:
         r = session.get(f"{API}/form-templates/spazio/does-not-exist", timeout=10)
         assert r.status_code == 404
 
+
+# ---------- ITERAZIONE 7: documenti_richiesti configurabili + Modulo OSP ----------
+
+class TestDocumentiRichiestiComuneTemplates:
+    """GET/PUT/POST /comune/form-templates con documenti_richiesti (comuni CRUD)."""
+
+    def test_get_templates_include_documenti_richiesti(self, session, comune_l3_token):
+        r = session.get(f"{API}/comune/form-templates", headers=h(comune_l3_token), timeout=10)
+        assert r.status_code == 200
+        tpls = r.json()
+        assert isinstance(tpls, list) and len(tpls) >= 1
+        for t in tpls:
+            assert "documenti_richiesti" in t, f"template {t.get('nome')} manca documenti_richiesti"
+            assert isinstance(t["documenti_richiesti"], list)
+            # ogni doc ha id/label/required
+            for d in t["documenti_richiesti"]:
+                for k in ("id", "label", "required"):
+                    assert k in d, f"doc {d} manca campo {k}"
+
+    def test_legacy_template_gets_3_defaults(self, session, comune_l3_token):
+        """Un template legacy (senza documenti_richiesti nel DB) deve ricevere i 3 default via fallback."""
+        # cerca un template legacy — es. 'Istanza OSP/Pubblicità - Roma' o simile
+        tpls = session.get(f"{API}/comune/form-templates",
+                           headers=h(comune_l3_token), timeout=10).json()
+        # almeno uno dei template ha esattamente i 3 default con required=False
+        default_ids = {"bozzetto", "planimetria", "doc_identita"}
+        found_legacy = False
+        for t in tpls:
+            docs = t.get("documenti_richiesti", [])
+            ids = {d["id"] for d in docs}
+            if ids == default_ids and all(not d["required"] for d in docs):
+                found_legacy = True
+                break
+        assert found_legacy, f"Nessun template legacy con i 3 default trovato. tpls: {[(t['nome'], [d['id'] for d in t.get('documenti_richiesti', [])]) for t in tpls]}"
+
+    def test_put_persist_documenti_richiesti_roundtrip(self, session, comune_l3_token):
+        # trova un template esistente
+        tpls = session.get(f"{API}/comune/form-templates",
+                           headers=h(comune_l3_token), timeout=10).json()
+        assert tpls
+        # scegli un template NON-OSP per non danneggiare il seed OSP
+        tpl = next((t for t in tpls if "OSP" not in t["nome"]), tpls[0])
+        original_docs = list(tpl.get("documenti_richiesti", []))
+        original_campi = list(tpl.get("campi", []))
+        original_nome = tpl["nome"]
+        try:
+            new_docs = list(original_docs) + [
+                {"id": "TEST_extra_doc", "label": "TEST Documento extra", "required": True}
+            ]
+            r = session.put(f"{API}/comune/form-templates/{tpl['id']}",
+                            json={"nome": original_nome, "campi": original_campi,
+                                  "documenti_richiesti": new_docs},
+                            headers=h(comune_l3_token), timeout=10)
+            assert r.status_code == 200, r.text
+            saved = r.json()
+            saved_ids = [d["id"] for d in saved["documenti_richiesti"]]
+            assert "TEST_extra_doc" in saved_ids
+            extra = next(d for d in saved["documenti_richiesti"] if d["id"] == "TEST_extra_doc")
+            assert extra["required"] is True
+            assert extra["label"] == "TEST Documento extra"
+
+            # GET verifica persistenza
+            rg = session.get(f"{API}/comune/form-templates",
+                             headers=h(comune_l3_token), timeout=10)
+            reloaded = next(t for t in rg.json() if t["id"] == tpl["id"])
+            assert "TEST_extra_doc" in [d["id"] for d in reloaded["documenti_richiesti"]]
+        finally:
+            # cleanup: restore
+            session.put(f"{API}/comune/form-templates/{tpl['id']}",
+                        json={"nome": original_nome, "campi": original_campi,
+                              "documenti_richiesti": original_docs},
+                        headers=h(comune_l3_token), timeout=10)
+
+    def test_post_template_con_documenti_richiesti(self, session, comune_l3_token):
+        payload = {
+            "nome": f"TEST_TplDocs_{int(time.time())}",
+            "campi": [{"id": "c1", "label": "C1", "tipo": "text", "opzioni": [],
+                       "required": False, "condizione": None}],
+            "documenti_richiesti": [
+                {"id": "TEST_doc1", "label": "TEST Doc 1", "required": True},
+                {"id": "TEST_doc2", "label": "TEST Doc 2", "required": False},
+            ]
+        }
+        r = session.post(f"{API}/comune/form-templates", json=payload,
+                         headers=h(comune_l3_token), timeout=10)
+        assert r.status_code == 200, r.text
+        tpl = r.json()
+        assert len(tpl["documenti_richiesti"]) == 2
+        d1 = next(d for d in tpl["documenti_richiesti"] if d["id"] == "TEST_doc1")
+        assert d1["required"] is True
+        # cleanup
+        session.delete(f"{API}/comune/form-templates/{tpl['id']}",
+                       headers=h(comune_l3_token), timeout=10)
+
+    def test_l1_cannot_put_documenti_richiesti(self, session, comune_token, comune_l3_token):
+        tpls = session.get(f"{API}/comune/form-templates",
+                           headers=h(comune_l3_token), timeout=10).json()
+        assert tpls
+        tid = tpls[0]["id"]
+        r = session.put(f"{API}/comune/form-templates/{tid}",
+                        json={"nome": tpls[0]["nome"], "campi": tpls[0].get("campi", []),
+                              "documenti_richiesti": [{"id": "x", "label": "X", "required": True}]},
+                        headers=h(comune_token), timeout=10)
+        assert r.status_code == 403
+
+
+class TestModuloOSP:
+    """/form-templates/spazio/{id} restituisce il Modulo OSP per lo spazio 'Progetto Speciale'."""
+
+    NOME_OSP = "Modulo OSP — Occupazione Suolo Pubblico"
+
+    def _osp_space(self, session):
+        # cerca lo spazio 'OSP Piazza San Giovanni' o comunque uno di tipologia Progetto Speciale su Roma
+        spazi = session.get(f"{API}/spazi",
+                            params={"citta": "Roma", "tipologia": "Progetto Speciale"},
+                            timeout=10).json()
+        return spazi
+
+    def test_osp_space_exists(self, session):
+        spazi = self._osp_space(session)
+        assert spazi, "Nessuno spazio Progetto Speciale su Roma"
+        target = next((s for s in spazi if "OSP" in s["nome"] or "San Giovanni" in s["nome"]), spazi[0])
+        assert target["tipologia"] == "Progetto Speciale"
+
+    def test_osp_template_returned_for_space(self, session):
+        spazi = self._osp_space(session)
+        target = next((s for s in spazi if "OSP" in s["nome"] or "San Giovanni" in s["nome"]), spazi[0])
+        r = session.get(f"{API}/form-templates/spazio/{target['id']}", timeout=10)
+        assert r.status_code == 200
+        tpl = r.json()
+        assert tpl["nome"] == self.NOME_OSP, f"expected {self.NOME_OSP} got {tpl.get('nome')}"
+        # 7 campi
+        assert len(tpl["campi"]) == 7, f"expected 7 campi got {len(tpl['campi'])}"
+        campi_ids = {c["id"] for c in tpl["campi"]}
+        for req_field in ("descrizione_evento", "tipo_occupazione", "superficie_mq",
+                          "impianto_elettrico", "potenza_kw", "somministrazione"):
+            assert req_field in campi_ids, f"missing campo {req_field}"
+        # potenza_kw ha condizione
+        potenza = next(c for c in tpl["campi"] if c["id"] == "potenza_kw")
+        assert potenza.get("condizione") == {"campo": "impianto_elettrico", "valore": True}
+        # tipo_occupazione è select
+        tipo_occ = next(c for c in tpl["campi"] if c["id"] == "tipo_occupazione")
+        assert tipo_occ["tipo"] == "select"
+        assert "Gazebo" in tipo_occ["opzioni"]
+
+    def test_osp_template_has_4_documenti_richiesti(self, session):
+        spazi = self._osp_space(session)
+        target = next((s for s in spazi if "OSP" in s["nome"] or "San Giovanni" in s["nome"]), spazi[0])
+        tpl = session.get(f"{API}/form-templates/spazio/{target['id']}", timeout=10).json()
+        docs = tpl["documenti_richiesti"]
+        assert len(docs) == 4, f"expected 4 docs got {len(docs)}: {docs}"
+        by_id = {d["id"]: d for d in docs}
+        for did in ("planimetria", "relazione_tecnica", "polizza_assicurativa", "doc_identita"):
+            assert did in by_id, f"missing doc {did}"
+        # required
+        assert by_id["planimetria"]["required"] is True
+        assert by_id["polizza_assicurativa"]["required"] is True
+        assert by_id["doc_identita"]["required"] is True
+        assert by_id["relazione_tecnica"]["required"] is False
+
+    def test_normal_space_fallback_docs(self, session):
+        # spazio non-Progetto Speciale
+        spazi = session.get(f"{API}/spazi", params={"citta": "Roma"}, timeout=10).json()
+        normal = next((s for s in spazi if s["tipologia"] != "Progetto Speciale"), None)
+        assert normal, "Nessuno spazio non-Progetto Speciale su Roma"
+        r = session.get(f"{API}/form-templates/spazio/{normal['id']}", timeout=10)
+        assert r.status_code == 200
+        tpl = r.json()
+        # documenti_richiesti sempre presente (default fallback per template legacy senza field)
+        assert "documenti_richiesti" in tpl
+        assert isinstance(tpl["documenti_richiesti"], list)
+        # non è il modulo OSP
+        assert tpl.get("nome") != self.NOME_OSP
+
+
+class TestUploadDocumentoTipo:
+    """POST /pratiche/{id}/documenti?tipo=... salva 'tipo' correttamente."""
+
+    def test_upload_doc_saves_tipo_field(self, session, user_token):
+        import random
+        offset = random.randint(5600, 6000)
+        d1 = (datetime.now() + timedelta(days=offset)).date().isoformat()
+        d2 = (datetime.now() + timedelta(days=offset + 1)).date().isoformat()
+        spazi = session.get(f"{API}/spazi", params={"regione": "Lazio"}, timeout=10).json()
+        r = session.post(f"{API}/pratiche",
+                         json={"spazio_id": spazi[0]["id"], "data_inizio": d1, "data_fine": d2, "dati_form": {}},
+                         headers=h(user_token), timeout=15)
+        assert r.status_code == 200
+        pid = r.json()["id"]
+        try:
+            files = {"file": ("plan.pdf", io.BytesIO(b"dummy planimetria"), "application/pdf")}
+            headers = {"Authorization": f"Bearer {user_token}"}
+            # 'tipo' è query param (FastAPI default) — così lo usa il frontend
+            rup = requests.post(f"{API}/pratiche/{pid}/documenti?tipo=planimetria",
+                                files=files, headers=headers, timeout=20)
+            assert rup.status_code == 200, rup.text
+            doc = rup.json()
+            assert doc["tipo"] == "planimetria"
+            # verifica via GET pratica
+            rg = session.get(f"{API}/pratiche/{pid}", headers=h(user_token), timeout=10)
+            docs = rg.json()["documenti"]
+            assert any(d["tipo"] == "planimetria" for d in docs)
+        finally:
+            session.delete(f"{API}/pratiche/{pid}", headers=h(user_token), timeout=10)

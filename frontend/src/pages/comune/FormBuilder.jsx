@@ -2,15 +2,17 @@ import { useEffect, useState } from "react";
 import { BackofficeLayout, COMUNE_LINKS } from "../../components/BackofficeLayout";
 import { api, apiError } from "../../lib/api";
 import { toast } from "sonner";
-import { Plus, Trash2, GripVertical, FilePlus2 } from "lucide-react";
+import { Plus, Trash2, GripVertical, FilePlus2, FileUp } from "lucide-react";
 
 const NUOVO_CAMPO = { label: "", tipo: "text", opzioni: "", required: false, cond_campo: "", cond_valore: "" };
 const TIPI_CAMPO = ["text", "textarea", "number", "date", "select", "checkbox", "file"];
+const slugId = (label) => label.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
 
 export default function FormBuilder() {
   const [templates, setTemplates] = useState([]);
   const [tpl, setTpl] = useState(null);
   const [nuovo, setNuovo] = useState(NUOVO_CAMPO);
+  const [nuovoDoc, setNuovoDoc] = useState({ label: "", required: false });
 
   const load = async (selectId) => {
     const { data } = await api.get("/comune/form-templates");
@@ -42,7 +44,7 @@ export default function FormBuilder() {
 
   const addCampo = () => {
     if (!nuovo.label.trim()) return toast.error("Inserisci l'etichetta del campo");
-    const id = nuovo.label.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
+    const id = slugId(nuovo.label);
     if (tpl.campi.some((c) => c.id === id)) return toast.error("Esiste già un campo con questa etichetta");
     const campo = {
       id, label: nuovo.label, tipo: nuovo.tipo,
@@ -54,9 +56,18 @@ export default function FormBuilder() {
     setNuovo(NUOVO_CAMPO);
   };
 
+  const addDoc = () => {
+    if (!nuovoDoc.label.trim()) return toast.error("Inserisci il nome del documento");
+    const id = slugId(nuovoDoc.label);
+    const docs = tpl.documenti_richiesti || [];
+    if (docs.some((d) => d.id === id)) return toast.error("Documento già presente");
+    setTpl({ ...tpl, documenti_richiesti: [...docs, { id, label: nuovoDoc.label.trim(), required: nuovoDoc.required }] });
+    setNuovoDoc({ label: "", required: false });
+  };
+
   const save = async () => {
     try {
-      await api.put(`/comune/form-templates/${tpl.id}`, { nome: tpl.nome, campi: tpl.campi });
+      await api.put(`/comune/form-templates/${tpl.id}`, { nome: tpl.nome, campi: tpl.campi, documenti_richiesti: tpl.documenti_richiesti || [] });
       toast.success("Modulo salvato");
       load(tpl.id);
     } catch (e) { toast.error(apiError(e)); }
@@ -156,6 +167,45 @@ export default function FormBuilder() {
               </div>
             ))}
             {tpl.campi.length === 0 && <div className="p-6 text-sm text-slate-500">Nessun campo. Aggiungine uno qui sopra.</div>}
+          </div>
+
+          <div className="mt-6 border border-slate-100 bg-white rounded-2xl overflow-hidden" data-testid="documenti-richiesti-section">
+            <div className="px-5 py-3 border-b border-slate-100 bg-[#FAFAF8]">
+              <div className="text-xs font-bold uppercase tracking-widest text-slate-500">Documenti allegati richiesti</div>
+              <p className="text-xs text-slate-400 mt-0.5">Personalizza lo step "Documenti" della candidatura per questo modulo: aggiungi o rimuovi i campi di upload.</p>
+            </div>
+            <div className="p-5 space-y-2">
+              {(tpl.documenti_richiesti || []).map((d, i) => (
+                <div key={d.id} className="flex flex-wrap items-center gap-3 border border-slate-100 rounded-xl px-4 py-2.5" data-testid={`doc-row-${d.id}`}>
+                  <FileUp size={15} className="text-[#2F5B41]" />
+                  <span className="font-bold text-sm flex-1 min-w-[160px]">{d.label}</span>
+                  <label className="flex items-center gap-2 text-xs font-semibold text-slate-600">
+                    <input data-testid={`doc-required-${d.id}`} type="checkbox" className="w-4 h-4 accent-[#2F5B41]" checked={d.required}
+                      onChange={(e) => { const dd = [...tpl.documenti_richiesti]; dd[i] = { ...dd[i], required: e.target.checked }; setTpl({ ...tpl, documenti_richiesti: dd }); }} />
+                    Obbligatorio
+                  </label>
+                  <button data-testid={`rimuovi-doc-${d.id}`} onClick={() => setTpl({ ...tpl, documenti_richiesti: tpl.documenti_richiesti.filter((_, j) => j !== i) })}
+                    className="border border-slate-200 rounded-lg p-1.5 hover:border-[#EF4444] hover:text-[#EF4444] transition-colors">
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              ))}
+              {(tpl.documenti_richiesti || []).length === 0 && (
+                <div className="text-sm text-slate-500">Nessun documento richiesto: lo step Documenti della candidatura non chiederà allegati.</div>
+              )}
+              <div className="flex flex-wrap gap-3 items-center pt-2 border-t border-dashed border-slate-200 mt-3">
+                <input data-testid="nuovo-doc-label" className={`${input} flex-1 min-w-[200px]`} placeholder="Nome documento (es. Polizza assicurativa)"
+                  value={nuovoDoc.label} onChange={(e) => setNuovoDoc({ ...nuovoDoc, label: e.target.value })} />
+                <label className="flex items-center gap-2 text-sm font-semibold">
+                  <input type="checkbox" className="w-4 h-4 accent-[#2F5B41]" checked={nuovoDoc.required} onChange={(e) => setNuovoDoc({ ...nuovoDoc, required: e.target.checked })} />
+                  Obbligatorio
+                </label>
+                <button data-testid="aggiungi-doc-button" onClick={addDoc}
+                  className="inline-flex items-center gap-2 rounded-full bg-[#2F5B41] text-white px-5 py-2 text-sm font-bold hover:bg-[#26492F] transition-colors">
+                  <Plus size={15} /> Aggiungi documento
+                </button>
+              </div>
+            </div>
           </div>
         </>
       )}
