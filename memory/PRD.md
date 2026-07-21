@@ -54,6 +54,13 @@ Su richiesta utente (screenshot stile "Donezo") il design è passato da flat bru
 - Logo comune: upload in onboarding superadmin (POST /admin/upload-logo, campo logo_url su ComuneOnboardIn); visualizzato in sidebar backoffice, profilo comune, tabelle admin
 - Superadmin: tabella "KPI per comune" (GET /admin/comuni arricchito: spazi_attivi, approvate, incasso_totale, fee 5%) con drill-down report per comune (GET /admin/comuni/{id}/report: incassi/mese + ultime pratiche); tabella comuni con colonne incasso/fee
 
+## Implementato (Iterazione 7 — documenti allegati configurabili + Modulo OSP, testato: 105/105 backend + UI)
+- Ogni form template ha ora `documenti_richiesti` [{id,label,required}]: il Comune li gestisce dal Form Builder (aggiungi/rimuovi campo upload, toggle obbligatorio) — sezione "Documenti allegati richiesti"
+- Step "Documenti" del wizard pratica e area upload per spazio nel Campaign Planner ora dinamici dal template (non più hardcoded bozzetto/planimetria/doc identità); validazione blocca l'invio se mancano documenti obbligatori
+- Fallback backend: template legacy senza il campo → 3 documenti default (non obbligatori)
+- Wizard pratica ora usa il modulo assegnato allo spazio (GET /form-templates/spazio/{id})
+- Creato "Modulo OSP — Occupazione Suolo Pubblico" (7 campi con logica condizionale potenza_kw + 4 documenti: planimetria*, relazione tecnica, polizza RC*, doc identità*) e assegnato agli spazi Progetto Speciale (seed_osp.py idempotente)
+
 ## Backlog prioritizzato
 - P2: date picker anche per modifica pratiche in INTEGRAZIONE_RICHIESTA
 - P2: Stripe test mode reale al posto del mock; export report CSV/PDF
