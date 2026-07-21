@@ -118,6 +118,9 @@ class SpazioIn(BaseModel):
     nome: str
     tipologia: str
     formato: str = ""
+    zona: str = ""
+    form_template_id: Optional[str] = None
+    opzioni: dict = {}
     indirizzo: str
     lat: float
     lng: float
@@ -164,7 +167,7 @@ class CampagnaIn(BaseModel):
     spazi_ids: List[str]
 
 class CampagnaFormIn(BaseModel):
-    comune_id: str
+    pratica_ids: List[str]
     dati_form: dict
 
 
@@ -240,7 +243,7 @@ async def list_comuni():
 @api_router.get("/spazi")
 async def list_spazi(regione: Optional[str] = None, citta: Optional[str] = None,
                      tipologia: Optional[str] = None, formato: Optional[str] = None,
-                     prezzo_max: Optional[float] = None,
+                     zona: Optional[str] = None, prezzo_max: Optional[float] = None,
                      q: Optional[str] = None, disponibile: Optional[bool] = None):
     query: dict = {}
     if regione:
@@ -251,6 +254,8 @@ async def list_spazi(regione: Optional[str] = None, citta: Optional[str] = None,
         query["tipologia"] = tipologia
     if formato:
         query["formato"] = formato
+    if zona:
+        query["zona"] = zona
     if prezzo_max is not None:
         query["canone_giornaliero"] = {"$lte": prezzo_max}
     if disponibile is not None:
@@ -261,10 +266,17 @@ async def list_spazi(regione: Optional[str] = None, citta: Optional[str] = None,
                         {"citta": {"$regex": q, "$options": "i"}}]
     return await db.spazi.find(query, {"_id": 0}).to_list(500)
 
+@api_router.get("/spazi/zone")
+async def spazi_zone(citta: Optional[str] = None):
+    query = {"zona": {"$nin": [None, ""]}}
+    if citta:
+        query["citta"] = citta
+    return sorted(await db.spazi.distinct("zona", query))
+
 @api_router.get("/spazi/disponibili")
 async def spazi_disponibili(data_inizio: str, data_fine: str, regione: Optional[str] = None,
                             citta: Optional[str] = None, tipologia: Optional[str] = None,
-                            formato: Optional[str] = None):
+                            formato: Optional[str] = None, zona: Optional[str] = None):
     query: dict = {"disponibile": True}
     if regione:
         query["regione"] = regione
@@ -274,6 +286,8 @@ async def spazi_disponibili(data_inizio: str, data_fine: str, regione: Optional[
         query["tipologia"] = tipologia
     if formato:
         query["formato"] = formato
+    if zona:
+        query["zona"] = zona
     spazi = await db.spazi.find(query, {"_id": 0}).to_list(500)
     occupati = await db.pratiche.find(
         {"stato": {"$in": STATI_ATTIVI}, "data_inizio": {"$lte": data_fine}, "data_fine": {"$gte": data_inizio}},
@@ -299,6 +313,18 @@ async def occupazioni_spazio(spazio_id: str):
 async def get_template(comune_id: str):
     tpl = await db.form_templates.find_one({"comune_id": comune_id}, {"_id": 0})
     return tpl or {"comune_id": comune_id, "nome": "Modulo standard", "campi": []}
+
+@api_router.get("/form-templates/spazio/{spazio_id}")
+async def get_template_spazio(spazio_id: str):
+    spazio = await db.spazi.find_one({"id": spazio_id}, {"_id": 0})
+    if not spazio:
+        raise HTTPException(status_code=404, detail="Spazio non trovato")
+    tpl = None
+    if spazio.get("form_template_id"):
+        tpl = await db.form_templates.find_one({"id": spazio["form_template_id"]}, {"_id": 0})
+    if not tpl:
+        tpl = await db.form_templates.find_one({"comune_id": spazio["comune_id"]}, {"_id": 0})
+    return tpl or {"comune_id": spazio["comune_id"], "nome": "Modulo standard", "campi": []}
 
 # ---------- pratiche (user) ----------
 
@@ -407,6 +433,17 @@ async def invia_pratica(pratica_id: str, user: dict = Depends(require_role("user
 async def mie_pratiche(user: dict = Depends(get_current_user)):
     return await db.pratiche.find({"user_id": user["id"]}, {"_id": 0}).sort("updated_at", -1).to_list(200)
 
+@api_router.delete("/pratiche/{pratica_id}")
+async def elimina_pratica(pratica_id: str, user: dict = Depends(require_role("user"))):
+    pratica = await db.pratiche.find_one({"id": pratica_id, "user_id": user["id"]}, {"_id": 0})
+    if not pratica:
+        raise HTTPException(status_code=404, detail="Pratica non trovata")
+    if pratica["stato"] != "BOZZA":
+        raise HTTPException(status_code=400, detail="Solo le bozze possono essere eliminate")
+    await db.pratiche.delete_one({"id": pratica_id})
+    await db.log_stato.delete_many({"pratica_id": pratica_id})
+    return {"ok": True}
+
 @api_router.get("/pratiche/{pratica_id}")
 async def get_pratica(pratica_id: str, user: dict = Depends(get_current_user)):
     pratica = await db.pratiche.find_one({"id": pratica_id}, {"_id": 0})
@@ -485,7 +522,7 @@ async def campagna_dati_form(campagna_id: str, data: CampagnaFormIn, user: dict 
     if not c:
         raise HTTPException(status_code=404, detail="Campagna non trovata")
     res = await db.pratiche.update_many(
-        {"campagna_id": campagna_id, "comune_id": data.comune_id, "stato": "BOZZA"},
+        {"campagna_id": campagna_id, "id": {"$in": data.pratica_ids}, "stato": "BOZZA"},
         {"$set": {"dati_form": data.dati_form, "updated_at": now_iso()}})
     return {"ok": True, "aggiornate": res.modified_count}
 
@@ -597,18 +634,72 @@ async def elimina_spazio(spazio_id: str, user: dict = Depends(require_comune_l3)
         raise HTTPException(status_code=404, detail="Spazio non trovato")
     return {"ok": True}
 
-@api_router.get("/comune/form-template")
-async def comune_template(user: dict = Depends(require_role("comune"))):
-    tpl = await db.form_templates.find_one({"comune_id": user["comune_id"]}, {"_id": 0})
-    return tpl or {"comune_id": user["comune_id"], "nome": "Modulo standard", "campi": []}
+@api_router.get("/comune/form-templates")
+async def comune_templates(user: dict = Depends(require_role("comune"))):
+    return await db.form_templates.find({"comune_id": user["comune_id"]}, {"_id": 0}).to_list(50)
 
-@api_router.put("/comune/form-template")
-async def salva_template(data: TemplateIn, user: dict = Depends(require_comune_l3)):
+@api_router.post("/comune/form-templates")
+async def crea_template(data: TemplateIn, user: dict = Depends(require_comune_l3)):
     campi_unici = list({c.id: c for c in data.campi}.values())
-    tpl = {"comune_id": user["comune_id"], "nome": data.nome,
+    tpl = {"id": str(uuid.uuid4()), "comune_id": user["comune_id"], "nome": data.nome,
            "campi": [c.model_dump() for c in campi_unici], "updated_at": now_iso()}
-    await db.form_templates.update_one({"comune_id": user["comune_id"]}, {"$set": tpl}, upsert=True)
+    await db.form_templates.insert_one({**tpl})
     return tpl
+
+@api_router.put("/comune/form-templates/{tid}")
+async def salva_template(tid: str, data: TemplateIn, user: dict = Depends(require_comune_l3)):
+    campi_unici = list({c.id: c for c in data.campi}.values())
+    updates = {"nome": data.nome, "campi": [c.model_dump() for c in campi_unici], "updated_at": now_iso()}
+    res = await db.form_templates.update_one({"id": tid, "comune_id": user["comune_id"]}, {"$set": updates})
+    if res.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Modulo non trovato")
+    return await db.form_templates.find_one({"id": tid}, {"_id": 0})
+
+@api_router.delete("/comune/form-templates/{tid}")
+async def elimina_template(tid: str, user: dict = Depends(require_comune_l3)):
+    res = await db.form_templates.delete_one({"id": tid, "comune_id": user["comune_id"]})
+    if res.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Modulo non trovato")
+    await db.spazi.update_many({"form_template_id": tid}, {"$set": {"form_template_id": None}})
+    return {"ok": True}
+
+@api_router.post("/comune/spazi/upload-foto")
+async def upload_foto_spazio(file: UploadFile = File(...), user: dict = Depends(require_comune_l3)):
+    ext = (file.filename or "img").rsplit(".", 1)[-1].lower()
+    if ext not in ("jpg", "jpeg", "png", "webp"):
+        raise HTTPException(status_code=400, detail="Formato non supportato (JPG, PNG, WebP)")
+    folder = UPLOAD_DIR / "spazi"
+    folder.mkdir(exist_ok=True)
+    name = f"{uuid.uuid4().hex[:10]}.{ext}"
+    (folder / name).write_bytes(await file.read())
+    return {"url": f"/api/uploads/spazi/{name}"}
+
+@api_router.patch("/comune/spazi/{spazio_id}/canone")
+async def patch_canone(spazio_id: str, body: dict, user: dict = Depends(require_comune_l3)):
+    canone = float(body.get("canone_giornaliero", 0))
+    if canone <= 0:
+        raise HTTPException(status_code=400, detail="Canone non valido")
+    res = await db.spazi.update_one({"id": spazio_id, "comune_id": user["comune_id"]},
+                                    {"$set": {"canone_giornaliero": canone}})
+    if res.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Spazio non trovato")
+    return {"ok": True}
+
+@api_router.get("/comune/report/spazi")
+async def report_per_spazio(user: dict = Depends(require_role("comune"))):
+    spazi = await db.spazi.find({"comune_id": user["comune_id"]}, {"_id": 0}).to_list(200)
+    pratiche = await db.pratiche.find({"comune_id": user["comune_id"], "stato": {"$ne": "BOZZA"}}, {"_id": 0}).to_list(2000)
+    result = []
+    for s in spazi:
+        mie = [p for p in pratiche if p["spazio_id"] == s["id"]]
+        pagate = [p for p in mie if p.get("pagata")]
+        result.append({"spazio_id": s["id"], "nome": s["nome"], "tipologia": s["tipologia"], "formato": s.get("formato", ""),
+                       "incassato": round(sum(p["importo"] for p in pagate), 2),
+                       "pratiche_pagate": len(pagate), "pratiche_totali": len(mie),
+                       "storico": [{"data": p["created_at"][:10], "importo": p["importo"], "user_nome": p["user_nome"],
+                                    "stato": p["stato"], "periodo": f"{p['data_inizio']} → {p['data_fine']}"}
+                                   for p in sorted(mie, key=lambda x: x["created_at"], reverse=True)]})
+    return sorted(result, key=lambda r: -r["incassato"])
 
 @api_router.get("/comune/pratiche")
 async def comune_pratiche(stato: Optional[str] = None, user: dict = Depends(require_role("comune"))):
@@ -759,15 +850,55 @@ async def admin_anomalie(user: dict = Depends(require_role("superadmin"))):
                              "descrizione": f"Pratica '{p['spazio_nome']}' in istruttoria da {giorni} giorni"})
     return anomalie
 
+@api_router.post("/admin/upload-logo")
+async def upload_logo(file: UploadFile = File(...), user: dict = Depends(require_role("superadmin"))):
+    ext = (file.filename or "img").rsplit(".", 1)[-1].lower()
+    if ext not in ("png", "svg", "jpg", "jpeg", "webp"):
+        raise HTTPException(status_code=400, detail="Formato non supportato (PNG, SVG)")
+    folder = UPLOAD_DIR / "loghi"
+    folder.mkdir(exist_ok=True)
+    name = f"{uuid.uuid4().hex[:10]}.{ext}"
+    (folder / name).write_bytes(await file.read())
+    return {"url": f"/api/uploads/loghi/{name}"}
+
 @api_router.get("/admin/comuni")
 async def admin_comuni(user: dict = Depends(require_role("superadmin"))):
     comuni = await db.comuni.find({}, {"_id": 0}).to_list(200)
+    pratiche = await db.pratiche.find({"stato": {"$ne": "BOZZA"}}, {"_id": 0}).to_list(5000)
     result = []
     for c in comuni:
-        spazi = await db.spazi.count_documents({"comune_id": c["id"]})
-        pratiche = await db.pratiche.count_documents({"comune_id": c["id"], "stato": {"$ne": "BOZZA"}})
-        result.append({**c, "spazi_count": spazi, "pratiche_count": pratiche})
+        mie = [p for p in pratiche if p["comune_id"] == c["id"]]
+        incasso = round(sum(p["importo"] for p in mie if p.get("pagata")), 2)
+        result.append({**c,
+                       "spazi_count": await db.spazi.count_documents({"comune_id": c["id"]}),
+                       "spazi_attivi": await db.spazi.count_documents({"comune_id": c["id"], "disponibile": True}),
+                       "pratiche_count": len(mie),
+                       "approvate": sum(1 for p in mie if p["stato"] == "APPROVATA"),
+                       "incasso_totale": incasso,
+                       "incasso_piattaforma": round(incasso * 0.05, 2)})
     return result
+
+@api_router.get("/admin/comuni/{comune_id}/report")
+async def admin_report_comune(comune_id: str, user: dict = Depends(require_role("superadmin"))):
+    comune = await db.comuni.find_one({"id": comune_id}, {"_id": 0})
+    if not comune:
+        raise HTTPException(status_code=404, detail="Comune non trovato")
+    pratiche = await db.pratiche.find({"comune_id": comune_id, "stato": {"$ne": "BOZZA"}}, {"_id": 0}).to_list(2000)
+    per_stato: dict = {}
+    incassi_mese: dict = {}
+    incasso = 0.0
+    for p in pratiche:
+        per_stato[p["stato"]] = per_stato.get(p["stato"], 0) + 1
+        if p.get("pagata"):
+            incasso += p["importo"]
+            mese = p["created_at"][:7]
+            incassi_mese[mese] = incassi_mese.get(mese, 0) + p["importo"]
+    return {"comune": comune, "pratiche_totali": len(pratiche), "per_stato": per_stato,
+            "incasso_totale": round(incasso, 2), "incasso_piattaforma": round(incasso * 0.05, 2),
+            "incassi_mese": [{"mese": k, "importo": round(v, 2)} for k, v in sorted(incassi_mese.items())],
+            "ultime_pratiche": [{"spazio_nome": p["spazio_nome"], "user_nome": p["user_nome"], "stato": p["stato"],
+                                 "importo": p["importo"], "data": p["created_at"][:10]}
+                                for p in sorted(pratiche, key=lambda x: x["created_at"], reverse=True)[:10]]}
 
 @api_router.post("/admin/comuni")
 async def onboard_comune(data: ComuneOnboardIn, user: dict = Depends(require_role("superadmin"))):
@@ -775,7 +906,7 @@ async def onboard_comune(data: ComuneOnboardIn, user: dict = Depends(require_rol
     if await db.users.find_one({"email": email}):
         raise HTTPException(status_code=400, detail="Email referente già registrata")
     comune = {"id": str(uuid.uuid4()), "nome": data.nome, "regione": data.regione,
-              "provincia": data.provincia, "lat": data.lat, "lng": data.lng,
+              "provincia": data.provincia, "lat": data.lat, "lng": data.lng, "logo_url": data.logo_url,
               "tariffe": [{"tipologia": "Billboard", "canone_giornaliero": 50},
                           {"tipologia": "Suolo pubblico", "canone_giornaliero": 30}],
               "regole": "Regolamento comunale standard", "attivo": True, "created_at": now_iso()}

@@ -23,6 +23,8 @@ TIPOLOGIE_MAP = {
 
 
 async def ensure_catalogo(db):
+    for t in await db.form_templates.find({"id": {"$exists": False}}).to_list(50):
+        await db.form_templates.update_one({"_id": t["_id"]}, {"$set": {"id": str(uuid.uuid4())}})
     for old, (new, fmt) in TIPOLOGIE_MAP.items():
         await db.spazi.update_many({"tipologia": old}, {"$set": {"tipologia": new}})
         await db.spazi.update_many({"tipologia": new, "formato": {"$exists": False}}, {"$set": {"formato": fmt}})
