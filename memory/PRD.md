@@ -44,6 +44,16 @@ Su richiesta utente (screenshot stile "Donezo") il design è passato da flat bru
 - Planner campagna a 4 step: Periodo → Spazi (mappa+elenco+filtri, selezione da lista o marker) → Moduli (form dinamico per ogni Comune coinvolto + upload documenti applicati alle pratiche del comune, PUT /campagne/{id}/dati-form) → Riepilogo con pagamento mock e invio massivo
 - Dedupe campi form template per id (server-side)
 
+## Implementato (Iterazione 6 — lista 15 punti Msg 213, testato 100%: 95/95 backend + frontend E2E)
+- Spazi: immagini specifiche per tipologia (13 spazi reseedati Roma/Milano/Bologna con zona/quartiere), upload foto spazio (POST /comune/spazi/upload-foto), immagine MUPI generata via AI in /app/uploads/spazi/
+- Mappa /spazi: tooltip su hover marker con foto + nome + prezzo; filtro Zona/quartiere (GET /spazi/zone, reset al cambio comune); zona mostrata nelle card
+- Campaign Planner: step Moduli ora è PER SPAZIO (GET /form-templates/spazio/{id}, fallback su modulo comune; PUT /campagne/{id}/dati-form con pratica_ids); upload documenti per singola pratica; filtro zona nel planner
+- Dashboard user: filtri pill per stato + eliminazione bozze (DELETE /pratiche/{id}, solo BOZZA, con conferma)
+- Report comune: sezione "Dettaglio per spazio" (GET /comune/report/spazi) con storico espandibile per pratica
+- Profilo comune: sezione "Canone per singolo spazio" con salvataggio inline (PATCH /comune/spazi/{id}/canone, L3)
+- Logo comune: upload in onboarding superadmin (POST /admin/upload-logo, campo logo_url su ComuneOnboardIn); visualizzato in sidebar backoffice, profilo comune, tabelle admin
+- Superadmin: tabella "KPI per comune" (GET /admin/comuni arricchito: spazi_attivi, approvate, incasso_totale, fee 5%) con drill-down report per comune (GET /admin/comuni/{id}/report: incassi/mese + ultime pratiche); tabella comuni con colonne incasso/fee
+
 ## Backlog prioritizzato
 - P2: date picker anche per modifica pratiche in INTEGRAZIONE_RICHIESTA
 - P2: Stripe test mode reale al posto del mock; export report CSV/PDF

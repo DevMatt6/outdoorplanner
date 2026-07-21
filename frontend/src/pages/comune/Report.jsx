@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, Fragment } from "react";
 import { BarChart, Bar, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { BackofficeLayout, COMUNE_LINKS } from "../../components/BackofficeLayout";
 import { STATO_COLORS, StatusBadge } from "../../components/StatusBadge";
@@ -77,8 +77,8 @@ export default function Report() {
           </thead>
           <tbody>
             {perSpazio.map((s) => (
-              <>
-                <tr key={s.spazio_id} className="border-b border-slate-100 hover:bg-[#F1F5F0] transition-colors cursor-pointer"
+              <Fragment key={s.spazio_id}>
+                <tr className="border-b border-slate-100 hover:bg-[#F1F5F0] transition-colors cursor-pointer"
                   data-testid={`report-spazio-${s.spazio_id}`}
                   onClick={() => setExpanded(expanded === s.spazio_id ? null : s.spazio_id)}>
                   <td className="px-4 py-3">
@@ -91,7 +91,7 @@ export default function Report() {
                   <td className="px-4 py-3 text-slate-400">{expanded === s.spazio_id ? <ChevronUp size={16} /> : <ChevronDown size={16} />}</td>
                 </tr>
                 {expanded === s.spazio_id && (
-                  <tr key={`${s.spazio_id}-detail`}>
+                  <tr>
                     <td colSpan={5} className="bg-[#FAFAF8] px-4 py-3 border-b border-slate-100">
                       {s.storico.length === 0 && <div className="text-xs text-slate-500">Nessuna pratica su questo spazio.</div>}
                       <div className="space-y-1.5">
@@ -108,7 +108,7 @@ export default function Report() {
                     </td>
                   </tr>
                 )}
-              </>
+              </Fragment>
             ))}
             {perSpazio.length === 0 && <tr><td colSpan={5} className="px-4 py-6 text-center text-slate-500">Nessuno spazio a catalogo.</td></tr>}
           </tbody>

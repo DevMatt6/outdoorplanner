@@ -55,19 +55,6 @@ export default function CampagnaPlanner() {
   const spaziSelezionati = disponibili.filter((s) => selected.includes(s.id));
   const totale = spaziSelezionati.reduce((a, s) => a + s.canone_giornaliero * giorni, 0);
 
-  const comuniCoinvolti = useMemo(() => {
-    if (!campagna) return [];
-    const map = {};
-    campagna.pratiche.forEach((p) => {
-      if (!map[p.comune_id]) map[p.comune_id] = { comune_id: p.comune_id, pratiche: [] };
-      map[p.comune_id].pratiche.push(p);
-    });
-    return Object.values(map).map((g) => ({
-      ...g,
-      nome: comuniList.find((c) => c.id === g.comune_id)?.nome || "Comune",
-    }));
-  }, [campagna, comuniList]);
-
   const center = useMemo(() => {
     if (disponibili.length === 0) return [42.0, 12.5];
     return [disponibili.reduce((a, s) => a + s.lat, 0) / disponibili.length,
