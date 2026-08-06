@@ -1,0 +1,39 @@
+{
+  "summary": "Iter-8 frontend-only test of the redesigned drill-down map + comuni/spazi grids on public /spazi AND Campaign Planner /campagne/nuova. PUBLIC /spazi: passed end-to-end — Italy GeoJSON map, comuni-grid (5 cards, Roma 8/Bologna 3/Milano 2/Firenze 0/Napoli 0), Roma card click → spazi-grid (8 cards) + breadcrumb Italia/Lazio/Roma + 7 zone bubbles with counts (Tiburtino·2, Esquilino·1, Centro Storico·1, Prati·1, Trastevere·1, EUR·1, San Giovanni·1), zone tooltip click filters to Tiburtino (2 cards + URL param), Italia crumb resets, tipologia='Totem Digitale' filter drops Roma to 1 spazio. PLANNER (user@demo.it): step Periodo → step Spazi loads planner-comuni-grid (5 cards with 'disponibili' count matching public counts), clicking Roma card renders planner-spazi-grid with 8 selectable 4:3 cards; toggling 2 non-OSP cards updates planner-totale to '2 spazi selezionati — Poster 6x3 Via Tiburtina · Maxi 4x3 Stazione Termini · 510.00 €'. Cross-comune selection is preserved (verified reaching '3 spazi selezionati' after adding Milano). Next → creates campaign + generates 2 moduli-pratica blocks (one per space) with fields loaded from templates. FULL invio→redirect not verified in this run because the 2 non-OSP Roma spaces selected have 3 REQUIRED documenti_richiesti (Bozzetto Grafico, Documento di Identità, Copia pagamento Tributo) blocking Avanti — this is by design (Comune Roma template) — main agent can retest via file upload. REGRESSION /spazi/{id} detail: card click navigates correctly. 1 UX bug found — see below.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "CampagnaPlanner.jsx (also Spazi.jsx)",
+        "issue": "'Tutti i Comuni' button (data-testid='planner-torna-comuni' and 'torna-comuni-button') calls onComune(null) which only clears comuneSel/zonaSel but leaves regioneSel set. After selecting a Roma space and clicking 'Tutti i Comuni', the planner-comuni-grid still filters to Lazio only (1 card) — Milano/Bologna/etc. are hidden. Label promises 'all comuni' but shows 'comuni in <region>'. User must click the 'Italia' breadcrumb to actually reset. Repro: step 2 → click Roma card → click planner-torna-comuni → grid shows only ['Roma'] instead of all 5 comuni.",
+        "selector": "[data-testid='planner-torna-comuni'], [data-testid='torna-comuni-button']",
+        "priority": "HIGH"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Planner step Spazi", "issues": ["The 'Comuni in <regione>' section header helpfully changes label when a region is set, but combined with the misleading 'Tutti i Comuni' button (which does NOT show all comuni) it creates confusion. Suggest onComune(null) also clear regioneSel — or rename button to 'Torna ai Comuni' + expose an 'Italia' shortcut alongside."]}
+    ]
+  },
+  "test_report_links": ["/app/test_reports/iteration_7.json"],
+  "action_items": [
+    "FIX: In CampagnaPlanner.jsx onComune(null) branch (line ~74) and Spazi.jsx onComune(null) branch (line ~44), also reset regioneSel/regione so 'Tutti i Comuni' actually returns to the full comuni list. Suggested: `if (!nomeC) { setComuneSel(''); setZonaSel(''); setRegioneSel(''); return; }` (planner) and `if (!nome) return setMany({ citta: '', zona: '', regione: '' });` (public /spazi).",
+    "Optional: after fixing above, main agent can re-run end-to-end planner invio flow — will need to pick non-OSP spaces in a Comune whose template has no required docs (Milano/Bologna) OR programmatically clear the 3 required docs on Roma's 'Istanza OSP/Pubblicità - Roma' template if intended to be empty."
+  ],
+  "critical_code_review_comments": [
+    "EsploraMappa.jsx: PinTooltip renders inline <img> without loading placeholder — cheap but fine for MVP.",
+    "CampagnaPlanner.jsx and Spazi.jsx duplicate the countPerComune/comuniGrid/sort logic — consider extracting into a shared hook useComuniGrid({comuni, spazi, regione}). Minor.",
+    "EsploraMappa.jsx `zone` useMemo depends on `[spazi, comune]` but computes lat/lng means; if spazi array is filtered by parent to include a mixed set (all vs comune-only) results could be off. Current callers pass spaziComune (correct), but consider defensive filter `s.citta === comune` inside the memo.",
+    "EsploraMappa.jsx: leaflet MapContainer key changes between regione levels but not when only comune changes back to null — verify no stale marker layers (didn't observe issue in tests).",
+    "The two comuni cards (public + planner) are ~30 lines each with same shape — extract ComuneCard component. Minor DRY.",
+    "onComune(null) region-reset bug (see action item) also affects the public /spazi torna-comuni-button — same regression."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (skipped)", "frontend": "Public /spazi 100%, Planner map/grid/selection 95% (multi-comune only works via Italia crumb — bug), Full checkout/invio not exercised due to required-docs blocker"},
+  "test_credentials": "user@demo.it / demo123 (used).",
+  "seed_data_creation": "None — used existing 13 spazi seed (Roma 8, Milano 2, Bologna 3).",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "The redesigned map+grid UI is working well. Key data-testids verified: esplora-mappa, mappa-breadcrumb, mappa-hint, comuni-grid, comune-card-{id}, spazi-grid, spazio-card-{id}, torna-comuni-button, filter-q, filter-tipologia, filter-formato, risultati-count. Planner ones: planner-comuni-grid, planner-comune-card-{id}, planner-spazi-grid, planner-torna-comuni, planner-totale, planner-next-button, planner-error. DateRangePicker note: use `button[name=\"day\"]` with getComputedStyle().opacity>0.6 filter to skip outside-month cells (aria-labels are null and disabled attr is not reliably set on outside dates). To click future dates deterministically, advance ~48 months via `button[name=\"next-month\"]` then pick indices 5 & 10 of in-month buttons. Only 1 UX bug: 'Tutti i Comuni' button doesn't reset regione filter — pending main agent fix.",
+  "rca of the issue": "In CampagnaPlanner.jsx line 73-77 and Spazi.jsx line 43-47, the onComune(null) branch clears citta+zona but NOT regione. Because the comuni-grid uses `regioneSel ? comuniList.filter(c => c.regione === regioneSel) : comuniList`, once regione has been set (auto-set when clicking a comune card at line 76 `if (c) setRegioneSel(c.regione)`), subsequent 'Tutti i Comuni' navigation keeps the grid restricted. Fix: include regioneSel/regione in the reset. Workaround for users: click the 'Italia' crumb in the mappa-breadcrumb overlay (verified works — grid returns to all 5 comuni)."
+}

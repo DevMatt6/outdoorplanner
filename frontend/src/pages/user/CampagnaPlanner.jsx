@@ -1,14 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { MapContainer, TileLayer, CircleMarker, Popup } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import { NavBar } from "../../components/NavBar";
 import { DateRangePicker, fmtDay } from "../../components/DateRangePicker";
 import { DynamicField, isVisible } from "../../components/DynamicField";
-import { api, apiError } from "../../lib/api";
+import { EsploraMappa } from "../../components/EsploraMappa";
+import { SpazioCard } from "../../components/SpazioCard";
+import { api, apiError, imgSrc } from "../../lib/api";
 import { TIPOLOGIE, FORMATI } from "../../lib/catalogo";
 import { toast } from "sonner";
-import { MapPin, Check, CreditCard, Send, Upload } from "lucide-react";
+import { CreditCard, Send, Upload, Landmark, ArrowLeft } from "lucide-react";
 
 const STEPS = ["Periodo", "Spazi", "Moduli", "Riepilogo"];
 
@@ -17,8 +18,10 @@ export default function CampagnaPlanner() {
   const [step, setStep] = useState(0);
   const [nome, setNome] = useState("");
   const [range, setRange] = useState();
-  const [filtri, setFiltri] = useState({ citta: "", tipologia: "", formato: "", zona: "" });
-  const [zone, setZone] = useState([]);
+  const [filtri, setFiltri] = useState({ tipologia: "", formato: "" });
+  const [regioneSel, setRegioneSel] = useState("");
+  const [comuneSel, setComuneSel] = useState("");
+  const [zonaSel, setZonaSel] = useState("");
   const [comuniList, setComuniList] = useState([]);
   const [disponibili, setDisponibili] = useState([]);
   const [selected, setSelected] = useState([]);
@@ -39,27 +42,41 @@ export default function CampagnaPlanner() {
   }, []);
 
   useEffect(() => {
-    api.get("/spazi/zone", { params: filtri.citta ? { citta: filtri.citta } : {} }).then(({ data }) => setZone(data));
-  }, [filtri.citta]);
-
-  useEffect(() => {
     if (step !== 1 || !dal || !al) return;
-    const params = { data_inizio: dal, data_fine: al };
-    Object.entries(filtri).forEach(([k, v]) => { if (v) params[k] = v; });
-    api.get("/spazi/disponibili", { params }).then(({ data }) => setDisponibili(data));
-  }, [step, dal, al, filtri]);
+    api.get("/spazi/disponibili", { params: { data_inizio: dal, data_fine: al } }).then(({ data }) => setDisponibili(data));
+  }, [step, dal, al]);
 
   const toggle = (id) =>
     setSelected((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
 
+  const filtrati = useMemo(() => disponibili.filter((s) =>
+    (!filtri.tipologia || s.tipologia === filtri.tipologia) && (!filtri.formato || s.formato === filtri.formato)
+  ), [disponibili, filtri]);
+
+  const countPerComune = useMemo(() => {
+    const m = {};
+    filtrati.forEach((s) => { m[s.citta] = (m[s.citta] || 0) + 1; });
+    return m;
+  }, [filtrati]);
+
+  const comuniGrid = (regioneSel ? comuniList.filter((c) => c.regione === regioneSel) : comuniList)
+    .slice()
+    .sort((a, b) => (countPerComune[b.nome] || 0) - (countPerComune[a.nome] || 0));
+
+  const spaziComune = comuneSel ? filtrati.filter((s) => s.citta === comuneSel) : filtrati;
+  const gridSpazi = zonaSel ? spaziComune.filter((s) => (s.zona || "Altro") === zonaSel) : spaziComune;
+
   const spaziSelezionati = disponibili.filter((s) => selected.includes(s.id));
   const totale = spaziSelezionati.reduce((a, s) => a + s.canone_giornaliero * giorni, 0);
 
-  const center = useMemo(() => {
-    if (disponibili.length === 0) return [42.0, 12.5];
-    return [disponibili.reduce((a, s) => a + s.lat, 0) / disponibili.length,
-            disponibili.reduce((a, s) => a + s.lng, 0) / disponibili.length];
-  }, [disponibili]);
+  const onRegione = (r) => { setRegioneSel(r || ""); setComuneSel(""); setZonaSel(""); };
+  const onComune = (nomeC) => {
+    if (!nomeC) { setComuneSel(""); setZonaSel(""); return; }
+    const c = comuniList.find((x) => x.nome === nomeC);
+    setComuneSel(nomeC); setZonaSel(""); if (c) setRegioneSel(c.regione);
+  };
+
+  const comuneNomeById = (cid) => comuniList.find((c) => c.id === cid)?.nome || "—";
 
   const next = async () => {
     setError("");
@@ -142,7 +159,7 @@ export default function CampagnaPlanner() {
   return (
     <div className="min-h-screen">
       <NavBar />
-      <div className="max-w-6xl mx-auto px-6 py-10" data-testid="campagna-planner">
+      <div className="max-w-7xl mx-auto px-6 py-10" data-testid="campagna-planner">
         <div className="text-xs font-bold uppercase tracking-[0.25em] text-slate-400">Campaign Planner</div>
         <h1 className="text-3xl font-heading font-extrabold tracking-tight mt-1">Nuova campagna multi-spazio</h1>
 
@@ -166,15 +183,9 @@ export default function CampagnaPlanner() {
           )}
 
           {step === 1 && (
-            <div className="space-y-4">
+            <div className="space-y-5">
               <div className="flex flex-wrap items-center gap-3">
                 <h2 className="font-heading font-extrabold text-xl flex-1">Spazi disponibili {dal} → {al}</h2>
-              </div>
-              <div className="flex flex-wrap gap-3">
-                <select data-testid="planner-filter-comune" className={input} value={filtri.citta} onChange={(e) => setFiltri({ ...filtri, citta: e.target.value, zona: "" })}>
-                  <option value="">Tutti i Comuni</option>
-                  {comuniList.map((c) => <option key={c.id} value={c.nome}>{c.nome}</option>)}
-                </select>
                 <select data-testid="planner-filter-tipologia" className={input} value={filtri.tipologia} onChange={(e) => setFiltri({ ...filtri, tipologia: e.target.value })}>
                   <option value="">Tipologia impianto</option>
                   {TIPOLOGIE.map((t) => <option key={t}>{t}</option>)}
@@ -183,58 +194,60 @@ export default function CampagnaPlanner() {
                   <option value="">Formato</option>
                   {FORMATI.map((f) => <option key={f}>{f}</option>)}
                 </select>
-                <select data-testid="planner-filter-zona" className={input} value={filtri.zona} onChange={(e) => setFiltri({ ...filtri, zona: e.target.value })}>
-                  <option value="">Zona / quartiere</option>
-                  {zone.map((z) => <option key={z} value={z}>{z}</option>)}
-                </select>
-                <span className="ml-auto text-sm text-slate-500 font-mono self-center">{disponibili.length} disponibili</span>
+                <span className="text-sm text-slate-500 font-mono">{filtrati.length} disponibili</span>
               </div>
-              <div className="grid lg:grid-cols-5 gap-5">
-                <div className="lg:col-span-3 space-y-3 max-h-[480px] overflow-y-auto pr-1">
-                  {disponibili.map((s) => {
-                    const on = selected.includes(s.id);
-                    return (
-                      <button key={s.id} data-testid={`planner-spazio-${s.id}`} onClick={() => toggle(s.id)}
-                        className={`w-full text-left rounded-2xl border p-4 transition-colors ${on ? "border-[#2F5B41] bg-[#EFF5EF]" : "border-slate-200 bg-white hover:border-[#2F5B41]"}`}>
-                        <div className="flex items-start justify-between gap-2">
-                          <div>
-                            <div className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#2F5B41]">{s.tipologia} · {s.formato}</div>
-                            <div className="font-bold text-sm mt-0.5">{s.nome}</div>
-                            <div className="text-xs text-slate-500 mt-0.5 flex items-center gap-1"><MapPin size={11} /> {s.indirizzo} — {s.citta} ({s.regione})</div>
-                          </div>
-                          <span className={`w-6 h-6 rounded-full border flex items-center justify-center shrink-0 ${on ? "bg-[#2F5B41] border-[#2F5B41] text-white" : "border-slate-300 text-transparent"}`}>
-                            <Check size={14} />
-                          </span>
-                        </div>
-                        <div className="mt-2 text-sm font-heading font-extrabold">{(s.canone_giornaliero * giorni).toFixed(2)} € <span className="text-xs font-normal text-slate-500">({s.canone_giornaliero} €/g × {giorni} gg)</span></div>
+
+              <EsploraMappa comuni={comuniList} spazi={spaziComune}
+                regione={regioneSel} comune={comuneSel} zona={zonaSel}
+                onRegione={onRegione} onComune={onComune} onZona={(z) => setZonaSel(z || "")}
+                selectable selectedIds={selected} onToggle={toggle} height={420} />
+
+              {!comuneSel && (
+                <div>
+                  <div className="text-xs font-bold uppercase tracking-[0.2em] text-slate-500 mb-3">
+                    Comuni {regioneSel ? `in ${regioneSel}` : "con spazi disponibili"}
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4" data-testid="planner-comuni-grid">
+                    {comuniGrid.map((c) => (
+                      <button key={c.id} type="button" data-testid={`planner-comune-card-${c.id}`} onClick={() => onComune(c.nome)}
+                        className="bg-white border border-slate-100 rounded-2xl p-5 text-left hover:border-[#2F5B41] transition-colors group">
+                        {c.logo_url ? (
+                          <img src={imgSrc(c.logo_url)} alt="" className="w-10 h-10 rounded-xl object-contain border border-slate-100 bg-white" />
+                        ) : (
+                          <span className="w-10 h-10 rounded-xl bg-[#EEF2EC] flex items-center justify-center text-[#2F5B41]"><Landmark size={18} /></span>
+                        )}
+                        <div className="font-heading font-extrabold mt-3 group-hover:text-[#1F3D2B] transition-colors">{c.nome}</div>
+                        <div className="text-xs text-slate-500">{c.regione}</div>
+                        <div className="text-xs font-bold text-[#2F5B41] mt-2">{countPerComune[c.nome] || 0} disponibili</div>
                       </button>
-                    );
-                  })}
-                  {disponibili.length === 0 && <div className="text-sm text-slate-500 p-4">Nessuno spazio disponibile per questo periodo/filtri.</div>}
-                </div>
-                <div className="lg:col-span-2">
-                  <div className="sticky top-24 border border-slate-100 rounded-2xl overflow-hidden">
-                    <MapContainer key={center.join(",") + disponibili.length} center={center} zoom={filtri.citta ? 11 : 5.5} style={{ height: 440 }} scrollWheelZoom={false}>
-                      <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                      {disponibili.map((s) => (
-                        <CircleMarker key={s.id} center={[s.lat, s.lng]} radius={9}
-                          eventHandlers={{ click: () => toggle(s.id) }}
-                          pathOptions={{ color: "#1F3D2B", weight: 1.5, fillColor: selected.includes(s.id) ? "#F59E0B" : "#2F5B41", fillOpacity: 1 }}>
-                          <Popup>
-                            <div className="font-bold">{s.nome}</div>
-                            <div className="text-xs">{s.canone_giornaliero} €/g · {s.formato}</div>
-                            <button className="text-[#2F5B41] text-xs font-bold" onClick={() => toggle(s.id)}>
-                              {selected.includes(s.id) ? "Rimuovi dalla campagna" : "Aggiungi alla campagna"}
-                            </button>
-                          </Popup>
-                        </CircleMarker>
-                      ))}
-                    </MapContainer>
+                    ))}
+                    {comuniGrid.length === 0 && <div className="col-span-full text-sm text-slate-500 p-6 text-center">Nessun Comune attivo in questa regione.</div>}
                   </div>
                 </div>
-              </div>
-              <div className="bg-[#F5F6F3] rounded-xl px-5 py-3 flex justify-between text-sm font-bold" data-testid="planner-totale">
-                <span>{selected.length} spazi selezionati</span>
+              )}
+
+              {comuneSel && (
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="text-xs font-bold uppercase tracking-[0.2em] text-slate-500">
+                      Spazi a {comuneSel}{zonaSel ? ` — ${zonaSel}` : ""} · clicca per selezionare
+                    </div>
+                    <button type="button" data-testid="planner-torna-comuni" onClick={() => onComune(null)}
+                      className="inline-flex items-center gap-1.5 text-sm font-bold text-slate-600 hover:text-[#2F5B41] transition-colors">
+                      <ArrowLeft size={15} /> Tutti i Comuni
+                    </button>
+                  </div>
+                  <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5" data-testid="planner-spazi-grid">
+                    {gridSpazi.map((s) => (
+                      <SpazioCard key={s.id} spazio={s} selectable selected={selected.includes(s.id)} onClick={() => toggle(s.id)} />
+                    ))}
+                  </div>
+                  {gridSpazi.length === 0 && <div className="text-sm text-slate-500 p-6 text-center border border-slate-100 rounded-2xl">Nessuno spazio disponibile qui per il periodo/filtri.</div>}
+                </div>
+              )}
+
+              <div className="bg-[#F5F6F3] rounded-xl px-5 py-3 flex flex-wrap gap-2 justify-between items-center text-sm font-bold" data-testid="planner-totale">
+                <span>{selected.length} spazi selezionati{spaziSelezionati.length > 0 && <span className="font-normal text-slate-500"> — {spaziSelezionati.map((s) => s.nome).join(" · ")}</span>}</span>
                 <span className="font-heading">{totale.toFixed(2)} €</span>
               </div>
             </div>
@@ -254,7 +267,7 @@ export default function CampagnaPlanner() {
                   <div key={p.id} className="border border-slate-100 rounded-2xl overflow-hidden" data-testid={`modulo-pratica-${p.id}`}>
                     <div className="px-5 py-3 bg-[#FAFAF8] border-b border-slate-100 flex flex-wrap items-center justify-between gap-2">
                       <div className="font-heading font-extrabold">{p.spazio_nome}</div>
-                      <div className="text-xs text-slate-500">Comune di {(comuniList.find((c) => c.id === p.comune_id)?.nome) || "—"} · modulo "{tpl?.nome || "standard"}"</div>
+                      <div className="text-xs text-slate-500">Comune di {comuneNomeById(p.comune_id)} · modulo "{tpl?.nome || "standard"}"</div>
                     </div>
                     <div className="p-5 grid sm:grid-cols-2 gap-4">
                       {visibili.map((c) => (
