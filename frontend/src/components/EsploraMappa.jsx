@@ -117,7 +117,7 @@ export const EsploraMappa = ({ comuni, spazi, regione, comune, zona, onRegione, 
 
       <div className="absolute top-3 left-3 z-[1000] flex flex-wrap items-center gap-1.5" data-testid="mappa-breadcrumb">
         <Crumb label="Italia" active={!regione && !comune} onClick={() => { onRegione(null); }} />
-        {regione && <Crumb label={regione} active={!comune} onClick={() => onComune(null)} />}
+        {regione && <Crumb label={regione} active={!comune} onClick={() => onRegione(regione)} />}
         {comune && <Crumb label={comune} active={!zona} onClick={() => onZona(null)} />}
         {zona && <Crumb label={zona} active onClick={() => {}} />}
       </div>

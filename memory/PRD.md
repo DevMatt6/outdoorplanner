@@ -65,6 +65,12 @@ Su richiesta utente (screenshot stile "Donezo") il design è passato da flat bru
 - Superadmin /admin/comuni: modifica comune (PUT /admin/comuni/{id}, form pre-compilato senza sezione referente; rinomina propaga citta/regione agli spazi) ed eliminazione con cascade (DELETE: spazi, pratiche + log/chat, form template, account operatori) previa conferma
 - Monitor anomalie per Comune L3: GET /comune/anomalie (scoped al proprio comune, 403 per L1/L2), pagina /comune/monitor con voce sidebar visibile solo a L3
 
+## Implementato (Iterazione 9 — nuova esplorazione mappa drill-down, testato: testing agent frontend + fix verificato)
+- Nuovo componente EsploraMappa: mappa flat full-width con drill-down Italia (GeoJSON regioni, no tile) → Regione (marker comuni arancioni) → Comune (tile CartoDB light_nolabels, bolle zona/quartiere con conteggio) → Zona (pin spazi con tooltip hover che include FOTO, nome, tipologia, prezzo); breadcrumb overlay Italia/Regione/Comune/Zona
+- Sotto la mappa: griglia comuni selezionabili (logo, nome, regione, n. spazi) → click comune → griglia spazi con foto 4:3 e specifiche (componente SpazioCard)
+- Stessa UX in /spazi (card → dettaglio) e nel Campaign Planner step Spazi (card/pin → selezione con check, selezione multi-comune preservata, filtri tipologia/formato client-side)
+- Fix: "Tutti i Comuni" resetta anche la regione; crumb regione torna al livello regione
+
 ## Backlog prioritizzato
 - P2: date picker anche per modifica pratiche in INTEGRAZIONE_RICHIESTA
 - P2: Stripe test mode reale al posto del mock; export report CSV/PDF

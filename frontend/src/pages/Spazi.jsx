@@ -41,7 +41,7 @@ export default function Spazi() {
 
   const onRegione = (r) => setMany({ regione: r || "", citta: "", zona: "" });
   const onComune = (nome) => {
-    if (!nome) return setMany({ citta: "", zona: "" });
+    if (!nome) return setMany({ citta: "", zona: "", regione: "" });
     const c = comuni.find((x) => x.nome === nome);
     setMany({ citta: nome, zona: "", regione: c?.regione || filters.regione });
   };

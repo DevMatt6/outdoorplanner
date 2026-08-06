@@ -71,7 +71,7 @@ export default function CampagnaPlanner() {
 
   const onRegione = (r) => { setRegioneSel(r || ""); setComuneSel(""); setZonaSel(""); };
   const onComune = (nomeC) => {
-    if (!nomeC) { setComuneSel(""); setZonaSel(""); return; }
+    if (!nomeC) { setComuneSel(""); setZonaSel(""); setRegioneSel(""); return; }
     const c = comuniList.find((x) => x.nome === nomeC);
     setComuneSel(nomeC); setZonaSel(""); if (c) setRegioneSel(c.regione);
   };
