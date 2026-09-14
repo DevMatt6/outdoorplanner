@@ -90,7 +90,7 @@ export default function Landing() {
             <span className="bg-white text-[#1F3D2B] font-heading font-extrabold w-9 h-9 rounded-full flex items-center justify-center text-sm">OP</span>
             <span className="font-heading font-bold">Outdoor Planner</span>
           </div>
-          <div className="text-xs text-emerald-100/70">Demo MVP — SPID/CIE, email e pagamenti sono simulati.</div>
+          <div className="text-xs text-emerald-100/70">Demo MVP — email e pagamenti sono simulati.</div>
         </div>
       </footer>
     </div>

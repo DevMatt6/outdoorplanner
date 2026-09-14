@@ -42,6 +42,23 @@ export default function AdminDashboard() {
         ))}
       </div>
 
+      <div className="mt-4 grid grid-cols-2 md:grid-cols-7 border border-slate-100 rounded-2xl overflow-hidden divide-x divide-y md:divide-y-0 divide-slate-100 bg-white" data-testid="kpi-ooh">
+        {[
+          [kpi.zone, "Zone"],
+          [kpi.pacchetti, "Circuiti"],
+          [kpi.impianti, "Impianti"],
+          [kpi.held, "HELD attivi"],
+          [kpi.confirmed, "Confermati"],
+          [`${kpi.conversione_hold}%`, "Conv. HELD→CONF"],
+          [`${kpi.campagne_ooh} (${kpi.campagne_multicomune} multi)`, "Campagne OOH"],
+        ].map(([v, l]) => (
+          <div key={l} className="p-4">
+            <div className="font-heading font-extrabold text-xl">{v}</div>
+            <div className="text-[10px] uppercase tracking-wider text-slate-500 mt-1">{l}</div>
+          </div>
+        ))}
+      </div>
+
       <div className="mt-6 grid lg:grid-cols-2 gap-6">
         <div className="border border-slate-100 bg-white rounded-2xl overflow-hidden p-6">
           <div className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-4">Pratiche per stato (sistema)</div>

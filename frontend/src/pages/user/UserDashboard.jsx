@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { NavBar } from "../../components/NavBar";
-import { StatusBadge, STATO_COLORS } from "../../components/StatusBadge";
+import { StatusBadge, STATO_COLORS, TipoBadge } from "../../components/StatusBadge";
 import { api, apiError } from "../../lib/api";
 import { useAuth } from "../../store/auth";
 import { toast } from "sonner";
@@ -92,7 +92,10 @@ export default function UserDashboard() {
             <Link key={p.id} to={`/pratiche/${p.id}`} data-testid={`pratica-row-${p.id}`}
               className="flex flex-wrap items-center gap-4 px-6 py-4 border-b border-slate-200 hover:bg-[#F1F5F0] transition-colors">
               <div className="flex-1 min-w-[200px]">
-                <div className="font-bold">{p.spazio_nome}</div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-bold">{p.spazio_nome}</span>
+                  <TipoBadge tipo={p.tipo} />
+                </div>
                 <div className="text-xs text-slate-500 font-mono mt-0.5">{p.data_inizio} → {p.data_fine} · {p.importo.toFixed(2)} €</div>
               </div>
               <StatusBadge stato={p.stato} />

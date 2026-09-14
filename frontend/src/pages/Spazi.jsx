@@ -68,14 +68,14 @@ export default function Spazi() {
       <div className="max-w-7xl mx-auto px-6 py-8">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <h1 className="text-3xl sm:text-4xl font-heading font-extrabold tracking-tight">
-            Spazi disponibili {filters.citta ? <span className="text-[#2F5B41]">· {filters.citta}{filters.zona ? ` / ${filters.zona}` : ""}</span> : filters.regione && <span className="text-[#2F5B41]">· {filters.regione}</span>}
+            Spazi OSP / Eventi {filters.citta ? <span className="text-[#2F5B41]">· {filters.citta}{filters.zona ? ` / ${filters.zona}` : ""}</span> : filters.regione && <span className="text-[#2F5B41]">· {filters.regione}</span>}
           </h1>
-          <button data-testid="avvia-campagna-button" onClick={() => navigate("/campagne/nuova")}
+          <button data-testid="avvia-campagna-button" onClick={() => navigate("/campagne/ooh/nuova")}
             className="inline-flex items-center gap-2 bg-[#2F5B41] text-white rounded-full px-6 py-3 font-bold hover:bg-[#26492F] transition-colors">
-            <Megaphone size={17} /> Avvia una campagna
+            <Megaphone size={17} /> Pianifica campagna OOH
           </button>
         </div>
-        <p className="text-sm text-slate-500 mt-1">Esplora la mappa: scegli la regione, poi il Comune e la zona per vedere gli spazi disponibili.</p>
+        <p className="text-sm text-slate-500 mt-1">Aree comunali per eventi, occupazioni temporanee e progetti speciali: scegli il Comune e avvia la richiesta OSP.</p>
 
         <div className="mt-6 bg-white border border-slate-100 rounded-2xl p-4 flex flex-wrap gap-3 items-center" data-testid="filtri-spazi">
           <input data-testid="filter-q" className={input} placeholder="Cerca per nome o indirizzo..."

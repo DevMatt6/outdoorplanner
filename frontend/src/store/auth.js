@@ -30,5 +30,5 @@ export function homeFor(user) {
   if (!user) return "/login";
   if (user.ruolo === "superadmin") return "/admin";
   if (user.ruolo === "comune") return "/comune";
-  return "/dashboard";
+  return "/home";
 }

@@ -8,11 +8,13 @@ import { ChevronDown, ChevronUp } from "lucide-react";
 export default function Report() {
   const [report, setReport] = useState(null);
   const [perSpazio, setPerSpazio] = useState([]);
+  const [ooh, setOoh] = useState(null);
   const [expanded, setExpanded] = useState(null);
 
   useEffect(() => {
     api.get("/comune/report").then(({ data }) => setReport(data));
     api.get("/comune/report/spazi").then(({ data }) => setPerSpazio(data));
+    api.get("/comune/report/ooh").then(({ data }) => setOoh(data));
   }, []);
 
   if (!report) return <BackofficeLayout title="Backoffice Comune" links={COMUNE_LINKS}><div className="text-slate-500">Caricamento...</div></BackofficeLayout>;
@@ -65,8 +67,44 @@ export default function Report() {
         </div>
       </div>
 
+      {ooh && (
+        <div className="mt-6 border border-slate-100 bg-white rounded-2xl overflow-hidden" data-testid="report-ooh">
+          <div className="px-5 py-3 border-b border-slate-100 text-xs font-bold uppercase tracking-widest bg-[#FAFAF8]">Campagne OOH — circuiti e prenotazioni</div>
+          <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-slate-100 border-b border-slate-100">
+            {[[ooh.prenotazioni.HELD, "In prenotazione (HELD)"], [ooh.prenotazioni.CONFIRMED, "Confermate"],
+              [ooh.prenotazioni.EXPIRED, "Scadute"], [`${ooh.conversione}%`, "Conversione HELD→CONFIRMED"]].map(([v, l]) => (
+              <div key={l} className="p-4">
+                <div className="font-heading font-extrabold text-xl">{v}</div>
+                <div className="text-[10px] uppercase tracking-wider text-slate-500">{l}</div>
+              </div>
+            ))}
+          </div>
+          <table className="w-full text-sm border-collapse">
+            <thead>
+              <tr className="border-b border-slate-100 text-left">
+                {["Circuito", "Zona", "Impianti", "€/giorno", "Pratiche", "Incassato"].map((h) => (
+                  <th key={h} className="px-4 py-2.5 text-[11px] font-bold uppercase tracking-widest text-slate-500">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {ooh.pacchetti.map((p) => (
+                <tr key={p.pacchetto_id} className="border-b border-slate-100 hover:bg-[#F1F5F0] transition-colors">
+                  <td className="px-4 py-2.5 font-bold">{p.nome}</td>
+                  <td className="px-4 py-2.5">{p.zona}</td>
+                  <td className="px-4 py-2.5 font-mono">{p.n_impianti}</td>
+                  <td className="px-4 py-2.5 font-mono">{p.prezzo_giornaliero} €</td>
+                  <td className="px-4 py-2.5 font-mono">{p.pratiche}</td>
+                  <td className="px-4 py-2.5 font-heading font-extrabold">{p.incassato.toFixed(2)} €</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
       <div className="mt-6 border border-slate-100 bg-white rounded-2xl overflow-hidden" data-testid="report-per-spazio">
-        <div className="px-5 py-3 border-b border-slate-100 text-xs font-bold uppercase tracking-widest bg-[#FAFAF8]">Dettaglio per spazio</div>
+        <div className="px-5 py-3 border-b border-slate-100 text-xs font-bold uppercase tracking-widest bg-[#FAFAF8]">OSP — dettaglio per area</div>
         <table className="w-full text-sm border-collapse">
           <thead>
             <tr className="border-b border-slate-100 text-left">

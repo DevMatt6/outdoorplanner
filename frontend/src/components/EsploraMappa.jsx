@@ -5,7 +5,7 @@ import { imgSrc } from "../lib/api";
 
 const BASE_STYLE = { fillColor: "#DDE8DE", fillOpacity: 1, color: "#8FAE96", weight: 1 };
 const ACTIVE_STYLE = { fillColor: "#2F5B41", fillOpacity: 1, color: "#1F3D2B", weight: 1.5 };
-const FLAT_TILES = "https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png";
+const FLAT_TILES = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
 
 const Crumb = ({ label, onClick, active }) => (
   <button type="button" onClick={onClick} disabled={active}
@@ -91,7 +91,7 @@ export const EsploraMappa = ({ comuni, spazi, regione, comune, zona, onRegione, 
         <MapContainer key={`${comune}-${zona || "zone"}`}
           center={[comuneObj?.lat || 42, comuneObj?.lng || 12.5]} zoom={zona ? 13 : 12}
           style={{ height, width: "100%" }} scrollWheelZoom={false} attributionControl={false}>
-          <TileLayer url={FLAT_TILES} />
+          <TileLayer url={FLAT_TILES} className="flat-tiles" />
           {!showPins && zone.map((z) => (
             <CircleMarker key={z.nome} center={[z.lat, z.lng]} radius={14}
               eventHandlers={{ click: () => onZona(z.nome) }}

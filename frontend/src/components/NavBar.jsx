@@ -14,13 +14,21 @@ export const NavBar = () => {
           <span className="font-heading font-extrabold text-lg tracking-tight">Outdoor Planner</span>
         </Link>
         <nav className="flex items-center gap-2">
-          <Link to="/spazi" data-testid="nav-spazi"
-            className="px-4 py-2 text-sm font-semibold rounded-full hover:bg-[#EEF2EC] transition-colors">
-            Cerca spazi
-          </Link>
+          {(!user || user.ruolo === "user") && (
+            <>
+              <Link to="/campagne/ooh/nuova" data-testid="nav-ooh"
+                className="px-4 py-2 text-sm font-semibold rounded-full hover:bg-[#EEF2EC] transition-colors">
+                Campagne OOH
+              </Link>
+              <Link to="/spazi" data-testid="nav-spazi"
+                className="px-4 py-2 text-sm font-semibold rounded-full hover:bg-[#EEF2EC] transition-colors">
+                OSP / Eventi
+              </Link>
+            </>
+          )}
           {user ? (
             <>
-              <Link to={homeFor(user)} data-testid="nav-dashboard"
+              <Link to={user.ruolo === "user" ? "/dashboard" : homeFor(user)} data-testid="nav-dashboard"
                 className="px-4 py-2 text-sm font-semibold rounded-full border border-slate-200 hover:border-[#2F5B41] hover:text-[#2F5B41] transition-colors">
                 {user.ruolo === "superadmin" ? "Superadmin" : user.ruolo === "comune" ? "Backoffice" : "Le mie pratiche"}
               </Link>

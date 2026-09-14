@@ -138,7 +138,18 @@ export default function AdminComuni() {
                 <td className="px-4 py-3 font-heading font-extrabold">{c.incasso_totale.toFixed(2)} €</td>
                 <td className="px-4 py-3 font-mono text-slate-500">{c.incasso_piattaforma.toFixed(2)} €</td>
                 <td className="px-4 py-3">
-                  <span className="text-[10px] font-bold rounded-full px-2.5 py-1 bg-[#D8EADB] text-[#1F5B33]">Attivo</span>
+                  <select data-testid={`stato-comune-${c.id}`} value={c.stato_onboarding || "ATTIVO"}
+                    onClick={(e) => e.stopPropagation()}
+                    onChange={async (e) => {
+                      try {
+                        await api.patch(`/admin/comuni/${c.id}/stato`, { stato_onboarding: e.target.value });
+                        toast.success(`${c.nome}: ${e.target.value}`);
+                        load();
+                      } catch (err) { toast.error(apiError(err)); }
+                    }}
+                    className={`text-[11px] font-bold rounded-full px-2 py-1 border cursor-pointer ${(c.stato_onboarding || "ATTIVO") === "ATTIVO" ? "bg-[#D8EADB] text-[#1F5B33] border-[#D8EADB]" : "bg-[#FEF3C7] text-[#B45309] border-[#FEF3C7]"}`}>
+                    {["DA_CONFIGURARE", "IN_CONFIGURAZIONE", "ATTIVO", "SOSPESO", "DISATTIVATO"].map((s) => <option key={s} value={s}>{s.replaceAll("_", " ")}</option>)}
+                  </select>
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex gap-2">

@@ -83,7 +83,10 @@ export const BackofficeLayout = ({ title, links, children }) => {
 
 export const COMUNE_LINKS = [
   ["/comune", "Scrivania pratiche", "link-scrivania"],
-  ["/comune/spazi", "Catalogo spazi", "link-spazi", 3],
+  ["/comune/zone", "Zone & confini", "link-zone", 3],
+  ["/comune/impianti", "Impianti OOH", "link-impianti", 3],
+  ["/comune/pacchetti", "Circuiti / Pacchetti", "link-pacchetti", 3],
+  ["/comune/spazi", "Aree OSP", "link-spazi", 3],
   ["/comune/form", "Modulo dinamico", "link-form", 3],
   ["/comune/report", "Report & incassi", "link-report"],
   ["/comune/monitor", "Monitor anomalie", "link-monitor", 3],

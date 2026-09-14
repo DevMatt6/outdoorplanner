@@ -1,0 +1,496 @@
+"""Modulo Campagne OOH: zone, impianti, pacchetti, prenotazioni 24h, creatività."""
+import os
+import uuid
+import asyncio
+import logging
+from datetime import datetime, timezone, timedelta
+from typing import List, Optional
+from fastapi import APIRouter, HTTPException, Depends, UploadFile, File
+from pydantic import BaseModel
+
+logger = logging.getLogger(__name__)
+
+HOLD_HOURS = float(os.environ.get("HOLD_HOURS", "24"))
+
+TIPOLOGIE_OOH = [
+    {"id": "cartacee", "categoria": "Affissioni Stradali Comunali – Cartacee",
+     "tipi": ["Manifesto 200x140", "Manifesto 100x140", "Manifesto 70x100"]},
+    {"id": "dooh", "categoria": "DOOH – Digital Out-of-Home",
+     "tipi": ["Maxi Ledwall Stradale", "Mupi Digitale / Totem Smart", "Schermo su Edicola/Chiosco", "Impianto Digitale Temporaneo – SCIA"]},
+    {"id": "maxi", "categoria": "Maxi Affissioni Stradali Stabili",
+     "tipi": ["Poster Maxi 6x3", "Mega Poster Stradale >18mq"]},
+]
+TIPO_TO_CATEGORIA = {t: c["id"] for c in TIPOLOGIE_OOH for t in c["tipi"]}
+
+STATI_OOH_ATTIVI = ["INVIATA", "IN_VERIFICA", "INTEGRAZIONE_RICHIESTA", "APPROVATA"]
+
+
+class ZonaIn(BaseModel):
+    nome: str
+    descrizione: str = ""
+    quartiere: str = ""
+    vie: List[str] = []
+    polygon: List[List[float]] = []
+
+
+class ImpiantoIn(BaseModel):
+    codice: str
+    zona_id: str
+    via: str = ""
+    indirizzo: str = ""
+    lat: float
+    lng: float
+    tipologia: str
+    formato: str = ""
+    dimensioni: str = ""
+    foto_url: str = ""
+    note: str = ""
+    attivo: bool = True
+
+
+class PacchettoIn(BaseModel):
+    zona_id: str
+    nome: str
+    descrizione: str = ""
+    impianti_ids: List[str] = []
+    prezzo_giornaliero: float
+    form_template_id: Optional[str] = None
+    attivo: bool = True
+
+
+class CampagnaOOHIn(BaseModel):
+    nome: str
+    data_inizio: str
+    data_fine: str
+    pacchetti_ids: List[str]
+
+
+class DatiFormIn(BaseModel):
+    dati_form: dict
+
+
+class CreativitaAssegnaIn(BaseModel):
+    impianto_id: str
+    creativita_id: str
+
+
+def _giorni(inizio: str, fine: str) -> int:
+    d1 = datetime.fromisoformat(inizio)
+    d2 = datetime.fromisoformat(fine)
+    return max((d2 - d1).days + 1, 1)
+
+
+def build(db, get_current_user, require_role, require_comune_l3, notifica, log_stato, now_iso, upload_dir):
+    router = APIRouter()
+
+    # ---------- scadenza hold ----------
+
+    async def expire_holds():
+        now = now_iso()
+        expired = await db.prenotazioni.find({"stato": "HELD", "hold_expires_at": {"$lt": now}}, {"_id": 0}).to_list(200)
+        for pren in expired:
+            await db.prenotazioni.update_one({"id": pren["id"]}, {"$set": {"stato": "EXPIRED", "expired_at": now}})
+            await db.pratiche.update_many({"prenotazione_id": pren["id"], "stato": "DA_COMPLETARE"},
+                                          {"$set": {"stato": "PRENOTAZIONE_SCADUTA", "updated_at": now}})
+            camp = await db.campagne.find_one({"id": pren["campagna_id"]}, {"_id": 0})
+            if camp and camp.get("stato") == "HOLD":
+                attive = await db.prenotazioni.count_documents({"campagna_id": camp["id"], "stato": "HELD"})
+                if attive == 0:
+                    await db.campagne.update_one({"id": camp["id"]}, {"$set": {"stato": "SCADUTA"}})
+                await notifica(camp["user_id"], "Prenotazione scaduta",
+                               f"Il blocco di 24 ore per la campagna '{camp['nome']}' è scaduto: gli impianti sono stati liberati.")
+        return len(expired)
+
+    # ---------- disponibilità ----------
+
+    async def _impianti_bloccati(impianti_ids: List[str], inizio: str, fine: str) -> set:
+        now = now_iso()
+        rows = await db.prenotazioni.find(
+            {"stato": {"$in": ["HELD", "CONFIRMED"]}, "impianti_ids": {"$in": impianti_ids},
+             "data_inizio": {"$lte": fine}, "data_fine": {"$gte": inizio}}, {"_id": 0}).to_list(500)
+        busy = set()
+        for r in rows:
+            if r["stato"] == "CONFIRMED" or r.get("hold_expires_at", "") > now:
+                busy.update(set(r["impianti_ids"]) & set(impianti_ids))
+        return busy
+
+    # ---------- public ----------
+
+    @router.get("/ooh/tipologie")
+    async def tipologie():
+        return TIPOLOGIE_OOH
+
+    @router.get("/ooh/zone")
+    async def zone_pubbliche(comune_id: str):
+        zone = await db.zone.find({"comune_id": comune_id}, {"_id": 0}).to_list(100)
+        for z in zone:
+            z["impianti_count"] = await db.impianti.count_documents({"zona_id": z["id"], "attivo": True})
+            z["pacchetti_count"] = await db.pacchetti.count_documents({"zona_id": z["id"], "attivo": True})
+        return zone
+
+    @router.get("/ooh/pacchetti")
+    async def pacchetti_pubblici(comune_id: Optional[str] = None, zona_id: Optional[str] = None,
+                                 data_inizio: Optional[str] = None, data_fine: Optional[str] = None):
+        await expire_holds()
+        q: dict = {"attivo": True}
+        if comune_id:
+            q["comune_id"] = comune_id
+        if zona_id:
+            q["zona_id"] = zona_id
+        pacchetti = await db.pacchetti.find(q, {"_id": 0}).to_list(200)
+        result = []
+        for p in pacchetti:
+            impianti = await db.impianti.find({"id": {"$in": p["impianti_ids"]}}, {"_id": 0}).to_list(100)
+            disponibile = True
+            if data_inizio and data_fine:
+                busy = await _impianti_bloccati(p["impianti_ids"], data_inizio, data_fine)
+                disponibile = len(busy) == 0
+            zona = await db.zone.find_one({"id": p["zona_id"]}, {"_id": 0, "nome": 1, "quartiere": 1})
+            result.append({**p, "impianti": impianti, "disponibile": disponibile,
+                           "zona_nome": zona["nome"] if zona else "", "n_impianti": len(impianti)})
+        return result
+
+    # ---------- campagne OOH ----------
+
+    @router.post("/ooh/campagne")
+    async def crea_campagna_ooh(data: CampagnaOOHIn, user: dict = Depends(require_role("user"))):
+        await expire_holds()
+        ids = list(dict.fromkeys(data.pacchetti_ids))
+        if not ids:
+            raise HTTPException(status_code=400, detail="Seleziona almeno un pacchetto")
+        pacchetti = await db.pacchetti.find({"id": {"$in": ids}, "attivo": True}, {"_id": 0}).to_list(50)
+        if len(pacchetti) != len(ids):
+            raise HTTPException(status_code=404, detail="Uno o più pacchetti non trovati")
+        for p in pacchetti:
+            busy = await _impianti_bloccati(p["impianti_ids"], data.data_inizio, data.data_fine)
+            if busy:
+                raise HTTPException(status_code=409, detail=f"Il circuito '{p['nome']}' non è disponibile nel periodo selezionato")
+        giorni = _giorni(data.data_inizio, data.data_fine)
+        campagna_id = str(uuid.uuid4())
+        hold_created = now_iso()
+        hold_expires = (datetime.now(timezone.utc) + timedelta(hours=HOLD_HOURS)).isoformat()
+        pratiche, prenotazioni = [], []
+        for p in pacchetti:
+            pren = {"id": str(uuid.uuid4()), "campagna_id": campagna_id, "pacchetto_id": p["id"],
+                    "comune_id": p["comune_id"], "impianti_ids": p["impianti_ids"],
+                    "data_inizio": data.data_inizio, "data_fine": data.data_fine,
+                    "stato": "HELD", "hold_created_at": hold_created, "hold_expires_at": hold_expires,
+                    "user_id": user["id"]}
+            await db.prenotazioni.insert_one({**pren})
+            prenotazioni.append(pren)
+        # verifica atomica post-insert: se un'altra prenotazione precedente confligge, rollback
+        for pren in prenotazioni:
+            conflitti = await db.prenotazioni.find(
+                {"id": {"$ne": pren["id"]}, "campagna_id": {"$ne": campagna_id},
+                 "stato": {"$in": ["HELD", "CONFIRMED"]}, "impianti_ids": {"$in": pren["impianti_ids"]},
+                 "data_inizio": {"$lte": pren["data_fine"]}, "data_fine": {"$gte": pren["data_inizio"]},
+                 "hold_created_at": {"$lt": hold_created}}, {"_id": 0}).to_list(10)
+            conflitti = [c for c in conflitti if c["stato"] == "CONFIRMED" or c.get("hold_expires_at", "") > now_iso()]
+            if conflitti:
+                await db.prenotazioni.delete_many({"campagna_id": campagna_id})
+                raise HTTPException(status_code=409, detail="Un altro utente ha appena prenotato uno dei circuiti selezionati")
+        for p, pren in zip(pacchetti, prenotazioni):
+            zona = await db.zone.find_one({"id": p["zona_id"]}, {"_id": 0})
+            impianti = await db.impianti.find({"id": {"$in": p["impianti_ids"]}}, {"_id": 0}).to_list(100)
+            pratica = {"id": str(uuid.uuid4()), "tipo": "OOH", "user_id": user["id"], "user_nome": user["nome"],
+                       "comune_id": p["comune_id"], "campagna_id": campagna_id, "campagna_nome": data.nome,
+                       "zona_id": p["zona_id"], "zona_nome": zona["nome"] if zona else "",
+                       "pacchetto_id": p["id"], "pacchetto_nome": p["nome"],
+                       "spazio_id": p["id"], "spazio_nome": f"{p['nome']} ({zona['nome'] if zona else ''})",
+                       "impianti": [{"id": i["id"], "codice": i["codice"], "via": i.get("via", ""),
+                                     "tipologia": i["tipologia"], "formato": i.get("formato", ""),
+                                     "foto_url": i.get("foto_url", ""), "lat": i["lat"], "lng": i["lng"]} for i in impianti],
+                       "stato": "DA_COMPLETARE", "dati_form": {}, "documenti": [], "creativita": [],
+                       "data_inizio": data.data_inizio, "data_fine": data.data_fine,
+                       "importo": round(giorni * p["prezzo_giornaliero"], 2), "pagata": False,
+                       "prenotazione_id": pren["id"], "created_at": now_iso(), "updated_at": now_iso()}
+            await db.pratiche.insert_one({**pratica})
+            await db.prenotazioni.update_one({"id": pren["id"]}, {"$set": {"pratica_id": pratica["id"]}})
+            await log_stato(pratica["id"], None, "DA_COMPLETARE", user, f"Pratica generata dalla campagna OOH '{data.nome}'")
+            pratiche.append(pratica)
+        campagna = {"id": campagna_id, "tipo": "OOH", "user_id": user["id"], "nome": data.nome,
+                    "data_inizio": data.data_inizio, "data_fine": data.data_fine,
+                    "pacchetti_ids": ids, "pratica_ids": [p["id"] for p in pratiche],
+                    "importo_totale": round(sum(p["importo"] for p in pratiche), 2),
+                    "stato": "HOLD", "hold_expires_at": hold_expires, "created_at": now_iso()}
+        await db.campagne.insert_one({**campagna})
+        await notifica(user["id"], "Circuiti riservati per 24 ore",
+                       f"Campagna '{data.nome}': {len(pacchetti)} circuiti bloccati fino al completamento (scadenza {hold_expires[:16].replace('T', ' ')} UTC)")
+        return {**campagna, "pratiche": pratiche}
+
+    async def _checklist(pratica: dict) -> dict:
+        tpl = await _template_pratica(pratica)
+        campi_req = [c for c in tpl.get("campi", []) if c.get("required")]
+        moduli_ok = all(pratica.get("dati_form", {}).get(c["id"]) not in (None, "") for c in campi_req)
+        docs_req = [d for d in tpl.get("documenti_richiesti", []) if d.get("required")]
+        tipi_doc = {d["tipo"] for d in pratica.get("documenti", [])}
+        documenti_ok = all(d["id"] in tipi_doc for d in docs_req)
+        assegnate = {a["impianto_id"] for a in pratica.get("creativita", [])}
+        creativita_ok = all(i["id"] in assegnate for i in pratica.get("impianti", []))
+        return {"moduli_ok": moduli_ok, "documenti_ok": documenti_ok,
+                "creativita_ok": creativita_ok, "pagamento_ok": bool(pratica.get("pagata"))}
+
+    async def _template_pratica(pratica: dict) -> dict:
+        tpl = None
+        pacchetto = await db.pacchetti.find_one({"id": pratica.get("pacchetto_id")}, {"_id": 0})
+        if pacchetto and pacchetto.get("form_template_id"):
+            tpl = await db.form_templates.find_one({"id": pacchetto["form_template_id"]}, {"_id": 0})
+        if not tpl:
+            tpl = await db.form_templates.find_one({"comune_id": pratica["comune_id"], "tipo": "OOH"}, {"_id": 0})
+        if not tpl:
+            tpl = await db.form_templates.find_one({"comune_id": pratica["comune_id"]}, {"_id": 0})
+        if tpl:
+            tpl.setdefault("documenti_richiesti", [])
+            return tpl
+        return {"nome": "Modulo standard", "campi": [], "documenti_richiesti": []}
+
+    async def _enrich_campagna_ooh(c: dict) -> dict:
+        pratiche = await db.pratiche.find({"campagna_id": c["id"]}, {"_id": 0}).to_list(50)
+        out = []
+        for p in pratiche:
+            out.append({**p, "checklist": await _checklist(p)})
+        return {**c, "pratiche": out}
+
+    @router.get("/ooh/campagne/{campagna_id}")
+    async def get_campagna_ooh(campagna_id: str, user: dict = Depends(require_role("user"))):
+        await expire_holds()
+        c = await db.campagne.find_one({"id": campagna_id, "user_id": user["id"]}, {"_id": 0})
+        if not c:
+            raise HTTPException(status_code=404, detail="Campagna non trovata")
+        return await _enrich_campagna_ooh(c)
+
+    @router.get("/ooh/pratiche/{pratica_id}/template")
+    async def template_pratica_ooh(pratica_id: str, user: dict = Depends(get_current_user)):
+        pratica = await db.pratiche.find_one({"id": pratica_id}, {"_id": 0})
+        if not pratica:
+            raise HTTPException(status_code=404, detail="Pratica non trovata")
+        return await _template_pratica(pratica)
+
+    @router.put("/ooh/pratiche/{pratica_id}/dati-form")
+    async def dati_form_ooh(pratica_id: str, data: DatiFormIn, user: dict = Depends(require_role("user"))):
+        pratica = await db.pratiche.find_one({"id": pratica_id, "user_id": user["id"], "tipo": "OOH"}, {"_id": 0})
+        if not pratica:
+            raise HTTPException(status_code=404, detail="Pratica non trovata")
+        if pratica["stato"] not in ("DA_COMPLETARE", "INTEGRAZIONE_RICHIESTA"):
+            raise HTTPException(status_code=400, detail="Pratica non modificabile in questo stato")
+        await db.pratiche.update_one({"id": pratica_id}, {"$set": {"dati_form": data.dati_form, "updated_at": now_iso()}})
+        return {"ok": True}
+
+    @router.post("/ooh/campagne/{campagna_id}/checkout")
+    async def checkout_ooh(campagna_id: str, user: dict = Depends(require_role("user"))):
+        await expire_holds()
+        c = await db.campagne.find_one({"id": campagna_id, "user_id": user["id"]}, {"_id": 0})
+        if not c:
+            raise HTTPException(status_code=404, detail="Campagna non trovata")
+        if c.get("stato") == "SCADUTA":
+            raise HTTPException(status_code=400, detail="La prenotazione è scaduta: gli impianti sono stati liberati")
+        tx = f"MOCK-{uuid.uuid4().hex[:10].upper()}"
+        await db.pratiche.update_many({"campagna_id": campagna_id, "pagata": False}, {"$set": {
+            "pagata": True, "pagamento": {"metodo": "carta_mock", "transazione_id": tx, "data": now_iso()},
+            "updated_at": now_iso()}})
+        await notifica(user["id"], "Pagamento registrato", f"Pagamento della campagna '{c['nome']}' completato ({tx})")
+        return {"ok": True, "transazione_id": tx, "importo_totale": c["importo_totale"]}
+
+    @router.post("/ooh/campagne/{campagna_id}/invia")
+    async def invia_ooh(campagna_id: str, user: dict = Depends(require_role("user"))):
+        await expire_holds()
+        c = await db.campagne.find_one({"id": campagna_id, "user_id": user["id"]}, {"_id": 0})
+        if not c:
+            raise HTTPException(status_code=404, detail="Campagna non trovata")
+        if c.get("stato") == "SCADUTA":
+            raise HTTPException(status_code=400, detail="La prenotazione è scaduta: crea una nuova campagna")
+        pratiche = await db.pratiche.find({"campagna_id": campagna_id, "stato": "DA_COMPLETARE"}, {"_id": 0}).to_list(50)
+        if not pratiche:
+            raise HTTPException(status_code=400, detail="Nessuna pratica da inviare")
+        for p in pratiche:
+            ck = await _checklist(p)
+            if not all(ck.values()):
+                mancano = [{"moduli_ok": "moduli", "documenti_ok": "documentazione",
+                            "creativita_ok": "creatività", "pagamento_ok": "pagamento"}[k] for k, v in ck.items() if not v]
+                raise HTTPException(status_code=400, detail=f"'{p['pacchetto_nome']}': completa {', '.join(mancano)}")
+        for p in pratiche:
+            await db.pratiche.update_one({"id": p["id"]}, {"$set": {"stato": "INVIATA", "updated_at": now_iso()}})
+            await db.prenotazioni.update_one({"id": p["prenotazione_id"]}, {"$set": {"stato": "CONFIRMED", "confirmed_at": now_iso()}})
+            await log_stato(p["id"], "DA_COMPLETARE", "INVIATA", user, f"Inviata dalla campagna OOH '{c['nome']}'")
+            operatori = await db.users.find({"ruolo": "comune", "comune_id": p["comune_id"]}, {"_id": 0}).to_list(20)
+            for op in operatori:
+                await notifica(op["id"], "Nuova pratica Campagna OOH", f"Pratica '{p['spazio_nome']}' → INVIATA", p["id"])
+        await db.campagne.update_one({"id": campagna_id}, {"$set": {"stato": "CONFERMATA"}})
+        await notifica(user["id"], "Campagna confermata", f"Le pratiche della campagna '{c['nome']}' sono state inviate ai Comuni: prenotazione confermata.")
+        return {"ok": True, "inviate": len(pratiche)}
+
+    @router.post("/ooh/campagne/{campagna_id}/annulla")
+    async def annulla_ooh(campagna_id: str, user: dict = Depends(require_role("user"))):
+        c = await db.campagne.find_one({"id": campagna_id, "user_id": user["id"]}, {"_id": 0})
+        if not c:
+            raise HTTPException(status_code=404, detail="Campagna non trovata")
+        if c.get("stato") != "HOLD":
+            raise HTTPException(status_code=400, detail="Solo le campagne in prenotazione possono essere annullate")
+        await db.prenotazioni.update_many({"campagna_id": campagna_id, "stato": "HELD"}, {"$set": {"stato": "CANCELLED"}})
+        await db.pratiche.update_many({"campagna_id": campagna_id, "stato": "DA_COMPLETARE"},
+                                      {"$set": {"stato": "ANNULLATA", "updated_at": now_iso()}})
+        await db.campagne.update_one({"id": campagna_id}, {"$set": {"stato": "ANNULLATA"}})
+        await notifica(user["id"], "Campagna annullata", f"La campagna '{c['nome']}' è stata annullata: gli impianti sono stati liberati.")
+        return {"ok": True}
+
+    # ---------- creatività ----------
+
+    @router.post("/creativita")
+    async def upload_creativita(nome: str = "", formato: str = "", digitale: bool = False,
+                                file: UploadFile = File(...), user: dict = Depends(require_role("user"))):
+        ext = (file.filename or "img").rsplit(".", 1)[-1].lower()
+        if ext not in ("jpg", "jpeg", "png", "webp", "pdf", "mp4", "gif"):
+            raise HTTPException(status_code=400, detail="Formato non supportato (JPG, PNG, PDF, MP4, GIF)")
+        folder = upload_dir / "creativita"
+        folder.mkdir(exist_ok=True)
+        name = f"{uuid.uuid4().hex[:10]}.{ext}"
+        (folder / name).write_bytes(await file.read())
+        cr = {"id": str(uuid.uuid4()), "user_id": user["id"], "nome": nome or file.filename,
+              "file_url": f"/api/uploads/creativita/{name}", "formato": formato,
+              "digitale": digitale or ext in ("mp4", "gif"), "created_at": now_iso()}
+        await db.creativita.insert_one({**cr})
+        return cr
+
+    @router.get("/creativita")
+    async def mie_creativita(user: dict = Depends(require_role("user"))):
+        return await db.creativita.find({"user_id": user["id"]}, {"_id": 0}).sort("created_at", -1).to_list(100)
+
+    @router.post("/ooh/pratiche/{pratica_id}/creativita")
+    async def assegna_creativita(pratica_id: str, data: CreativitaAssegnaIn, user: dict = Depends(require_role("user"))):
+        pratica = await db.pratiche.find_one({"id": pratica_id, "user_id": user["id"], "tipo": "OOH"}, {"_id": 0})
+        if not pratica:
+            raise HTTPException(status_code=404, detail="Pratica non trovata")
+        cr = await db.creativita.find_one({"id": data.creativita_id, "user_id": user["id"]}, {"_id": 0})
+        if not cr:
+            raise HTTPException(status_code=404, detail="Creatività non trovata")
+        impianto = next((i for i in pratica.get("impianti", []) if i["id"] == data.impianto_id), None)
+        if not impianto:
+            raise HTTPException(status_code=404, detail="Impianto non presente nella pratica")
+        is_dooh = TIPO_TO_CATEGORIA.get(impianto["tipologia"]) == "dooh"
+        if is_dooh and not cr.get("digitale"):
+            raise HTTPException(status_code=400, detail=f"L'impianto '{impianto['codice']}' è digitale (DOOH): serve una creatività digitale")
+        if not is_dooh and cr.get("digitale"):
+            raise HTTPException(status_code=400, detail=f"L'impianto '{impianto['codice']}' è cartaceo: la creatività digitale non è compatibile")
+        if cr.get("formato") and impianto.get("formato") and cr["formato"] != impianto["formato"]:
+            raise HTTPException(status_code=400, detail=f"Formato creatività '{cr['formato']}' non compatibile con impianto '{impianto['formato']}'")
+        assoc = [a for a in pratica.get("creativita", []) if a["impianto_id"] != data.impianto_id]
+        assoc.append({"impianto_id": data.impianto_id, "creativita_id": data.creativita_id, "creativita_nome": cr["nome"]})
+        await db.pratiche.update_one({"id": pratica_id}, {"$set": {"creativita": assoc, "updated_at": now_iso()}})
+        return {"ok": True, "creativita": assoc}
+
+    @router.delete("/ooh/pratiche/{pratica_id}/creativita/{impianto_id}")
+    async def rimuovi_creativita(pratica_id: str, impianto_id: str, user: dict = Depends(require_role("user"))):
+        pratica = await db.pratiche.find_one({"id": pratica_id, "user_id": user["id"]}, {"_id": 0})
+        if not pratica:
+            raise HTTPException(status_code=404, detail="Pratica non trovata")
+        assoc = [a for a in pratica.get("creativita", []) if a["impianto_id"] != impianto_id]
+        await db.pratiche.update_one({"id": pratica_id}, {"$set": {"creativita": assoc, "updated_at": now_iso()}})
+        return {"ok": True}
+
+    # ---------- backoffice comune: zone, impianti, pacchetti ----------
+
+    @router.get("/comune/zone")
+    async def comune_zone(user: dict = Depends(require_role("comune"))):
+        zone = await db.zone.find({"comune_id": user["comune_id"]}, {"_id": 0}).to_list(100)
+        for z in zone:
+            z["impianti_count"] = await db.impianti.count_documents({"zona_id": z["id"]})
+            z["pacchetti_count"] = await db.pacchetti.count_documents({"zona_id": z["id"]})
+        return zone
+
+    @router.post("/comune/zone")
+    async def crea_zona(data: ZonaIn, user: dict = Depends(require_comune_l3)):
+        zona = {"id": str(uuid.uuid4()), "comune_id": user["comune_id"], **data.model_dump(), "created_at": now_iso()}
+        await db.zone.insert_one({**zona})
+        return zona
+
+    @router.put("/comune/zone/{zona_id}")
+    async def aggiorna_zona(zona_id: str, data: ZonaIn, user: dict = Depends(require_comune_l3)):
+        res = await db.zone.update_one({"id": zona_id, "comune_id": user["comune_id"]}, {"$set": data.model_dump()})
+        if res.matched_count == 0:
+            raise HTTPException(status_code=404, detail="Zona non trovata")
+        return await db.zone.find_one({"id": zona_id}, {"_id": 0})
+
+    @router.delete("/comune/zone/{zona_id}")
+    async def elimina_zona(zona_id: str, user: dict = Depends(require_comune_l3)):
+        if await db.pacchetti.count_documents({"zona_id": zona_id}) > 0:
+            raise HTTPException(status_code=400, detail="Elimina prima i pacchetti della zona")
+        res = await db.zone.delete_one({"id": zona_id, "comune_id": user["comune_id"]})
+        if res.deleted_count == 0:
+            raise HTTPException(status_code=404, detail="Zona non trovata")
+        await db.impianti.update_many({"zona_id": zona_id}, {"$set": {"zona_id": None}})
+        return {"ok": True}
+
+    @router.get("/comune/impianti")
+    async def comune_impianti(user: dict = Depends(require_role("comune"))):
+        return await db.impianti.find({"comune_id": user["comune_id"]}, {"_id": 0}).to_list(500)
+
+    @router.post("/comune/impianti")
+    async def crea_impianto(data: ImpiantoIn, user: dict = Depends(require_comune_l3)):
+        imp = {"id": str(uuid.uuid4()), "comune_id": user["comune_id"], **data.model_dump(),
+               "categoria": TIPO_TO_CATEGORIA.get(data.tipologia, "cartacee"), "created_at": now_iso()}
+        await db.impianti.insert_one({**imp})
+        return imp
+
+    @router.put("/comune/impianti/{impianto_id}")
+    async def aggiorna_impianto(impianto_id: str, data: ImpiantoIn, user: dict = Depends(require_comune_l3)):
+        updates = {**data.model_dump(), "categoria": TIPO_TO_CATEGORIA.get(data.tipologia, "cartacee")}
+        res = await db.impianti.update_one({"id": impianto_id, "comune_id": user["comune_id"]}, {"$set": updates})
+        if res.matched_count == 0:
+            raise HTTPException(status_code=404, detail="Impianto non trovato")
+        return await db.impianti.find_one({"id": impianto_id}, {"_id": 0})
+
+    @router.delete("/comune/impianti/{impianto_id}")
+    async def elimina_impianto(impianto_id: str, user: dict = Depends(require_comune_l3)):
+        res = await db.impianti.delete_one({"id": impianto_id, "comune_id": user["comune_id"]})
+        if res.deleted_count == 0:
+            raise HTTPException(status_code=404, detail="Impianto non trovato")
+        await db.pacchetti.update_many({"comune_id": user["comune_id"]}, {"$pull": {"impianti_ids": impianto_id}})
+        return {"ok": True}
+
+    @router.get("/comune/pacchetti")
+    async def comune_pacchetti(user: dict = Depends(require_role("comune"))):
+        pacchetti = await db.pacchetti.find({"comune_id": user["comune_id"]}, {"_id": 0}).to_list(200)
+        zone = {z["id"]: z["nome"] for z in await db.zone.find({"comune_id": user["comune_id"]}, {"_id": 0}).to_list(100)}
+        return [{**p, "zona_nome": zone.get(p["zona_id"], ""), "n_impianti": len(p["impianti_ids"])} for p in pacchetti]
+
+    @router.post("/comune/pacchetti")
+    async def crea_pacchetto(data: PacchettoIn, user: dict = Depends(require_comune_l3)):
+        pac = {"id": str(uuid.uuid4()), "comune_id": user["comune_id"], **data.model_dump(), "created_at": now_iso()}
+        await db.pacchetti.insert_one({**pac})
+        return pac
+
+    @router.put("/comune/pacchetti/{pacchetto_id}")
+    async def aggiorna_pacchetto(pacchetto_id: str, data: PacchettoIn, user: dict = Depends(require_comune_l3)):
+        res = await db.pacchetti.update_one({"id": pacchetto_id, "comune_id": user["comune_id"]}, {"$set": data.model_dump()})
+        if res.matched_count == 0:
+            raise HTTPException(status_code=404, detail="Pacchetto non trovato")
+        return await db.pacchetti.find_one({"id": pacchetto_id}, {"_id": 0})
+
+    @router.delete("/comune/pacchetti/{pacchetto_id}")
+    async def elimina_pacchetto(pacchetto_id: str, user: dict = Depends(require_comune_l3)):
+        res = await db.pacchetti.delete_one({"id": pacchetto_id, "comune_id": user["comune_id"]})
+        if res.deleted_count == 0:
+            raise HTTPException(status_code=404, detail="Pacchetto non trovato")
+        return {"ok": True}
+
+    @router.get("/comune/report/ooh")
+    async def report_ooh(user: dict = Depends(require_role("comune"))):
+        cid = user["comune_id"]
+        pacchetti = await db.pacchetti.find({"comune_id": cid}, {"_id": 0}).to_list(200)
+        zone = {z["id"]: z["nome"] for z in await db.zone.find({"comune_id": cid}, {"_id": 0}).to_list(100)}
+        pratiche = await db.pratiche.find({"comune_id": cid, "tipo": "OOH"}, {"_id": 0}).to_list(2000)
+        held = await db.prenotazioni.count_documents({"comune_id": cid, "stato": "HELD"})
+        confirmed = await db.prenotazioni.count_documents({"comune_id": cid, "stato": "CONFIRMED"})
+        expired = await db.prenotazioni.count_documents({"comune_id": cid, "stato": "EXPIRED"})
+        rows = []
+        for p in pacchetti:
+            mie = [x for x in pratiche if x.get("pacchetto_id") == p["id"]]
+            pagate = [x for x in mie if x.get("pagata") and x["stato"] not in ("ANNULLATA", "PRENOTAZIONE_SCADUTA")]
+            rows.append({"pacchetto_id": p["id"], "nome": p["nome"], "zona": zone.get(p["zona_id"], ""),
+                         "n_impianti": len(p["impianti_ids"]), "prezzo_giornaliero": p["prezzo_giornaliero"],
+                         "pratiche": len(mie), "incassato": round(sum(x["importo"] for x in pagate), 2)})
+        return {"pacchetti": sorted(rows, key=lambda r: -r["incassato"]),
+                "prenotazioni": {"HELD": held, "CONFIRMED": confirmed, "EXPIRED": expired},
+                "conversione": round(confirmed / (confirmed + expired) * 100, 1) if (confirmed + expired) else 0}
+
+    return router, expire_holds

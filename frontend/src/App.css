@@ -1,3 +1,7 @@
 .App {
     min-height: 100vh;
 }
+
+.flat-tiles {
+  filter: grayscale(1) saturate(0.15) brightness(1.06) contrast(0.85);
+}

@@ -7,6 +7,9 @@ import Auth from "./pages/Auth";
 import Spazi from "./pages/Spazi";
 import SpazioDetail from "./pages/SpazioDetail";
 import UserDashboard from "./pages/user/UserDashboard";
+import Home from "./pages/user/Home";
+import OOHPlanner from "./pages/user/OOHPlanner";
+import CampagnaOOHDetail from "./pages/user/CampagnaOOHDetail";
 import PraticaWizard from "./pages/user/PraticaWizard";
 import PraticaDetail from "./pages/user/PraticaDetail";
 import Campagne from "./pages/user/Campagne";
@@ -19,6 +22,9 @@ import FormBuilder from "./pages/comune/FormBuilder";
 import Report from "./pages/comune/Report";
 import ComuneProfilo from "./pages/comune/ComuneProfilo";
 import ComuneMonitor from "./pages/comune/ComuneMonitor";
+import ComuneZone from "./pages/comune/ComuneZone";
+import ComuneImpianti from "./pages/comune/ComuneImpianti";
+import ComunePacchetti from "./pages/comune/ComunePacchetti";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminComuni from "./pages/admin/AdminComuni";
 import AdminMonitor from "./pages/admin/AdminMonitor";
@@ -44,7 +50,10 @@ function App() {
           <Route path="/login" element={<Auth />} />
           <Route path="/spazi" element={<Spazi />} />
           <Route path="/spazi/:id" element={<SpazioDetail />} />
+          <Route path="/home" element={<Protected role="user"><Home /></Protected>} />
           <Route path="/dashboard" element={<Protected role="user"><UserDashboard /></Protected>} />
+          <Route path="/campagne/ooh/nuova" element={<Protected role="user"><OOHPlanner /></Protected>} />
+          <Route path="/campagne/ooh/:id" element={<Protected role="user"><CampagnaOOHDetail /></Protected>} />
           <Route path="/pratiche/nuova/:spazioId" element={<Protected role="user"><PraticaWizard /></Protected>} />
           <Route path="/pratiche/:id" element={<Protected role="user"><PraticaDetail /></Protected>} />
           <Route path="/campagne" element={<Protected role="user"><Campagne /></Protected>} />
@@ -57,6 +66,9 @@ function App() {
           <Route path="/comune/report" element={<Protected role="comune"><Report /></Protected>} />
           <Route path="/comune/profilo" element={<Protected role="comune"><ComuneProfilo /></Protected>} />
           <Route path="/comune/monitor" element={<Protected role="comune"><ComuneMonitor /></Protected>} />
+          <Route path="/comune/zone" element={<Protected role="comune"><ComuneZone /></Protected>} />
+          <Route path="/comune/impianti" element={<Protected role="comune"><ComuneImpianti /></Protected>} />
+          <Route path="/comune/pacchetti" element={<Protected role="comune"><ComunePacchetti /></Protected>} />
           <Route path="/admin" element={<Protected role="superadmin"><AdminDashboard /></Protected>} />
           <Route path="/admin/comuni" element={<Protected role="superadmin"><AdminComuni /></Protected>} />
           <Route path="/admin/monitor" element={<Protected role="superadmin"><AdminMonitor /></Protected>} />

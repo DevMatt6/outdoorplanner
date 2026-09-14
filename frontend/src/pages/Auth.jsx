@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { api, apiError } from "../lib/api";
 import { useAuth, homeFor } from "../store/auth";
 import { NavBar } from "../components/NavBar";
-import { Fingerprint } from "lucide-react";
 
 const EMPTY = { email: "", password: "", nome: "", tipo_soggetto: "Privato", ragione_sociale: "", partita_iva: "", codice_fiscale: "", pec: "", telefono: "" };
 
@@ -36,17 +35,6 @@ export default function Auth() {
       setError(apiError(err));
     } finally {
       setLoading(false);
-    }
-  };
-
-  const spid = async () => {
-    setError("");
-    try {
-      const { data } = await api.post("/auth/spid");
-      setSession(data.user, data.access_token);
-      navigate(homeFor(data.user));
-    } catch (err) {
-      setError(apiError(err));
     }
   };
 
@@ -117,15 +105,6 @@ export default function Auth() {
             <button data-testid="auth-submit-button" disabled={loading}
               className="w-full bg-[#2F5B41] text-white rounded-full py-3.5 font-bold hover:bg-[#26492F] transition-colors disabled:opacity-50">
               {loading ? "Attendi..." : mode === "login" ? "Accedi" : "Crea account"}
-            </button>
-            <div className="flex items-center gap-3 py-1">
-              <div className="flex-1 border-t border-slate-100" />
-              <span className="text-xs text-slate-400 uppercase tracking-widest">oppure</span>
-              <div className="flex-1 border-t border-slate-100" />
-            </div>
-            <button data-testid="spid-login-button" type="button" onClick={spid}
-              className="w-full border border-[#2F5B41] text-[#2F5B41] rounded-full py-3 font-bold flex items-center justify-center gap-2 hover:bg-[#2F5B41] hover:text-white transition-colors">
-              <Fingerprint size={18} /> Entra con SPID / CIE (demo)
             </button>
           </form>
           <div className="border-t border-slate-100 px-8 py-4 bg-[#FAFAF8] text-xs text-slate-500 leading-relaxed">

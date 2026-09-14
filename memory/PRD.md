@@ -71,6 +71,17 @@ Su richiesta utente (screenshot stile "Donezo") il design è passato da flat bru
 - Stessa UX in /spazi (card → dettaglio) e nel Campaign Planner step Spazi (card/pin → selezione con check, selezione multi-comune preservata, filtri tipologia/formato client-side)
 - Fix: "Tutti i Comuni" resetta anche la regione; crumb regione torna al livello regione
 
+## Implementato (Iterazione 9-10 — RISTRUTTURAZIONE OOH/OSP da specifica 59 punti, testato: 18/18 backend + frontend E2E)
+- **Due servizi distinti**: Home hub post-login "Cosa vuoi fare?" (Pianifica Campagna OOH / Avvia richiesta OSP)
+- **Campagne OOH**: flusso Periodo → Comuni (multi) → Zone/Circuiti (pacchetti con impianti visualizzabili) → Riepilogo → Genera; blocco impianti 24h (prenotazioni HELD/CONFIRMED/EXPIRED/CANCELLED, hold_expires_at, HOLD_HOURS env configurabile, scadenza automatica con loop 60s + notifiche + rilascio impianti), countdown live da backend, verifica anti race-condition, 409 su doppia prenotazione
+- **Post-generazione**: checklist per pratica (moduli, documenti, creatività, pagamento mock); creatività con compatibilità formato+digitale/DOOH validata server-side; invia → INVIATA + CONFIRMED; annulla → libera impianti
+- **Nuove entità**: zone (poligono, vie, quartiere), impianti (tipologie gerarchiche: Cartacee/DOOH/Maxi), pacchetti (prezzo, modulo assegnabile), prenotazioni, creativita; pratiche tipizzate OOH/OSP con nuovi stati (DA_COMPLETARE, IN_VERIFICA, PRENOTAZIONE_SCADUTA, ANNULLATA)
+- **OSP preservato**: wizard esistente su aree OSP seedate; /spazi = catalogo aree OSP; transizioni comune separate (OOH: INVIATA→IN_VERIFICA)
+- **Backoffice comune**: pagine Zone & confini (disegno poligono a click su mappa flat), Impianti OOH (CRUD con tipologie gerarchiche), Circuiti/Pacchetti (CRUD con selezione impianti e modulo); report OOH per circuito + prenotazioni HELD/CONFIRMED/conversione, sezione OSP separata
+- **Superadmin**: stati onboarding comune (DA_CONFIGURARE→ATTIVO→SOSPESO... — solo ATTIVO visibile agli utenti), KPI OOH (zone, impianti, circuiti, HELD, confermati, conversione, campagne multicomune)
+- **SPID rimosso** completamente (endpoint + UI); **reset demo**: solo Roma/Milano/Napoli, 4 zone ciascuno, 12 impianti/zona, 3 circuiti/zona, moduli OOH+OSP, aree OSP (seed_demo.py ripetibile)
+- Tile mappa: OSM con filtro CSS flat (CartoDB richiedeva API key)
+
 ## Backlog prioritizzato
 - P2: date picker anche per modifica pratiche in INTEGRAZIONE_RICHIESTA
 - P2: Stripe test mode reale al posto del mock; export report CSV/PDF

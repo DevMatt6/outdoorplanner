@@ -232,19 +232,6 @@ async def login(data: LoginIn):
     token = create_access_token(user["id"], email, user["ruolo"])
     return {"user": user, "access_token": token}
 
-@api_router.post("/auth/spid")
-async def spid_mock():
-    email = "spid.demo@demo.it"
-    doc = await db.users.find_one({"email": email})
-    if not doc:
-        user = {"id": str(uuid.uuid4()), "email": email, "nome": "Mario Rossi (SPID)", "ruolo": "user",
-                "comune_id": None, "created_at": now_iso()}
-        await db.users.insert_one({**user, "password_hash": hash_password(str(uuid.uuid4()))})
-    else:
-        user = {k: v for k, v in doc.items() if k not in ("_id", "password_hash")}
-    token = create_access_token(user["id"], email, "user")
-    return {"user": user, "access_token": token}
-
 @api_router.get("/auth/me")
 async def me(user: dict = Depends(get_current_user)):
     return user
@@ -259,7 +246,7 @@ async def geo_regioni():
 
 @api_router.get("/comuni")
 async def list_comuni():
-    return await db.comuni.find({}, {"_id": 0}).to_list(200)
+    return await db.comuni.find({"stato_onboarding": {"$in": [None, "ATTIVO"]}}, {"_id": 0}).to_list(200)
 
 @api_router.get("/spazi")
 async def list_spazi(regione: Optional[str] = None, citta: Optional[str] = None,
@@ -377,7 +364,7 @@ async def crea_pratica(data: PraticaIn, user: dict = Depends(require_role("user"
     if await _periodo_occupato(spazio["id"], data.data_inizio, data.data_fine):
         raise HTTPException(status_code=409, detail="Periodo non disponibile: lo spazio è già impegnato in queste date")
     importo = round(_giorni(data.data_inizio, data.data_fine) * spazio["canone_giornaliero"], 2)
-    pratica = {"id": str(uuid.uuid4()), "user_id": user["id"], "user_nome": user["nome"],
+    pratica = {"id": str(uuid.uuid4()), "tipo": "OSP", "user_id": user["id"], "user_nome": user["nome"],
                "spazio_id": spazio["id"], "spazio_nome": spazio["nome"], "comune_id": spazio["comune_id"],
                "stato": "BOZZA", "dati_form": data.dati_form, "documenti": [],
                "data_inizio": data.data_inizio, "data_fine": data.data_fine,
@@ -505,7 +492,7 @@ async def crea_campagna(data: CampagnaIn, user: dict = Depends(require_role("use
     campagna_id = str(uuid.uuid4())
     pratiche = []
     for s in spazi:
-        pratica = {"id": str(uuid.uuid4()), "user_id": user["id"], "user_nome": user["nome"],
+        pratica = {"id": str(uuid.uuid4()), "tipo": "OSP", "user_id": user["id"], "user_nome": user["nome"],
                    "spazio_id": s["id"], "spazio_nome": s["nome"], "comune_id": s["comune_id"],
                    "campagna_id": campagna_id, "campagna_nome": data.nome,
                    "stato": "BOZZA", "dati_form": {"descrizione_contenuto": f"Campagna '{data.nome}'"},
@@ -736,10 +723,14 @@ async def report_per_spazio(user: dict = Depends(require_role("comune"))):
     return sorted(result, key=lambda r: -r["incassato"])
 
 @api_router.get("/comune/pratiche")
-async def comune_pratiche(stato: Optional[str] = None, user: dict = Depends(require_role("comune"))):
-    query: dict = {"comune_id": user["comune_id"], "stato": {"$ne": "BOZZA"}}
+async def comune_pratiche(stato: Optional[str] = None, tipo: Optional[str] = None,
+                          user: dict = Depends(require_role("comune"))):
+    query: dict = {"comune_id": user["comune_id"],
+                   "stato": {"$nin": ["BOZZA", "DA_COMPLETARE", "PRENOTAZIONE_SCADUTA", "ANNULLATA"]}}
     if stato:
         query["stato"] = stato
+    if tipo:
+        query["tipo"] = tipo
     return await db.pratiche.find(query, {"_id": 0}).sort("updated_at", -1).to_list(500)
 
 TRANSIZIONI_COMUNE = {
@@ -749,6 +740,13 @@ TRANSIZIONI_COMUNE = {
     "rifiuta": {"da": ["IN_ISTRUTTORIA"], "a": "RIFIUTATA"},
 }
 
+TRANSIZIONI_OOH = {
+    "presa_in_carico": {"da": ["INVIATA"], "a": "IN_VERIFICA"},
+    "richiedi_integrazione": {"da": ["IN_VERIFICA"], "a": "INTEGRAZIONE_RICHIESTA"},
+    "approva": {"da": ["IN_VERIFICA"], "a": "APPROVATA"},
+    "rifiuta": {"da": ["IN_VERIFICA"], "a": "RIFIUTATA"},
+}
+
 LIVELLO_MIN_AZIONE = {"presa_in_carico": 1, "richiedi_integrazione": 1, "approva": 2, "rifiuta": 2}
 
 @api_router.post("/comune/pratiche/{pratica_id}/transizione")
@@ -756,7 +754,7 @@ async def transizione(pratica_id: str, data: TransizioneIn, user: dict = Depends
     pratica = await db.pratiche.find_one({"id": pratica_id, "comune_id": user["comune_id"]}, {"_id": 0})
     if not pratica:
         raise HTTPException(status_code=404, detail="Pratica non trovata")
-    regola = TRANSIZIONI_COMUNE.get(data.azione)
+    regola = (TRANSIZIONI_OOH if pratica.get("tipo") == "OOH" else TRANSIZIONI_COMUNE).get(data.azione)
     if not regola:
         raise HTTPException(status_code=400, detail="Azione non valida")
     if user.get("livello", 1) < LIVELLO_MIN_AZIONE[data.azione]:
@@ -771,6 +769,7 @@ async def transizione(pratica_id: str, data: TransizioneIn, user: dict = Depends
     await db.pratiche.update_one({"id": pratica_id}, {"$set": updates})
     await log_stato(pratica_id, pratica["stato"], nuovo, user, data.nota)
     labels = {"IN_ISTRUTTORIA": "La tua pratica è in istruttoria",
+              "IN_VERIFICA": "La tua pratica è in verifica",
               "INTEGRAZIONE_RICHIESTA": "Richiesta integrazione documenti",
               "APPROVATA": "Pratica approvata! Autorizzazione disponibile",
               "RIFIUTATA": "Pratica rifiutata"}
@@ -863,7 +862,22 @@ async def admin_kpi(user: dict = Depends(require_role("superadmin"))):
         per_comune[p["comune_id"]] = per_comune.get(p["comune_id"], 0) + 1
     comuni_docs = await db.comuni.find({}, {"_id": 0}).to_list(200)
     nomi = {c["id"]: c["nome"] for c in comuni_docs}
+    held = await db.prenotazioni.count_documents({"stato": "HELD"})
+    confirmed = await db.prenotazioni.count_documents({"stato": "CONFIRMED"})
+    expired = await db.prenotazioni.count_documents({"stato": "EXPIRED"})
+    campagne_ooh = await db.campagne.find({"tipo": "OOH"}, {"_id": 0, "pratica_ids": 1, "pacchetti_ids": 1, "id": 1}).to_list(1000)
+    multicomune = 0
+    for c in campagne_ooh:
+        cids = await db.pratiche.distinct("comune_id", {"campagna_id": c["id"]})
+        if len(cids) > 1:
+            multicomune += 1
     return {"utenti": utenti, "comuni": comuni, "spazi": spazi,
+            "zone": await db.zone.count_documents({}),
+            "impianti": await db.impianti.count_documents({}),
+            "pacchetti": await db.pacchetti.count_documents({}),
+            "held": held, "confirmed": confirmed, "expired": expired,
+            "conversione_hold": round(confirmed / (confirmed + expired) * 100, 1) if (confirmed + expired) else 0,
+            "campagne_ooh": len(campagne_ooh), "campagne_multicomune": multicomune,
             "pratiche_totali": len(pratiche), "per_stato": per_stato,
             "revenue_totale": round(revenue, 2),
             "pratiche_per_comune": [{"comune": nomi.get(k, k), "count": v} for k, v in per_comune.items()]}
@@ -948,6 +962,7 @@ async def onboard_comune(data: ComuneOnboardIn, user: dict = Depends(require_rol
         raise HTTPException(status_code=400, detail="Email referente già registrata")
     comune = {"id": str(uuid.uuid4()), "nome": data.nome, "regione": data.regione,
               "provincia": data.provincia, "lat": data.lat, "lng": data.lng, "logo_url": data.logo_url,
+              "stato_onboarding": "DA_CONFIGURARE",
               "tariffe": [{"tipologia": "Billboard", "canone_giornaliero": 50},
                           {"tipologia": "Suolo pubblico", "canone_giornaliero": 30}],
               "regole": "Regolamento comunale standard", "attivo": True, "created_at": now_iso()}
@@ -956,6 +971,18 @@ async def onboard_comune(data: ComuneOnboardIn, user: dict = Depends(require_rol
                  "ruolo": "comune", "comune_id": comune["id"], "livello": 3, "created_at": now_iso()}
     await db.users.insert_one({**referente, "password_hash": hash_password(data.referente_password)})
     return {"comune": comune, "referente": referente}
+
+STATI_ONBOARDING = ["DA_CONFIGURARE", "IN_CONFIGURAZIONE", "ATTIVO", "SOSPESO", "DISATTIVATO"]
+
+@api_router.patch("/admin/comuni/{comune_id}/stato")
+async def stato_comune(comune_id: str, body: dict, user: dict = Depends(require_role("superadmin"))):
+    stato = body.get("stato_onboarding")
+    if stato not in STATI_ONBOARDING:
+        raise HTTPException(status_code=400, detail=f"Stato non valido. Ammessi: {', '.join(STATI_ONBOARDING)}")
+    res = await db.comuni.update_one({"id": comune_id}, {"$set": {"stato_onboarding": stato}})
+    if res.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Comune non trovato")
+    return {"ok": True, "stato_onboarding": stato}
 
 @api_router.put("/admin/comuni/{comune_id}")
 async def aggiorna_comune(comune_id: str, data: ComuneUpdateIn, user: dict = Depends(require_role("superadmin"))):
@@ -987,12 +1014,21 @@ async def elimina_comune(comune_id: str, user: dict = Depends(require_role("supe
         await db.pratiche.delete_many({"id": {"$in": pids}})
     spazi_res = await db.spazi.delete_many({"comune_id": comune_id})
     await db.form_templates.delete_many({"comune_id": comune_id})
+    await db.zone.delete_many({"comune_id": comune_id})
+    await db.impianti.delete_many({"comune_id": comune_id})
+    await db.pacchetti.delete_many({"comune_id": comune_id})
+    await db.prenotazioni.delete_many({"comune_id": comune_id})
     utenti_res = await db.users.delete_many({"ruolo": "comune", "comune_id": comune_id})
     await db.comuni.delete_one({"id": comune_id})
     return {"ok": True, "pratiche_eliminate": len(pids), "spazi_eliminati": spazi_res.deleted_count,
             "utenti_eliminati": utenti_res.deleted_count}
 
 # ---------- app setup ----------
+
+from ooh import build as build_ooh
+ooh_router, expire_holds = build_ooh(db, get_current_user, require_role, require_comune_l3,
+                                     notifica, log_stato, now_iso, UPLOAD_DIR)
+api_router.include_router(ooh_router)
 
 app.include_router(api_router)
 app.mount("/api/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
@@ -1010,10 +1046,21 @@ async def startup():
     await db.users.create_index("email", unique=True)
     await db.pratiche.create_index("user_id")
     await db.pratiche.create_index("comune_id")
+    await db.prenotazioni.create_index("stato")
     from seed import seed_all, ensure_livelli, ensure_catalogo
     await seed_all(db, hash_password)
     await ensure_livelli(db, hash_password)
     await ensure_catalogo(db)
+
+    import asyncio
+    async def _expire_loop():
+        while True:
+            try:
+                await expire_holds()
+            except Exception as e:
+                logger.error(f"expire_holds error: {e}")
+            await asyncio.sleep(60)
+    asyncio.create_task(_expire_loop())
 
 @app.on_event("shutdown")
 async def shutdown_db_client():

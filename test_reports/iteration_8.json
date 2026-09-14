@@ -1,0 +1,30 @@
+{
+  "summary": "Iter-8 full backend + frontend validation of the OOH/OSP dual-service reset. 18/18 backend tests PASS (pytest /app/backend/tests/test_ooh_flow.py). Frontend E2E of OOH planner up to /campagne/ooh/{id} detail page fully PASSES with live 24h countdown, checklist chips (Moduli/Documenti/Creativita/Pagamento), and Roma OOH modulo (descrizione_contenuto+settore_merceologico). SPID removed. Regression OSP holds (3 comuni, 4 spazi, wizard flow OK).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "/spazi (regression OSP)", "issues": ["Public /spazi still uses the previous drill-down UI (3 comuni cards visible immediately, spazi shown only after clicking a comune). Spec bullet says '3 comuni and 4 OSP area cards total' — semantically satisfied via drill-down but a flat view might be closer to spec wording. Backend confirms 4 OSP spazi exist (Roma 2, Milano 1, Napoli 1)."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_ooh_flow.py",
+    "/app/test_reports/pytest/ooh_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "ooh.py `_impianti_bloccati` uses string compare `hold_expires_at > now` which is safe only because timestamps are ISO with same TZ suffix — OK today (all now_iso() are UTC ISO). Keep the invariant documented so nobody inserts a mixed-TZ record.",
+    "ooh.py `crea_campagna_ooh` post-insert conflict check uses `hold_created_at: {'$lt': hold_created}` — this correctly resolves the tie-breaker for race-condition inserts, but under very high concurrency two inserts with identical `hold_created` (same second) would both survive; consider adding a Mongo unique index on (impianti_ids, overlapping date) or a monotonic counter. Low priority given user scale.",
+    "server.py /comune/pratiche filter excludes ANNULLATA — good, but note the annulla_ooh only cancels pratiche in stato DA_COMPLETARE. If a pratica has been INVIATA and campaign.stato is not HOLD, annulla returns 400 — that is correct but the frontend Annulla button should be disabled after invia (verify in UI regression).",
+    "seed_demo.py DATASET file OK; keep in mind that reseeding wipes ALL pratiche — the reseed script deletes prenotazioni & pratiche globally, which is destructive if this DB were shared with production."
+  ],
+  "updated_files": ["/app/backend/tests/test_ooh_flow.py"],
+  "success_rate": {"backend": "100% (18/18)", "frontend": "100% for the paths tested (login, hub, OOH planner Periodo→Comuni→Zone&Circuiti→Riepilogo→Genera→Detail with countdown & checklist, dashboard tipo badges, /campagne list, /spazi comuni drill-down)"},
+  "test_credentials": "user@demo.it, comune@demo.it (L1 Roma), comune.l3@demo.it (L3 Roma), comune.milano@demo.it (L3 Milano), comune.napoli@demo.it (L3 Napoli), mattia.fabrizi92@gmail.com (superadmin) — all demo123. All valid and used successfully.",
+  "seed_data_creation": "Tests create several TEST_* OOH campagne (annulla-ed or left) at 2027-04, 2027-11, 2028-01, 2029-02 periods. Also 1 OSP TEST pratica at 2027-06. All Roma. No cleanup required — periods do not overlap production dates.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Backend regression suite: `pytest /app/backend/tests/test_ooh_flow.py -n 0` (pytest.ini forces xdist -n 2 --dist loadscope; if you need serial run explicitly pass `-n 0`, NOT `-p no:xdist`). Key data-testids in place and working: home-hub, hub-card-ooh, hub-card-osp, hub-link-pratiche, hub-link-campagne, ooh-nome-input, ooh-comune-{id} (3 for Roma/Milano/Napoli), ooh-zona-{id} (4 chips per comune), ooh-pacchetto-{id} (12 per comune = 4 zone × 3 circuiti), ooh-toggle-{id}, ooh-totale, ooh-countdown (live 'Hh Mm Ss'), badge-tipo-OOH, badge-tipo-OSP, ooh-checkout-button. `ooh-invia-button` only appears once all checklist items are green (checkout done AND creatività assigned to every impianto). Calendar: react-day-picker, use `button[name=next-month]` × ~30 to jump 2.5y future, then click 2 `button[name=day]` with getComputedStyle().opacity>0.6. OOH modulo Roma requires descrizione_contenuto (textarea) + settore_merceologico (select). Docs: bozzetto + doc_identita. Creatività matching rules: `cr.formato == impianto.formato` (exact string match) AND `cr.digitale == (impianto.tipologia in DOOH tipi)`.",
+  "rca of the issue": "No blocking issues found in this iteration."
+}
