@@ -72,6 +72,8 @@ async def get_current_user(request: Request) -> dict:
         user = await db.users.find_one({"id": payload["sub"]}, {"_id": 0, "password_hash": 0})
         if not user:
             raise HTTPException(status_code=401, detail="Utente non trovato")
+        if user.get("attivo") is False:
+            raise HTTPException(status_code=403, detail="Account disabilitato")
         return user
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token scaduto")
@@ -180,6 +182,12 @@ class CampagnaFormIn(BaseModel):
     dati_form: dict
 
 
+class UtenzaIn(BaseModel):
+    email: str
+    password: str
+    nome: str
+    livello: int = 1
+
 class ComuneOnboardIn(BaseModel):
     nome: str
     regione: str
@@ -187,9 +195,8 @@ class ComuneOnboardIn(BaseModel):
     lat: float
     lng: float
     logo_url: Optional[str] = None
-    referente_email: str
-    referente_password: str
-    referente_nome: str
+    livelli_attivi: List[int] = [1]
+    utenze: List[UtenzaIn] = []
 
 class ComuneUpdateIn(BaseModel):
     nome: Optional[str] = None
@@ -198,6 +205,7 @@ class ComuneUpdateIn(BaseModel):
     lat: Optional[float] = None
     lng: Optional[float] = None
     logo_url: Optional[str] = None
+    livelli_attivi: Optional[List[int]] = None
 
 class ComuneProfiloIn(BaseModel):
     tariffe: Optional[List[dict]] = None
@@ -740,8 +748,14 @@ async def transizione(pratica_id: str, data: TransizioneIn, user: dict = Depends
     regola = (TRANSIZIONI_OOH if pratica.get("tipo") == "OOH" else TRANSIZIONI_COMUNE).get(data.azione)
     if not regola:
         raise HTTPException(status_code=400, detail="Azione non valida")
-    if user.get("livello", 1) < LIVELLO_MIN_AZIONE[data.azione]:
-        raise HTTPException(status_code=403, detail=f"Azione riservata al livello L{LIVELLO_MIN_AZIONE[data.azione]} o superiore")
+    comune_doc = await db.comuni.find_one({"id": user["comune_id"]}, {"_id": 0, "livelli_attivi": 1})
+    livelli_attivi = (comune_doc or {}).get("livelli_attivi") or [1, 2, 3]
+    max_lv = max(livelli_attivi)
+    min_richiesto = min(LIVELLO_MIN_AZIONE[data.azione], max_lv)
+    if user.get("livello", 1) < min_richiesto:
+        raise HTTPException(status_code=403, detail=f"Azione riservata al livello L{min_richiesto} o superiore")
+    if data.azione == "richiedi_integrazione" and not (data.nota or "").strip():
+        raise HTTPException(status_code=400, detail="La motivazione è obbligatoria per la richiesta di integrazione")
     if pratica["stato"] not in regola["da"]:
         raise HTTPException(status_code=400, detail=f"Transizione non consentita da {pratica['stato']}")
     nuovo = regola["a"]
@@ -910,6 +924,10 @@ async def admin_comuni(user: dict = Depends(require_role("superadmin"))):
         result.append({**c,
                        "spazi_count": await db.spazi.count_documents({"comune_id": c["id"]}),
                        "spazi_attivi": await db.spazi.count_documents({"comune_id": c["id"], "disponibile": True}),
+                       "zone_count": await db.zone.count_documents({"comune_id": c["id"]}),
+                       "impianti_count": await db.impianti.count_documents({"comune_id": c["id"]}),
+                       "pacchetti_count": await db.pacchetti.count_documents({"comune_id": c["id"]}),
+                       "campagne_count": len(await db.pratiche.distinct("campagna_id", {"comune_id": c["id"], "campagna_id": {"$ne": None}})),
                        "pratiche_count": len(mie),
                        "approvate": sum(1 for p in mie if p["stato"] == "APPROVATA"),
                        "incasso_totale": incasso,
@@ -940,20 +958,62 @@ async def admin_report_comune(comune_id: str, user: dict = Depends(require_role(
 
 @api_router.post("/admin/comuni")
 async def onboard_comune(data: ComuneOnboardIn, user: dict = Depends(require_role("superadmin"))):
-    email = data.referente_email.lower().strip()
-    if await db.users.find_one({"email": email}):
-        raise HTTPException(status_code=400, detail="Email referente già registrata")
+    livelli = sorted(set(data.livelli_attivi)) or [1]
+    if any(l not in (1, 2, 3) for l in livelli):
+        raise HTTPException(status_code=400, detail="Livelli ammessi: 1, 2, 3")
+    for u in data.utenze:
+        if u.livello not in livelli:
+            raise HTTPException(status_code=400, detail=f"L'utenza {u.email} usa il livello L{u.livello} non attivato per il Comune")
+        if await db.users.find_one({"email": u.email.lower().strip()}):
+            raise HTTPException(status_code=400, detail=f"Email già registrata: {u.email}")
     comune = {"id": str(uuid.uuid4()), "nome": data.nome, "regione": data.regione,
               "provincia": data.provincia, "lat": data.lat, "lng": data.lng, "logo_url": data.logo_url,
-              "stato_onboarding": "DA_CONFIGURARE",
-              "tariffe": [{"tipologia": "Billboard", "canone_giornaliero": 50},
-                          {"tipologia": "Suolo pubblico", "canone_giornaliero": 30}],
-              "regole": "Regolamento comunale standard", "attivo": True, "created_at": now_iso()}
+              "stato_onboarding": "ATTIVO", "livelli_attivi": livelli,
+              "tariffe": [], "regole": "Regolamento comunale standard", "attivo": True, "created_at": now_iso()}
     await db.comuni.insert_one({**comune})
-    referente = {"id": str(uuid.uuid4()), "email": email, "nome": data.referente_nome,
-                 "ruolo": "comune", "comune_id": comune["id"], "livello": 3, "created_at": now_iso()}
-    await db.users.insert_one({**referente, "password_hash": hash_password(data.referente_password)})
-    return {"comune": comune, "referente": referente}
+    utenti = []
+    for u in data.utenze:
+        doc = {"id": str(uuid.uuid4()), "email": u.email.lower().strip(), "nome": u.nome,
+               "ruolo": "comune", "comune_id": comune["id"], "livello": u.livello, "attivo": True,
+               "created_at": now_iso()}
+        await db.users.insert_one({**doc, "password_hash": hash_password(u.password)})
+        utenti.append(doc)
+    return {"comune": comune, "utenti": utenti}
+
+@api_router.get("/admin/comuni/{comune_id}/utenti")
+async def utenti_comune(comune_id: str, user: dict = Depends(require_role("superadmin"))):
+    return await db.users.find({"ruolo": "comune", "comune_id": comune_id},
+                               {"_id": 0, "password_hash": 0}).sort("livello", 1).to_list(100)
+
+@api_router.post("/admin/comuni/{comune_id}/utenti")
+async def crea_utente_comune(comune_id: str, data: UtenzaIn, user: dict = Depends(require_role("superadmin"))):
+    comune = await db.comuni.find_one({"id": comune_id}, {"_id": 0})
+    if not comune:
+        raise HTTPException(status_code=404, detail="Comune non trovato")
+    if data.livello not in comune.get("livelli_attivi", [1, 2, 3]):
+        raise HTTPException(status_code=400, detail=f"Livello L{data.livello} non attivo per questo Comune")
+    if await db.users.find_one({"email": data.email.lower().strip()}):
+        raise HTTPException(status_code=400, detail="Email già registrata")
+    doc = {"id": str(uuid.uuid4()), "email": data.email.lower().strip(), "nome": data.nome,
+           "ruolo": "comune", "comune_id": comune_id, "livello": data.livello, "attivo": True, "created_at": now_iso()}
+    await db.users.insert_one({**doc, "password_hash": hash_password(data.password)})
+    return doc
+
+@api_router.patch("/admin/utenti/{utente_id}")
+async def patch_utente(utente_id: str, body: dict, user: dict = Depends(require_role("superadmin"))):
+    updates = {}
+    if "attivo" in body:
+        updates["attivo"] = bool(body["attivo"])
+    if "livello" in body:
+        if body["livello"] not in (1, 2, 3):
+            raise HTTPException(status_code=400, detail="Livello non valido")
+        updates["livello"] = body["livello"]
+    if not updates:
+        raise HTTPException(status_code=400, detail="Nessuna modifica")
+    res = await db.users.update_one({"id": utente_id, "ruolo": "comune"}, {"$set": updates})
+    if res.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Utente non trovato")
+    return {"ok": True, **updates}
 
 STATI_ONBOARDING = ["DA_CONFIGURARE", "IN_CONFIGURAZIONE", "ATTIVO", "SOSPESO", "DISATTIVATO"]
 

@@ -91,7 +91,7 @@ export default function AdminDashboard() {
         <table className="w-full text-sm border-collapse">
           <thead>
             <tr className="border-b border-slate-100 text-left">
-              {["Comune", "Spazi attivi", "Pratiche", "Approvate", "Incasso", "Fee piattaforma"].map((h) => (
+              {["Comune", "Zone", "Impianti", "Circuiti", "Campagne", "Pratiche", "Valore", "Fee"].map((h) => (
                 <th key={h} className="px-4 py-3 text-[11px] font-bold uppercase tracking-widest text-slate-500">{h}</th>
               ))}
             </tr>
@@ -110,9 +110,11 @@ export default function AdminDashboard() {
                     <span className="font-bold">{c.nome}</span>
                   </div>
                 </td>
-                <td className="px-4 py-3 font-mono">{c.spazi_attivi}/{c.spazi_count}</td>
+                <td className="px-4 py-3 font-mono" data-testid={`kpi-zone-${c.id}`}>{c.zone_count}</td>
+                <td className="px-4 py-3 font-mono" data-testid={`kpi-impianti-${c.id}`}>{c.impianti_count}</td>
+                <td className="px-4 py-3 font-mono" data-testid={`kpi-circuiti-${c.id}`}>{c.pacchetti_count}</td>
+                <td className="px-4 py-3 font-mono">{c.campagne_count}</td>
                 <td className="px-4 py-3 font-mono">{c.pratiche_count}</td>
-                <td className="px-4 py-3 font-mono">{c.approvate}</td>
                 <td className="px-4 py-3 font-heading font-extrabold">{c.incasso_totale.toFixed(2)} €</td>
                 <td className="px-4 py-3 font-mono text-slate-500">{c.incasso_piattaforma.toFixed(2)} €</td>
               </tr>
