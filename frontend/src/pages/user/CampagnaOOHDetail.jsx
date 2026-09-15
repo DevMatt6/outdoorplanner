@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { NavBar } from "../../components/NavBar";
+import { UserShell } from "../../components/BackofficeLayout";
 import { StatusBadge } from "../../components/StatusBadge";
 import { DynamicField, isVisible } from "../../components/DynamicField";
 import { api, apiError, imgSrc } from "../../lib/api";
@@ -22,7 +22,7 @@ const Countdown = ({ scadenza }) => {
 };
 
 const CheckChip = ({ ok, label }) => (
-  <span className={`inline-flex items-center gap-1 text-[11px] font-bold rounded-full px-2.5 py-1 ${ok ? "bg-[#D8EADB] text-[#1F5B33]" : "bg-[#FEE2E2] text-[#B91C1C]"}`}>
+  <span className={`inline-flex items-center gap-1 text-[11px] font-bold rounded-full px-2.5 py-1 ${ok ? "bg-[#E8EFFF] text-[#1F3BB3]" : "bg-[#FEE2E2] text-[#B91C1C]"}`}>
     {ok ? <Check size={11} /> : <X size={11} />} {label}
   </span>
 );
@@ -73,7 +73,7 @@ export default function CampagnaOOHDetail() {
 
   const formatiUtili = useMemo(() => formati, [formati]);
 
-  if (!c) return <div><NavBar /><div className="p-12 text-slate-500">Caricamento...</div></div>;
+  if (!c) return <UserShell><div className="text-slate-500">Caricamento...</div></UserShell>;
 
   const attiva = c.stato === "HOLD";
   const editable = (p) => p.stato === "DA_COMPLETARE";
@@ -162,9 +162,8 @@ export default function CampagnaOOHDetail() {
   const tuttoCompleto = c.pratiche.every((p) => Object.values(p.checklist).every(Boolean));
 
   return (
-    <div className="min-h-screen">
-      <NavBar />
-      <div className="max-w-6xl mx-auto px-6 py-10" data-testid="campagna-ooh-detail">
+    <UserShell>
+      <div className="max-w-6xl mx-auto" data-testid="campagna-ooh-detail">
         <Link to="/campagne" className="inline-flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-slate-900 transition-colors">
           <ArrowLeft size={16} /> Le mie campagne
         </Link>
@@ -173,7 +172,7 @@ export default function CampagnaOOHDetail() {
             <h1 className="text-3xl font-heading font-extrabold tracking-tight">{c.nome}</h1>
             <div className="text-sm text-slate-600 font-mono mt-1">{c.data_inizio} → {c.data_fine} · {c.importo_totale.toFixed(2)} € · Campagna OOH</div>
           </div>
-          <span className={`text-xs font-bold rounded-full px-4 py-1.5 ${c.stato === "CONFERMATA" ? "bg-[#D8EADB] text-[#1F5B33]" : c.stato === "HOLD" ? "bg-[#FEF3C7] text-[#B45309]" : "bg-[#FEE2E2] text-[#B91C1C]"}`}>
+          <span className={`text-xs font-bold rounded-full px-4 py-1.5 ${c.stato === "CONFERMATA" ? "bg-[#E8EFFF] text-[#1F3BB3]" : c.stato === "HOLD" ? "bg-[#FEF3C7] text-[#B45309]" : "bg-[#FEE2E2] text-[#B91C1C]"}`}>
             {c.stato === "HOLD" ? "Prenotazione attiva" : c.stato === "CONFERMATA" ? "Confermata" : c.stato}
           </span>
         </div>
@@ -189,7 +188,7 @@ export default function CampagnaOOHDetail() {
 
         {attiva && (
           <div className="mt-6 border border-slate-100 bg-white rounded-2xl overflow-hidden" data-testid="soggetti-panel">
-            <div className="px-6 py-4 bg-[#FAFAF8] border-b border-slate-100">
+            <div className="px-6 py-4 bg-[#F8F9FD] border-b border-slate-100">
               <div className="font-heading font-extrabold text-lg">Creatività della campagna</div>
               <div className="text-xs text-slate-500 mt-0.5">1. Verifica i formati richiesti · 2. Indica quanti soggetti per formato e caricali · 3. Assegna ogni soggetto agli impianti nelle pratiche qui sotto.</div>
             </div>
@@ -226,7 +225,7 @@ export default function CampagnaOOHDetail() {
                                   className="border border-slate-200 rounded-lg p-1 hover:border-[#EF4444] hover:text-[#EF4444] transition-colors"><X size={12} /></button>
                               </>
                             ) : (
-                              <label className="flex-1 cursor-pointer inline-flex items-center gap-2 justify-center border border-dashed border-slate-300 rounded-full px-4 py-1.5 text-xs font-bold text-slate-500 hover:border-[#2F5B41] hover:text-[#2F5B41] transition-colors">
+                              <label className="flex-1 cursor-pointer inline-flex items-center gap-2 justify-center border border-dashed border-slate-300 rounded-full px-4 py-1.5 text-xs font-bold text-slate-500 hover:border-[#1F3BB3] hover:text-[#1F3BB3] transition-colors">
                                 <ImagePlus size={13} /> Carica file — formato {f.formato}
                                 <input data-testid={`upload-soggetto-${f.formato}-${idx + 1}`} type="file" className="hidden" onChange={(e) => uploadSoggetto(e, f.formato, idx + 1)} />
                               </label>
@@ -237,7 +236,7 @@ export default function CampagnaOOHDetail() {
                     </div>
                     <div className="mt-3 text-xs font-semibold" data-testid={`riepilogo-formato-${f.formato}`}>
                       <span className="text-slate-500">{caricati.length} soggetti caricati · </span>
-                      <span className={assegnati === f.n_impianti ? "text-[#1F5B33]" : "text-[#B45309]"}>{assegnati}/{f.n_impianti} impianti assegnati</span>
+                      <span className={assegnati === f.n_impianti ? "text-[#1F3BB3]" : "text-[#B45309]"}>{assegnati}/{f.n_impianti} impianti assegnati</span>
                       {assegnati < f.n_impianti && <span className="text-[#B91C1C]"> · {f.n_impianti - assegnati} senza creatività</span>}
                     </div>
                   </div>
@@ -254,7 +253,7 @@ export default function CampagnaOOHDetail() {
             const visibili = (tpl.campi || []).filter((f) => isVisible(f, values));
             return (
               <div key={p.id} className="border border-slate-100 bg-white rounded-2xl overflow-hidden" data-testid={`ooh-pratica-${p.id}`}>
-                <div className="px-6 py-4 bg-[#FAFAF8] border-b border-slate-100 flex flex-wrap items-center justify-between gap-3">
+                <div className="px-6 py-4 bg-[#F8F9FD] border-b border-slate-100 flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <div className="font-heading font-extrabold text-lg">{p.pacchetto_nome} <span className="text-sm font-normal text-slate-500">· {p.zona_nome}</span></div>
                     <div className="text-xs text-slate-500">{p.impianti.length} impianti · {p.importo.toFixed(2)} €</div>
@@ -279,7 +278,7 @@ export default function CampagnaOOHDetail() {
                         ))}
                       </div>
                       <button data-testid={`salva-modulo-${p.id}`} onClick={() => salvaModulo(p)}
-                        className="mt-3 border border-slate-200 rounded-full px-5 py-2 text-sm font-bold hover:border-[#2F5B41] hover:text-[#2F5B41] transition-colors">
+                        className="mt-3 border border-slate-200 rounded-full px-5 py-2 text-sm font-bold hover:border-[#1F3BB3] hover:text-[#1F3BB3] transition-colors">
                         Salva modulo
                       </button>
                       <div className="text-xs font-bold uppercase tracking-widest text-slate-500 mt-6 mb-2">Documentazione</div>
@@ -289,7 +288,7 @@ export default function CampagnaOOHDetail() {
                           <div key={d.id} className="flex flex-wrap items-center gap-3 border border-slate-100 rounded-xl px-4 py-2 mb-2">
                             <span className="text-sm font-semibold flex-1 min-w-[140px]">{d.label}{d.required && <span className="text-[#B91C1C]"> *</span>}</span>
                             <span className="text-xs text-slate-500">{caricati.map((x) => x.nome).join(", ") || "Nessun file"}</span>
-                            <label className="cursor-pointer inline-flex items-center gap-2 border border-slate-200 rounded-full px-4 py-1.5 text-xs font-bold hover:border-[#2F5B41] hover:text-[#2F5B41] transition-colors">
+                            <label className="cursor-pointer inline-flex items-center gap-2 border border-slate-200 rounded-full px-4 py-1.5 text-xs font-bold hover:border-[#1F3BB3] hover:text-[#1F3BB3] transition-colors">
                               <Upload size={13} /> Carica
                               <input data-testid={`ooh-upload-${p.id}-${d.id}`} type="file" className="hidden" onChange={(e) => uploadDoc(e, p, d)} />
                             </label>
@@ -311,7 +310,7 @@ export default function CampagnaOOHDetail() {
                                 <div className="text-[10px] text-slate-500">{imp.via} · {imp.formato}{isDooh(imp.tipologia) ? " · DOOH" : ""}</div>
                               </div>
                               {assegnata ? (
-                                <span className="text-[11px] font-bold text-[#1F5B33] bg-[#D8EADB] rounded-full px-2.5 py-1 max-w-[140px] truncate">{assegnata.creativita_nome}</span>
+                                <span className="text-[11px] font-bold text-[#1F3BB3] bg-[#E8EFFF] rounded-full px-2.5 py-1 max-w-[140px] truncate">{assegnata.creativita_nome}</span>
                               ) : null}
                               <select data-testid={`ooh-assegna-${imp.id}`} className="border border-slate-200 rounded-lg text-xs px-2 py-1.5 max-w-[150px] bg-white"
                                 value="" onChange={(e) => assegna(p, imp, e.target.value)}>
@@ -329,7 +328,7 @@ export default function CampagnaOOHDetail() {
                   <div className="px-6 py-4 text-sm text-slate-500">
                     {p.stato === "PRENOTAZIONE_SCADUTA" ? "Il blocco di 24 ore è scaduto: gli impianti sono stati liberati." :
                       p.stato === "ANNULLATA" ? "Pratica annullata." :
-                        <Link to={`/pratiche/${p.id}`} className="font-bold text-[#2F5B41] hover:underline">Apri la pratica per seguire l'iter del Comune →</Link>}
+                        <Link to={`/pratiche/${p.id}`} className="font-bold text-[#1F3BB3] hover:underline">Apri la pratica per seguire l'iter del Comune →</Link>}
                   </div>
                 )}
               </div>
@@ -345,13 +344,13 @@ export default function CampagnaOOHDetail() {
             </button>
             {!tuttePagate && (
               <button data-testid="ooh-checkout-button" onClick={checkout} disabled={busy}
-                className="inline-flex items-center gap-2 bg-[#2F5B41] text-white rounded-full px-7 py-3 font-bold hover:bg-[#26492F] transition-colors disabled:opacity-50">
+                className="inline-flex items-center gap-2 bg-[#1F3BB3] text-white rounded-full px-7 py-3 font-bold hover:bg-[#172E93] transition-colors disabled:opacity-50">
                 <CreditCard size={17} /> Paga {c.importo_totale.toFixed(2)} € (mock)
               </button>
             )}
             {tuttePagate && (
               <button data-testid="ooh-invia-button" onClick={invia} disabled={busy || !tuttoCompleto}
-                className="inline-flex items-center gap-2 bg-[#2F5B41] text-white rounded-full px-7 py-3 font-bold hover:bg-[#26492F] transition-colors disabled:opacity-50"
+                className="inline-flex items-center gap-2 bg-[#1F3BB3] text-white rounded-full px-7 py-3 font-bold hover:bg-[#172E93] transition-colors disabled:opacity-50"
                 title={tuttoCompleto ? "" : "Completa moduli, documenti e creatività"}>
                 <Send size={17} /> Invia ai Comuni e conferma
               </button>
@@ -359,6 +358,6 @@ export default function CampagnaOOHDetail() {
           </div>
         )}
       </div>
-    </div>
+    </UserShell>
   );
 }

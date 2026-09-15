@@ -71,7 +71,7 @@ export default function AdminDashboard() {
               <XAxis dataKey="stato" tick={{ fontSize: 10 }} interval={0} angle={-20} textAnchor="end" height={60} />
               <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
               <Tooltip contentStyle={{ borderRadius: 0, border: "1px solid #0F172A" }} />
-              <Bar dataKey="count" name="Pratiche" fill="#2F5B41" isAnimationActive={false} />
+              <Bar dataKey="count" name="Pratiche" fill="#1F3BB3" isAnimationActive={false} />
             </BarChart>
           </ResponsiveContainer>
           )}
@@ -87,7 +87,7 @@ export default function AdminDashboard() {
               <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11 }} />
               <YAxis type="category" dataKey="comune" tick={{ fontSize: 12 }} width={80} />
               <Tooltip contentStyle={{ borderRadius: 0, border: "1px solid #0F172A" }} />
-              <Bar dataKey="count" name="Pratiche" fill="#1F3D2B" isAnimationActive={false} />
+              <Bar dataKey="count" name="Pratiche" fill="#2B4BDB" isAnimationActive={false} />
             </BarChart>
           </ResponsiveContainer>
           )}
@@ -95,7 +95,7 @@ export default function AdminDashboard() {
       </div>
 
       <div className="mt-6 border border-slate-100 bg-white rounded-2xl overflow-hidden overflow-x-auto" data-testid="kpi-per-comune">
-        <div className="px-5 py-3 border-b border-slate-100 text-xs font-bold uppercase tracking-widest bg-[#FAFAF8]">KPI per comune — clicca per il dettaglio</div>
+        <div className="px-5 py-3 border-b border-slate-100 text-xs font-bold uppercase tracking-widest bg-[#F8F9FD]">KPI per comune — clicca per il dettaglio</div>
         <table className="w-full text-sm border-collapse">
           <thead>
             <tr className="border-b border-slate-100 text-left">
@@ -107,13 +107,13 @@ export default function AdminDashboard() {
           <tbody>
             {comuni.map((c) => (
               <tr key={c.id} data-testid={`kpi-comune-row-${c.id}`} onClick={() => openDettaglio(c.id)}
-                className="border-b border-slate-100 hover:bg-[#F1F5F0] transition-colors cursor-pointer">
+                className="border-b border-slate-100 hover:bg-[#F0F4FF] transition-colors cursor-pointer">
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-3">
                     {c.logo_url ? (
                       <img src={imgSrc(c.logo_url)} alt="" className="w-8 h-8 rounded-lg object-contain border border-slate-100 bg-white" />
                     ) : (
-                      <span className="w-8 h-8 rounded-lg bg-[#EEF2EC] flex items-center justify-center text-[#2F5B41]"><Landmark size={14} /></span>
+                      <span className="w-8 h-8 rounded-lg bg-[#F0F4FF] flex items-center justify-center text-[#1F3BB3]"><Landmark size={14} /></span>
                     )}
                     <span className="font-bold">{c.nome}</span>
                   </div>
@@ -133,7 +133,7 @@ export default function AdminDashboard() {
 
       {dettaglio && (
         <div className="mt-6 border border-slate-100 bg-white rounded-2xl overflow-hidden" data-testid="dettaglio-comune">
-          <div className="px-5 py-3 border-b border-slate-100 bg-[#FAFAF8] flex items-center justify-between">
+          <div className="px-5 py-3 border-b border-slate-100 bg-[#F8F9FD] flex items-center justify-between">
             <div className="flex items-center gap-3">
               {dettaglio.comune.logo_url && <img src={imgSrc(dettaglio.comune.logo_url)} alt="" className="w-8 h-8 rounded-lg object-contain border border-slate-100 bg-white" />}
               <span className="font-heading font-extrabold">Comune di {dettaglio.comune.nome}</span>
@@ -162,7 +162,7 @@ export default function AdminDashboard() {
                   <XAxis dataKey="mese" tick={{ fontSize: 11 }} />
                   <YAxis tick={{ fontSize: 11 }} />
                   <Tooltip contentStyle={{ borderRadius: 0, border: "1px solid #0F172A" }} />
-                  <Bar dataKey="importo" name="Incassi" fill="#2F5B41" isAnimationActive={false} />
+                  <Bar dataKey="importo" name="Incassi" fill="#1F3BB3" isAnimationActive={false} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -170,7 +170,7 @@ export default function AdminDashboard() {
               <div className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-3">Ultime pratiche</div>
               <div className="space-y-1.5">
                 {dettaglio.ultime_pratiche.map((p, i) => (
-                  <div key={i} className="flex flex-wrap items-center gap-2 text-xs bg-[#FAFAF8] border border-slate-100 rounded-xl px-3 py-2">
+                  <div key={i} className="flex flex-wrap items-center gap-2 text-xs bg-[#F8F9FD] border border-slate-100 rounded-xl px-3 py-2">
                     <span className="font-mono text-slate-500">{p.data}</span>
                     <span className="font-bold flex-1 min-w-[120px]">{p.spazio_nome}</span>
                     <span className="text-slate-500">{p.user_nome}</span>

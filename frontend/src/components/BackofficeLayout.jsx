@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../store/auth";
 import { api, imgSrc } from "../lib/api";
 import { NotificationBell } from "./NotificationBell";
-import { LayoutGrid, Inbox, Map, FileSliders, ChartColumn, LogOut, Landmark, Radar } from "lucide-react";
+import { LayoutGrid, Inbox, Map, FileSliders, ChartColumn, LogOut, Landmark, Radar, House, Megaphone, PlusCircle, Package, Presentation } from "lucide-react";
 
 const ICONS = {
   "link-scrivania": Inbox,
@@ -13,6 +13,20 @@ const ICONS = {
   "link-kpi": LayoutGrid,
   "link-comuni": Landmark,
   "link-monitor": Radar,
+  "link-zone": Map,
+  "link-impianti": Presentation,
+  "link-pacchetti": Package,
+  "link-home": House,
+  "link-pratiche-user": Inbox,
+  "link-campagne-user": Megaphone,
+  "link-nuova-ooh": PlusCircle,
+  "link-osp-user": Map,
+};
+
+const SUBTITLES = {
+  user: "La tua panoramica di campagne e pratiche",
+  comune: "Backoffice pratiche, impianti e territorio",
+  superadmin: "Panoramica della piattaforma",
 };
 
 export const BackofficeLayout = ({ title, links, children }) => {
@@ -28,53 +42,61 @@ export const BackofficeLayout = ({ title, links, children }) => {
   const livelloLabel = user?.ruolo === "comune"
     ? (livello === 3 ? "Responsabile · L3" : livello === 2 ? "Referente · L2" : "Operatore · L1")
     : null;
+  const ora = new Date().getHours();
+  const saluto = ora < 13 ? "Buongiorno" : ora < 18 ? "Buon pomeriggio" : "Buonasera";
 
   return (
-    <div className="min-h-screen bg-[#F2F3F0] flex p-4 gap-4">
-      <aside className="w-64 shrink-0 bg-white rounded-2xl border border-slate-100 flex flex-col sticky top-4 max-h-[calc(100vh-2rem)]">
-        <Link to="/" className="flex items-center gap-3 px-6 h-16 border-b border-slate-100">
-          <span className="bg-[#2F5B41] text-white font-heading font-extrabold w-8 h-8 rounded-full flex items-center justify-center text-xs">OP</span>
-          <span className="font-heading font-extrabold text-sm">Outdoor Planner</span>
+    <div className="min-h-screen bg-[#F4F5F7] flex">
+      <aside className="w-64 shrink-0 bg-white border-r border-[#E5E9F2] flex flex-col sticky top-0 h-screen">
+        <Link to="/" className="flex items-center gap-3 px-6 h-16 border-b border-[#E5E9F2] shrink-0">
+          <span className="bg-[#1F3BB3] text-white font-heading font-extrabold w-9 h-9 rounded-xl flex items-center justify-center text-sm shadow-sm">OP</span>
+          <span className="font-heading font-extrabold text-base tracking-tight text-[#1F2937]">Outdoor Planner</span>
         </Link>
-        <div className="px-6 py-4 border-b border-slate-100">
+        <div className="mx-4 my-3 p-3 bg-[#F8F9FD] rounded-xl border border-[#E5E9F2]">
           {comuneInfo && (
             <div className="flex items-center gap-2 mb-2" data-testid="comune-logo-sidebar">
-              {comuneInfo.logo_url && <img src={imgSrc(comuneInfo.logo_url)} alt="" className="w-8 h-8 rounded-lg object-contain border border-slate-100 bg-white" />}
-              <span className="text-xs font-bold">Comune di {comuneInfo.nome}</span>
+              {comuneInfo.logo_url && <img src={imgSrc(comuneInfo.logo_url)} alt="" className="w-8 h-8 rounded-lg object-contain border border-[#E5E9F2] bg-white" />}
+              <span className="text-xs font-bold text-[#1F2937]">Comune di {comuneInfo.nome}</span>
             </div>
           )}
-          <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">{title}</div>
-          <div className="text-sm font-bold mt-0.5 truncate">{user?.nome}</div>
+          <div className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#8D94A5]">{title}</div>
+          <div className="text-sm font-bold mt-0.5 truncate text-[#1F2937]">{user?.nome}</div>
           {livelloLabel && (
-            <span data-testid="livello-badge" className="inline-block mt-1.5 text-[10px] font-bold rounded-full bg-[#D8EADB] text-[#1F5B33] px-2.5 py-0.5">
+            <span data-testid="livello-badge" className="inline-block mt-1.5 text-[10px] font-bold rounded-full bg-[#E8EFFF] text-[#1F3BB3] px-2.5 py-0.5">
               {livelloLabel}
             </span>
           )}
         </div>
-        <div className="px-6 pt-4 pb-1 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Menu</div>
-        <nav className="flex-1 px-3 pb-3 space-y-1">
+        <div className="px-6 pt-2 pb-1 text-[10px] font-bold uppercase tracking-[0.15em] text-[#8D94A5]">Menu</div>
+        <nav className="flex-1 px-3 pb-3 space-y-1 overflow-y-auto">
           {visibleLinks.map(([to, label, testid]) => {
             const active = location.pathname === to;
             const Icon = ICONS[testid] || LayoutGrid;
             return (
               <Link key={to} to={to} data-testid={testid}
-                className={`flex items-center gap-3 px-3 py-2.5 text-sm font-semibold rounded-xl transition-colors
-                  ${active ? "bg-[#2F5B41] text-white" : "text-slate-600 hover:bg-[#EEF2EC] hover:text-slate-900"}`}>
+                className={`flex items-center gap-3 px-3.5 py-2.5 text-sm rounded-xl transition-colors
+                  ${active ? "bg-[#1F3BB3] text-white font-semibold shadow-sm shadow-[#1F3BB3]/20" : "font-medium text-[#525B6C] hover:bg-[#F0F4FF] hover:text-[#1F3BB3]"}`}>
                 <Icon size={17} /> {label}
               </Link>
             );
           })}
         </nav>
         <button data-testid="backoffice-logout" onClick={() => { logout(); navigate("/"); }}
-          className="flex items-center gap-3 mx-3 mb-3 px-3 py-2.5 text-left text-sm font-semibold text-slate-500 rounded-xl hover:bg-[#EEF2EC] hover:text-slate-900 transition-colors">
+          className="flex items-center gap-3 mx-3 mb-3 px-3.5 py-2.5 text-left text-sm font-medium text-[#525B6C] rounded-xl hover:bg-[#F0F4FF] hover:text-[#1F3BB3] transition-colors shrink-0">
           <LogOut size={17} /> Esci
         </button>
       </aside>
       <main className="flex-1 min-w-0">
-        <div className="h-16 bg-white rounded-2xl border border-slate-100 flex items-center justify-end px-5 sticky top-4 z-[1100]">
+        <div className="h-16 bg-white/95 backdrop-blur-md border-b border-[#E5E9F2] flex items-center justify-between px-6 sticky top-0 z-[1100]">
+          <div>
+            <div className="text-base sm:text-lg font-bold tracking-tight text-[#1F2937]" data-testid="header-greeting">
+              {saluto}, <span className="text-[#1F3BB3]">{user?.nome?.split(" ")[0]}</span>
+            </div>
+            <div className="text-xs text-[#6C7383] hidden sm:block">{SUBTITLES[user?.ruolo] || ""}</div>
+          </div>
           <NotificationBell />
         </div>
-        <div className="py-6 px-1">{children}</div>
+        <div className="py-6 px-6">{children}</div>
       </main>
     </div>
   );
@@ -96,3 +118,15 @@ export const ADMIN_LINKS = [
   ["/admin/comuni", "Comuni", "link-comuni"],
   ["/admin/monitor", "Monitor anomalie", "link-monitor"],
 ];
+
+export const USER_LINKS = [
+  ["/home", "Panoramica", "link-home"],
+  ["/dashboard", "Le mie pratiche", "link-pratiche-user"],
+  ["/campagne", "Le mie campagne", "link-campagne-user"],
+  ["/campagne/ooh/nuova", "Nuova campagna OOH", "link-nuova-ooh"],
+  ["/spazi", "OSP / Eventi", "link-osp-user"],
+];
+
+export const UserShell = ({ children }) => (
+  <BackofficeLayout title="Area Inserzionista" links={USER_LINKS}>{children}</BackofficeLayout>
+);

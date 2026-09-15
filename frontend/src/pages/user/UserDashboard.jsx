@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { NavBar } from "../../components/NavBar";
+import { UserShell } from "../../components/BackofficeLayout";
 import { StatusBadge, STATO_COLORS, TipoBadge } from "../../components/StatusBadge";
 import { api, apiError } from "../../lib/api";
 import { useAuth } from "../../store/auth";
@@ -33,9 +33,8 @@ export default function UserDashboard() {
   };
 
   return (
-    <div className="min-h-screen">
-      <NavBar />
-      <div className="max-w-6xl mx-auto px-6 py-10" data-testid="user-dashboard">
+    <UserShell>
+      <div className="max-w-6xl mx-auto" data-testid="user-dashboard">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <div className="text-xs font-bold uppercase tracking-[0.25em] text-slate-500">Area inserzionista</div>
@@ -43,25 +42,25 @@ export default function UserDashboard() {
           </div>
           <div className="flex gap-3">
             <Link to="/campagne" data-testid="campagne-link"
-              className="inline-flex items-center gap-2 border border-slate-200 rounded-full px-6 py-3 font-bold bg-white hover:border-[#2F5B41] hover:text-[#2F5B41] transition-colors">
+              className="inline-flex items-center gap-2 border border-slate-200 rounded-full px-6 py-3 font-bold bg-white hover:border-[#1F3BB3] hover:text-[#1F3BB3] transition-colors">
               <Megaphone size={18} /> Campagne
             </Link>
             <Link to="/spazi" data-testid="nuova-pratica-button"
-              className="inline-flex items-center gap-2 bg-[#2F5B41] text-white rounded-full px-6 py-3 font-bold hover:bg-[#26492F] transition-colors">
+              className="inline-flex items-center gap-2 bg-[#1F3BB3] text-white rounded-full px-6 py-3 font-bold hover:bg-[#172E93] transition-colors">
               <Plus size={18} /> Nuova pratica
             </Link>
           </div>
         </div>
 
         <div className="mt-8 grid grid-cols-3 border border-slate-100 rounded-2xl overflow-hidden divide-x divide-slate-100 bg-white">
-          <div className="p-5 hover:bg-[#F1F5F0] transition-colors"><div className="font-heading font-extrabold text-3xl">{pratiche.length}</div><div className="text-xs uppercase tracking-wider text-slate-500">Pratiche totali</div></div>
-          <div className="p-5 hover:bg-[#F1F5F0] transition-colors"><div className="font-heading font-extrabold text-3xl text-[#F59E0B]">{attive}</div><div className="text-xs uppercase tracking-wider text-slate-500">In corso</div></div>
-          <div className="p-5 hover:bg-[#F1F5F0] transition-colors"><div className="font-heading font-extrabold text-3xl text-[#EF4444]">{daIntegrare}</div><div className="text-xs uppercase tracking-wider text-slate-500">Da integrare</div></div>
+          <div className="p-5 hover:bg-[#F0F4FF] transition-colors"><div className="font-heading font-extrabold text-3xl">{pratiche.length}</div><div className="text-xs uppercase tracking-wider text-slate-500">Pratiche totali</div></div>
+          <div className="p-5 hover:bg-[#F0F4FF] transition-colors"><div className="font-heading font-extrabold text-3xl text-[#F59E0B]">{attive}</div><div className="text-xs uppercase tracking-wider text-slate-500">In corso</div></div>
+          <div className="p-5 hover:bg-[#F0F4FF] transition-colors"><div className="font-heading font-extrabold text-3xl text-[#EF4444]">{daIntegrare}</div><div className="text-xs uppercase tracking-wider text-slate-500">Da integrare</div></div>
         </div>
 
         <div className="mt-8 flex flex-wrap items-center gap-2" data-testid="filtri-stato">
           <button data-testid="filtro-tutte" onClick={() => setFiltro("")}
-            className={`px-4 py-1.5 text-xs font-bold rounded-full border transition-colors ${!filtro ? "bg-[#2F5B41] text-white border-[#2F5B41]" : "bg-white border-slate-200 text-slate-600 hover:border-[#2F5B41]"}`}>
+            className={`px-4 py-1.5 text-xs font-bold rounded-full border transition-colors ${!filtro ? "bg-[#1F3BB3] text-white border-[#1F3BB3]" : "bg-white border-slate-200 text-slate-600 hover:border-[#1F3BB3]"}`}>
             Tutte ({pratiche.length})
           </button>
           {Object.entries(STATO_COLORS).map(([stato, cfg]) => {
@@ -69,7 +68,7 @@ export default function UserDashboard() {
             if (n === 0) return null;
             return (
               <button key={stato} data-testid={`filtro-${stato}`} onClick={() => setFiltro(filtro === stato ? "" : stato)}
-                className={`px-4 py-1.5 text-xs font-bold rounded-full border transition-colors ${filtro === stato ? "bg-[#2F5B41] text-white border-[#2F5B41]" : "bg-white border-slate-200 text-slate-600 hover:border-[#2F5B41]"}`}>
+                className={`px-4 py-1.5 text-xs font-bold rounded-full border transition-colors ${filtro === stato ? "bg-[#1F3BB3] text-white border-[#1F3BB3]" : "bg-white border-slate-200 text-slate-600 hover:border-[#1F3BB3]"}`}>
                 {cfg.label} ({n})
               </button>
             );
@@ -77,12 +76,12 @@ export default function UserDashboard() {
         </div>
 
         <div className="mt-4 border border-slate-100 bg-white rounded-2xl overflow-hidden">
-          <div className="px-6 py-3 border-b border-slate-100 text-xs font-bold uppercase tracking-widest bg-[#FAFAF8]">Le mie pratiche</div>
+          <div className="px-6 py-3 border-b border-slate-100 text-xs font-bold uppercase tracking-widest bg-[#F8F9FD]">Le mie pratiche</div>
           {loading && <div className="p-8 text-slate-500">Caricamento...</div>}
           {!loading && pratiche.length === 0 && (
             <div className="p-12 text-center">
               <p className="text-slate-500">Non hai ancora pratiche. Trova uno spazio e avvia la prima candidatura.</p>
-              <Link to="/spazi" className="inline-block mt-4 border border-slate-200 rounded-full px-6 py-2.5 font-bold hover:bg-[#2F5B41] hover:text-white transition-colors">Cerca spazi</Link>
+              <Link to="/spazi" className="inline-block mt-4 border border-slate-200 rounded-full px-6 py-2.5 font-bold hover:bg-[#1F3BB3] hover:text-white transition-colors">Cerca spazi</Link>
             </div>
           )}
           {!loading && pratiche.length > 0 && visibili.length === 0 && (
@@ -90,7 +89,7 @@ export default function UserDashboard() {
           )}
           {visibili.map((p) => (
             <Link key={p.id} to={`/pratiche/${p.id}`} data-testid={`pratica-row-${p.id}`}
-              className="flex flex-wrap items-center gap-4 px-6 py-4 border-b border-slate-200 hover:bg-[#F1F5F0] transition-colors">
+              className="flex flex-wrap items-center gap-4 px-6 py-4 border-b border-slate-200 hover:bg-[#F0F4FF] transition-colors">
               <div className="flex-1 min-w-[200px]">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="font-bold">{p.spazio_nome}</span>
@@ -110,6 +109,6 @@ export default function UserDashboard() {
           ))}
         </div>
       </div>
-    </div>
+    </UserShell>
   );
 }

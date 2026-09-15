@@ -428,6 +428,8 @@ def build(db, get_current_user, require_role, require_comune_l3, notifica, log_s
         pratica = await db.pratiche.find_one({"id": pratica_id, "user_id": user["id"], "tipo": "OOH"}, {"_id": 0})
         if not pratica:
             raise HTTPException(status_code=404, detail="Pratica non trovata")
+        if pratica["stato"] not in ("DA_COMPLETARE", "INTEGRAZIONE_RICHIESTA"):
+            raise HTTPException(status_code=400, detail="Creatività modificabili solo in fase di completamento o integrazione")
         sog = await db.soggetti.find_one({"id": data.soggetto_id, "user_id": user["id"]}, {"_id": 0})
         if not sog:
             raise HTTPException(status_code=404, detail="Soggetto creativo non trovato")
@@ -446,6 +448,8 @@ def build(db, get_current_user, require_role, require_comune_l3, notifica, log_s
         pratica = await db.pratiche.find_one({"id": pratica_id, "user_id": user["id"]}, {"_id": 0})
         if not pratica:
             raise HTTPException(status_code=404, detail="Pratica non trovata")
+        if pratica["stato"] not in ("DA_COMPLETARE", "INTEGRAZIONE_RICHIESTA"):
+            raise HTTPException(status_code=400, detail="Creatività modificabili solo in fase di completamento o integrazione")
         assoc = [a for a in pratica.get("creativita", []) if a["impianto_id"] != impianto_id]
         await db.pratiche.update_one({"id": pratica_id}, {"$set": {"creativita": assoc, "updated_at": now_iso()}})
         return {"ok": True}

@@ -61,7 +61,7 @@ export default function Report() {
               <XAxis dataKey="mese" tick={{ fontSize: 11 }} />
               <YAxis tick={{ fontSize: 11 }} />
               <Tooltip contentStyle={{ borderRadius: 0, border: "1px solid #0F172A" }} />
-              <Bar dataKey="importo" name="Incassi" fill="#1F3D2B" isAnimationActive={false} />
+              <Bar dataKey="importo" name="Incassi" fill="#2B4BDB" isAnimationActive={false} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -69,7 +69,7 @@ export default function Report() {
 
       {ooh && (
         <div className="mt-6 border border-slate-100 bg-white rounded-2xl overflow-hidden" data-testid="report-ooh">
-          <div className="px-5 py-3 border-b border-slate-100 text-xs font-bold uppercase tracking-widest bg-[#FAFAF8]">Campagne OOH — circuiti e prenotazioni</div>
+          <div className="px-5 py-3 border-b border-slate-100 text-xs font-bold uppercase tracking-widest bg-[#F8F9FD]">Campagne OOH — circuiti e prenotazioni</div>
           <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-slate-100 border-b border-slate-100">
             {[[ooh.prenotazioni.HELD, "In prenotazione (HELD)"], [ooh.prenotazioni.CONFIRMED, "Confermate"],
               [ooh.prenotazioni.EXPIRED, "Scadute"], [`${ooh.conversione}%`, "Conversione HELD→CONFIRMED"]].map(([v, l]) => (
@@ -89,7 +89,7 @@ export default function Report() {
             </thead>
             <tbody>
               {ooh.pacchetti.map((p) => (
-                <tr key={p.pacchetto_id} className="border-b border-slate-100 hover:bg-[#F1F5F0] transition-colors">
+                <tr key={p.pacchetto_id} className="border-b border-slate-100 hover:bg-[#F0F4FF] transition-colors">
                   <td className="px-4 py-2.5 font-bold">{p.nome}</td>
                   <td className="px-4 py-2.5">{p.zona}</td>
                   <td className="px-4 py-2.5 font-mono">{p.n_impianti}</td>
@@ -104,7 +104,7 @@ export default function Report() {
       )}
 
       <div className="mt-6 border border-slate-100 bg-white rounded-2xl overflow-hidden" data-testid="report-per-spazio">
-        <div className="px-5 py-3 border-b border-slate-100 text-xs font-bold uppercase tracking-widest bg-[#FAFAF8]">OSP — dettaglio per area</div>
+        <div className="px-5 py-3 border-b border-slate-100 text-xs font-bold uppercase tracking-widest bg-[#F8F9FD]">OSP — dettaglio per area</div>
         <table className="w-full text-sm border-collapse">
           <thead>
             <tr className="border-b border-slate-100 text-left">
@@ -116,7 +116,7 @@ export default function Report() {
           <tbody>
             {perSpazio.map((s) => (
               <Fragment key={s.spazio_id}>
-                <tr className="border-b border-slate-100 hover:bg-[#F1F5F0] transition-colors cursor-pointer"
+                <tr className="border-b border-slate-100 hover:bg-[#F0F4FF] transition-colors cursor-pointer"
                   data-testid={`report-spazio-${s.spazio_id}`}
                   onClick={() => setExpanded(expanded === s.spazio_id ? null : s.spazio_id)}>
                   <td className="px-4 py-3">
@@ -130,7 +130,7 @@ export default function Report() {
                 </tr>
                 {expanded === s.spazio_id && (
                   <tr>
-                    <td colSpan={5} className="bg-[#FAFAF8] px-4 py-3 border-b border-slate-100">
+                    <td colSpan={5} className="bg-[#F8F9FD] px-4 py-3 border-b border-slate-100">
                       {s.storico.length === 0 && <div className="text-xs text-slate-500">Nessuna pratica su questo spazio.</div>}
                       <div className="space-y-1.5">
                         {s.storico.map((r, i) => (

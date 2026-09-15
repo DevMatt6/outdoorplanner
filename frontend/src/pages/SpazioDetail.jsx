@@ -36,7 +36,7 @@ export default function SpazioDetail() {
             <div className="border border-slate-100 bg-white rounded-2xl overflow-hidden">
               <img src={spazio.foto_url} alt={spazio.nome} className="w-full h-72 object-cover border-b border-slate-100" />
               <div className="p-8">
-                <div className="text-xs font-bold uppercase tracking-[0.2em] text-[#2F5B41]">{spazio.tipologia}</div>
+                <div className="text-xs font-bold uppercase tracking-[0.2em] text-[#1F3BB3]">{spazio.tipologia}</div>
                 <h1 className="text-3xl sm:text-4xl font-heading font-extrabold tracking-tight mt-1" data-testid="spazio-nome">{spazio.nome}</h1>
                 <div className="text-slate-600 mt-2 flex items-center gap-1.5">
                   <MapPin size={15} /> {spazio.indirizzo} — {spazio.citta} ({spazio.regione})
@@ -61,7 +61,7 @@ export default function SpazioDetail() {
               <div className="text-xs font-bold uppercase tracking-widest text-slate-500">Canone</div>
               <div className="font-heading font-extrabold text-4xl mt-1">{spazio.canone_giornaliero} €<span className="text-sm font-normal text-slate-500">/giorno</span></div>
               <button data-testid="avvia-pratica-button" onClick={avvia} disabled={!spazio.disponibile}
-                className="mt-6 w-full bg-[#2F5B41] text-white rounded-full py-3.5 font-bold hover:bg-[#26492F] transition-colors disabled:bg-slate-300 disabled:cursor-not-allowed">
+                className="mt-6 w-full bg-[#1F3BB3] text-white rounded-full py-3.5 font-bold hover:bg-[#172E93] transition-colors disabled:bg-slate-300 disabled:cursor-not-allowed">
                 {spazio.disponibile ? "Avvia candidatura" : "Non disponibile"}
               </button>
               {!user && <div className="text-xs text-slate-500 mt-2 text-center">Accedi o registrati per candidarti</div>}
@@ -70,7 +70,7 @@ export default function SpazioDetail() {
               <MapContainer center={[spazio.lat, spazio.lng]} zoom={14} style={{ height: 260 }} scrollWheelZoom={false}>
                 <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
                 <CircleMarker center={[spazio.lat, spazio.lng]} radius={10}
-                  pathOptions={{ color: "#020617", weight: 2, fillColor: "#2F5B41", fillOpacity: 1 }} />
+                  pathOptions={{ color: "#020617", weight: 2, fillColor: "#1F3BB3", fillOpacity: 1 }} />
               </MapContainer>
             </div>
           </div>

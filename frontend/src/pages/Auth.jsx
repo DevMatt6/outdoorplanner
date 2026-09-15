@@ -39,7 +39,7 @@ export default function Auth() {
   };
 
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
-  const input = "w-full border border-slate-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-[#2F5B41] transition-colors";
+  const input = "w-full border border-slate-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-[#1F3BB3] transition-colors";
 
   return (
     <div className="min-h-screen">
@@ -52,11 +52,11 @@ export default function Auth() {
         <div className="border border-slate-100 bg-white rounded-2xl overflow-hidden">
           <div className="grid grid-cols-2 border-b border-slate-100">
             <button data-testid="tab-login" onClick={() => setMode("login")}
-              className={`py-3 text-sm font-bold uppercase tracking-widest transition-colors ${mode === "login" ? "bg-[#2F5B41] text-white" : "hover:bg-slate-50"}`}>
+              className={`py-3 text-sm font-bold uppercase tracking-widest transition-colors ${mode === "login" ? "bg-[#1F3BB3] text-white" : "hover:bg-slate-50"}`}>
               Accedi
             </button>
             <button data-testid="tab-register" onClick={() => setMode("register")}
-              className={`py-3 text-sm font-bold uppercase tracking-widest transition-colors ${mode === "register" ? "bg-[#2F5B41] text-white" : "hover:bg-slate-50"}`}>
+              className={`py-3 text-sm font-bold uppercase tracking-widest transition-colors ${mode === "register" ? "bg-[#1F3BB3] text-white" : "hover:bg-slate-50"}`}>
               Registrati
             </button>
           </div>
@@ -69,7 +69,7 @@ export default function Auth() {
                     {["Privato", "Azienda", "Associazione"].map((t) => (
                       <button key={t} type="button" data-testid={`tipo-${t.toLowerCase()}`}
                         onClick={() => setForm({ ...form, tipo_soggetto: t })}
-                        className={`py-2 text-xs font-bold rounded-full border transition-colors ${form.tipo_soggetto === t ? "bg-[#2F5B41] text-white border-[#2F5B41]" : "border-slate-200 hover:border-[#2F5B41]"}`}>
+                        className={`py-2 text-xs font-bold rounded-full border transition-colors ${form.tipo_soggetto === t ? "bg-[#1F3BB3] text-white border-[#1F3BB3]" : "border-slate-200 hover:border-[#1F3BB3]"}`}>
                         {t}
                       </button>
                     ))}
@@ -103,11 +103,11 @@ export default function Auth() {
               value={form.password} onChange={set("password")} required />
             {error && <div data-testid="auth-error" className="border border-red-200 bg-red-50 rounded-xl text-[#B91C1C] text-sm px-4 py-3">{error}</div>}
             <button data-testid="auth-submit-button" disabled={loading}
-              className="w-full bg-[#2F5B41] text-white rounded-full py-3.5 font-bold hover:bg-[#26492F] transition-colors disabled:opacity-50">
+              className="w-full bg-[#1F3BB3] text-white rounded-full py-3.5 font-bold hover:bg-[#172E93] transition-colors disabled:opacity-50">
               {loading ? "Attendi..." : mode === "login" ? "Accedi" : "Crea account"}
             </button>
           </form>
-          <div className="border-t border-slate-100 px-8 py-4 bg-[#FAFAF8] text-xs text-slate-500 leading-relaxed">
+          <div className="border-t border-slate-100 px-8 py-4 bg-[#F8F9FD] text-xs text-slate-500 leading-relaxed">
             <strong>Account demo</strong> (password <span className="font-mono">demo123</span>): user@demo.it (inserzionista) · mattia.fabrizi92@gmail.com (superadmin). Le utenze comunali vengono create dal superadmin in fase di onboarding.
           </div>
         </div>

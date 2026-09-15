@@ -71,7 +71,7 @@ export default function ComuneSpazi() {
     load();
   };
 
-  const input = "w-full border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#2F5B41] transition-colors bg-white";
+  const input = "w-full border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#1F3BB3] transition-colors bg-white";
   const label = "block text-xs font-bold uppercase tracking-widest text-slate-500 mb-1";
 
   return (
@@ -79,7 +79,7 @@ export default function ComuneSpazi() {
       <div className="flex flex-wrap items-center justify-between gap-4">
         <h1 className="text-2xl sm:text-3xl font-heading font-extrabold tracking-tight">Aree OSP / Progetti Speciali</h1>
         <button data-testid="nuovo-spazio-button" onClick={() => setEditing({ ...EMPTY, lat: profilo?.lat, lng: profilo?.lng })}
-          className="inline-flex items-center gap-2 bg-[#2F5B41] text-white rounded-full px-5 py-2.5 font-bold hover:bg-[#26492F] transition-colors">
+          className="inline-flex items-center gap-2 bg-[#1F3BB3] text-white rounded-full px-5 py-2.5 font-bold hover:bg-[#172E93] transition-colors">
           <Plus size={17} /> Nuova area OSP
         </button>
       </div>
@@ -113,7 +113,7 @@ export default function ComuneSpazi() {
             </div>
             <div className="flex items-center gap-3">
               <img src={imgSrc(editing.foto_url)} alt="" className="w-20 h-14 object-cover rounded-lg border border-slate-100" />
-              <label className="cursor-pointer inline-flex items-center gap-2 border border-slate-200 rounded-full px-4 py-2 text-sm font-bold hover:border-[#2F5B41] hover:text-[#2F5B41] transition-colors">
+              <label className="cursor-pointer inline-flex items-center gap-2 border border-slate-200 rounded-full px-4 py-2 text-sm font-bold hover:border-[#1F3BB3] hover:text-[#1F3BB3] transition-colors">
                 <Upload size={15} /> Carica immagine
                 <input data-testid="spazio-foto-input" type="file" accept=".jpg,.jpeg,.png,.webp" className="hidden" onChange={uploadFoto} />
               </label>
@@ -121,8 +121,8 @@ export default function ComuneSpazi() {
             </div>
             <textarea className={input} rows={2} placeholder="Descrizione" value={editing.descrizione || ""} onChange={(e) => setEditing({ ...editing, descrizione: e.target.value })} />
             <div className="flex gap-3 pt-2">
-              <button data-testid="salva-spazio-button" className="px-6 py-2.5 font-bold rounded-full bg-[#2F5B41] text-white hover:bg-[#26492F] transition-colors">Salva</button>
-              <button type="button" onClick={() => setEditing(null)} className="px-6 py-2.5 font-bold border border-slate-200 rounded-full hover:border-[#2F5B41] transition-colors">Annulla</button>
+              <button data-testid="salva-spazio-button" className="px-6 py-2.5 font-bold rounded-full bg-[#1F3BB3] text-white hover:bg-[#172E93] transition-colors">Salva</button>
+              <button type="button" onClick={() => setEditing(null)} className="px-6 py-2.5 font-bold border border-slate-200 rounded-full hover:border-[#1F3BB3] transition-colors">Annulla</button>
             </div>
           </div>
           <div>
@@ -131,7 +131,7 @@ export default function ComuneSpazi() {
               <MapContainer center={[editing.lat || profilo?.lat || 41.9, editing.lng || profilo?.lng || 12.5]} zoom={12} style={{ height: 380 }}>
                 <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" className="flat-tiles" />
                 <ClickPicker onPick={(ll) => setEditing({ ...editing, lat: ll.lat, lng: ll.lng })} />
-                {editing.lat != null && <CircleMarker center={[editing.lat, editing.lng]} radius={10} pathOptions={{ color: "#1F3D2B", fillColor: "#2F5B41", fillOpacity: 1 }} />}
+                {editing.lat != null && <CircleMarker center={[editing.lat, editing.lng]} radius={10} pathOptions={{ color: "#2B4BDB", fillColor: "#1F3BB3", fillOpacity: 1 }} />}
               </MapContainer>
             </div>
             {editing.lat != null && <div className="text-xs font-mono text-slate-500 mt-1">lat {editing.lat.toFixed(5)}, lng {editing.lng.toFixed(5)}</div>}
@@ -142,7 +142,7 @@ export default function ComuneSpazi() {
       <div className="mt-6 border border-slate-100 bg-white rounded-2xl overflow-hidden overflow-x-auto">
         <table className="w-full text-sm border-collapse">
           <thead>
-            <tr className="bg-[#FAFAF8] border-b border-slate-100 text-left">
+            <tr className="bg-[#F8F9FD] border-b border-slate-100 text-left">
               {["Area", "Zona", "Modulo", "Canone", "Azioni"].map((h) => (
                 <th key={h} className="px-4 py-3 text-[11px] font-bold uppercase tracking-widest text-slate-500">{h}</th>
               ))}
@@ -150,7 +150,7 @@ export default function ComuneSpazi() {
           </thead>
           <tbody>
             {spazi.map((s) => (
-              <tr key={s.id} className="border-b border-slate-100 hover:bg-[#F1F5F0] transition-colors" data-testid={`spazio-row-${s.id}`}>
+              <tr key={s.id} className="border-b border-slate-100 hover:bg-[#F0F4FF] transition-colors" data-testid={`spazio-row-${s.id}`}>
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-3">
                     <img src={imgSrc(s.foto_url)} alt="" className="w-12 h-9 object-cover rounded-lg border border-slate-100" />
@@ -162,7 +162,7 @@ export default function ComuneSpazi() {
                 <td className="px-4 py-3 font-semibold">{s.canone_giornaliero} €/g</td>
                 <td className="px-4 py-3">
                   <div className="flex gap-2">
-                    <button data-testid={`edit-spazio-${s.id}`} onClick={() => setEditing({ ...EMPTY, ...s })} className="border border-slate-200 rounded-lg p-1.5 hover:border-[#2F5B41] transition-colors"><Pencil size={14} /></button>
+                    <button data-testid={`edit-spazio-${s.id}`} onClick={() => setEditing({ ...EMPTY, ...s })} className="border border-slate-200 rounded-lg p-1.5 hover:border-[#1F3BB3] transition-colors"><Pencil size={14} /></button>
                     <button data-testid={`delete-spazio-${s.id}`} onClick={() => remove(s.id)} className="border border-slate-200 rounded-lg p-1.5 hover:border-[#EF4444] hover:text-[#EF4444] transition-colors"><Trash2 size={14} /></button>
                   </div>
                 </td>

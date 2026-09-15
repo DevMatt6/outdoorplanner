@@ -3,13 +3,13 @@ import { MapContainer, TileLayer, GeoJSON, CircleMarker, Tooltip } from "react-l
 import "leaflet/dist/leaflet.css";
 import { imgSrc } from "../lib/api";
 
-const BASE_STYLE = { fillColor: "#DDE8DE", fillOpacity: 1, color: "#8FAE96", weight: 1 };
-const ACTIVE_STYLE = { fillColor: "#2F5B41", fillOpacity: 1, color: "#1F3D2B", weight: 1.5 };
+const BASE_STYLE = { fillColor: "#DCE4F7", fillOpacity: 1, color: "#93A6E8", weight: 1 };
+const ACTIVE_STYLE = { fillColor: "#1F3BB3", fillOpacity: 1, color: "#2B4BDB", weight: 1.5 };
 const FLAT_TILES = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
 
 const Crumb = ({ label, onClick, active }) => (
   <button type="button" onClick={onClick} disabled={active}
-    className={`px-3 py-1 text-xs font-bold rounded-full transition-colors ${active ? "bg-[#2F5B41] text-white cursor-default" : "bg-white border border-slate-200 hover:border-[#2F5B41] text-slate-600"}`}>
+    className={`px-3 py-1 text-xs font-bold rounded-full transition-colors ${active ? "bg-[#1F3BB3] text-white cursor-default" : "bg-white border border-slate-200 hover:border-[#1F3BB3] text-slate-600"}`}>
     {label}
   </button>
 );
@@ -95,7 +95,7 @@ export const EsploraMappa = ({ comuni, spazi, regione, comune, zona, onRegione, 
           {!showPins && zone.map((z) => (
             <CircleMarker key={z.nome} center={[z.lat, z.lng]} radius={14}
               eventHandlers={{ click: () => onZona(z.nome) }}
-              pathOptions={{ color: "#1F3D2B", weight: 2, fillColor: "#2F5B41", fillOpacity: 0.9 }}>
+              pathOptions={{ color: "#2B4BDB", weight: 2, fillColor: "#1F3BB3", fillOpacity: 0.9 }}>
               <Tooltip permanent direction="right" offset={[12, 0]} opacity={1} interactive
                 eventHandlers={{ click: () => onZona(z.nome) }}>
                 <span style={{ fontWeight: 800, fontSize: 12, cursor: "pointer" }}>{z.nome} · {z.count}</span>
@@ -107,7 +107,7 @@ export const EsploraMappa = ({ comuni, spazi, regione, comune, zona, onRegione, 
             return (
               <CircleMarker key={s.id} center={[s.lat, s.lng]} radius={10}
                 eventHandlers={{ click: () => (selectable ? onToggle(s.id) : onPinClick?.(s)) }}
-                pathOptions={{ color: "#FFFFFF", weight: 2, fillColor: sel ? "#F59E0B" : s.disponibile === false ? "#94A3B8" : "#2F5B41", fillOpacity: 1 }}>
+                pathOptions={{ color: "#FFFFFF", weight: 2, fillColor: sel ? "#F59E0B" : s.disponibile === false ? "#94A3B8" : "#1F3BB3", fillOpacity: 1 }}>
                 <PinTooltip s={s} />
               </CircleMarker>
             );
@@ -123,7 +123,7 @@ export const EsploraMappa = ({ comuni, spazi, regione, comune, zona, onRegione, 
       </div>
 
       <div className="absolute bottom-3 left-3 z-[1000] bg-white/95 border border-slate-100 rounded-xl px-3.5 py-2 text-xs font-semibold text-slate-600" data-testid="mappa-hint">
-        {hovered && !comune ? <span className="text-[#2F5B41] font-bold">{hovered} →</span> : hint}
+        {hovered && !comune ? <span className="text-[#1F3BB3] font-bold">{hovered} →</span> : hint}
       </div>
     </div>
   );

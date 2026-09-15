@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { NavBar } from "../../components/NavBar";
+import { UserShell } from "../../components/BackofficeLayout";
 import { STATO_COLORS, TipoBadge } from "../../components/StatusBadge";
 import { api } from "../../lib/api";
 import { Plus, ArrowRight, Megaphone } from "lucide-react";
@@ -13,16 +13,15 @@ export default function Campagne() {
   }, []);
 
   return (
-    <div className="min-h-screen">
-      <NavBar />
-      <div className="max-w-6xl mx-auto px-6 py-10" data-testid="campagne-page">
+    <UserShell>
+      <div className="max-w-6xl mx-auto" data-testid="campagne-page">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <div className="text-xs font-bold uppercase tracking-[0.25em] text-slate-400">Campaign Planner</div>
             <h1 className="text-3xl sm:text-4xl font-heading font-extrabold tracking-tight mt-1">Le mie campagne</h1>
           </div>
           <Link to="/campagne/ooh/nuova" data-testid="nuova-campagna-button"
-            className="inline-flex items-center gap-2 bg-[#2F5B41] text-white rounded-full px-6 py-3 font-bold hover:bg-[#26492F] transition-colors">
+            className="inline-flex items-center gap-2 bg-[#1F3BB3] text-white rounded-full px-6 py-3 font-bold hover:bg-[#172E93] transition-colors">
             <Plus size={18} /> Pianifica campagna OOH
           </Link>
         </div>
@@ -31,16 +30,16 @@ export default function Campagne() {
           {campagne === null && <div className="text-slate-500 p-6">Caricamento...</div>}
           {campagne?.length === 0 && (
             <div className="bg-white border border-slate-100 rounded-2xl p-12 text-center">
-              <Megaphone size={32} className="mx-auto text-[#2F5B41]" />
+              <Megaphone size={32} className="mx-auto text-[#1F3BB3]" />
               <p className="text-slate-500 mt-3">Nessuna campagna. Pianifica una campagna OOH: periodo, Comuni, zone e circuiti con blocco 24 ore.</p>
-              <Link to="/campagne/ooh/nuova" className="inline-block mt-5 border border-slate-200 rounded-full px-6 py-2.5 font-bold hover:border-[#2F5B41] hover:text-[#2F5B41] transition-colors">
+              <Link to="/campagne/ooh/nuova" className="inline-block mt-5 border border-slate-200 rounded-full px-6 py-2.5 font-bold hover:border-[#1F3BB3] hover:text-[#1F3BB3] transition-colors">
                 Inizia ora
               </Link>
             </div>
           )}
           {campagne?.map((c) => (
             <Link key={c.id} to={c.tipo === "OOH" ? `/campagne/ooh/${c.id}` : `/campagne/${c.id}`} data-testid={`campagna-card-${c.id}`}
-              className="block bg-white border border-slate-100 rounded-2xl p-6 hover:border-[#2F5B41] transition-colors">
+              className="block bg-white border border-slate-100 rounded-2xl p-6 hover:border-[#1F3BB3] transition-colors">
               <div className="flex flex-wrap items-center gap-4 justify-between">
                 <div>
                   <div className="flex items-center gap-2">
@@ -65,6 +64,6 @@ export default function Campagne() {
           ))}
         </div>
       </div>
-    </div>
+    </UserShell>
   );
 }

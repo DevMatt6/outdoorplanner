@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { MapContainer, TileLayer, Polygon, CircleMarker, Tooltip } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
-import { NavBar } from "../../components/NavBar";
+import { UserShell } from "../../components/BackofficeLayout";
 import { DateRangePicker, fmtDay } from "../../components/DateRangePicker";
 import { api, apiError, imgSrc } from "../../lib/api";
 import { toast } from "sonner";
@@ -75,20 +75,19 @@ export default function OOHPlanner() {
     }
   };
 
-  const input = "border border-slate-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-[#2F5B41] transition-colors bg-white";
+  const input = "border border-slate-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-[#1F3BB3] transition-colors bg-white";
   const comuneNome = (cid) => comuni.find((c) => c.id === cid)?.nome || "";
 
   return (
-    <div className="min-h-screen">
-      <NavBar />
-      <div className="max-w-7xl mx-auto px-6 py-10" data-testid="ooh-planner">
+    <UserShell>
+      <div className="max-w-7xl mx-auto" data-testid="ooh-planner">
         <div className="text-xs font-bold uppercase tracking-[0.25em] text-slate-400">Campagna OOH</div>
         <h1 className="text-3xl font-heading font-extrabold tracking-tight mt-1">Pianifica una campagna</h1>
 
         <div className="mt-8 grid grid-cols-4 bg-white border border-slate-100 rounded-2xl overflow-hidden" data-testid="ooh-steps">
           {STEPS.map((s, i) => (
             <div key={s} className={`py-3 px-2 text-center text-[11px] font-bold uppercase tracking-wider transition-colors
-              ${i === step ? "bg-[#2F5B41] text-white" : i < step ? "bg-[#1F3D2B] text-white" : "text-slate-400"}`}>
+              ${i === step ? "bg-[#1F3BB3] text-white" : i < step ? "bg-[#2B4BDB] text-white" : "text-slate-400"}`}>
               {i + 1}. {s}
             </div>
           ))}
@@ -110,10 +109,10 @@ export default function OOHPlanner() {
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-4" data-testid="ooh-comuni-grid">
                 {comuni.map((c) => (
                   <button key={c.id} type="button" data-testid={`ooh-comune-${c.id}`} onClick={() => toggleComune(c.id)}
-                    className={`border rounded-2xl p-6 text-left transition-colors relative ${comuniSel.includes(c.id) ? "border-[#2F5B41] ring-2 ring-[#2F5B41]/30 bg-[#F5F8F4]" : "border-slate-100 hover:border-[#2F5B41]"}`}>
-                    {comuniSel.includes(c.id) && <span className="absolute top-3 right-3 w-6 h-6 rounded-full bg-[#2F5B41] text-white flex items-center justify-center"><Check size={13} /></span>}
+                    className={`border rounded-2xl p-6 text-left transition-colors relative ${comuniSel.includes(c.id) ? "border-[#1F3BB3] ring-2 ring-[#1F3BB3]/30 bg-[#F0F4FF]" : "border-slate-100 hover:border-[#1F3BB3]"}`}>
+                    {comuniSel.includes(c.id) && <span className="absolute top-3 right-3 w-6 h-6 rounded-full bg-[#1F3BB3] text-white flex items-center justify-center"><Check size={13} /></span>}
                     {c.logo_url ? <img src={imgSrc(c.logo_url)} alt="" className="w-10 h-10 rounded-xl object-contain border border-slate-100 bg-white" />
-                      : <span className="w-10 h-10 rounded-xl bg-[#EEF2EC] flex items-center justify-center text-[#2F5B41]"><Landmark size={18} /></span>}
+                      : <span className="w-10 h-10 rounded-xl bg-[#F0F4FF] flex items-center justify-center text-[#1F3BB3]"><Landmark size={18} /></span>}
                     <div className="font-heading font-extrabold mt-3">{c.nome}</div>
                     <div className="text-xs text-slate-500">{c.regione}</div>
                   </button>
@@ -135,12 +134,12 @@ export default function OOHPlanner() {
                     <h2 className="font-heading font-extrabold text-xl">{comuneNome(cid)} — zone e circuiti</h2>
                     <div className="mt-3 flex flex-wrap gap-2">
                       <button type="button" onClick={() => setZonaSel({ ...zonaSel, [cid]: null })}
-                        className={`px-4 py-1.5 text-xs font-bold rounded-full border transition-colors ${!zsel ? "bg-[#2F5B41] text-white border-[#2F5B41]" : "bg-white border-slate-200 hover:border-[#2F5B41]"}`}>
+                        className={`px-4 py-1.5 text-xs font-bold rounded-full border transition-colors ${!zsel ? "bg-[#1F3BB3] text-white border-[#1F3BB3]" : "bg-white border-slate-200 hover:border-[#1F3BB3]"}`}>
                         Tutte le zone
                       </button>
                       {zs.map((z) => (
                         <button key={z.id} type="button" data-testid={`ooh-zona-${z.id}`} onClick={() => setZonaSel({ ...zonaSel, [cid]: z.id })}
-                          className={`px-4 py-1.5 text-xs font-bold rounded-full border transition-colors ${zsel === z.id ? "bg-[#2F5B41] text-white border-[#2F5B41]" : "bg-white border-slate-200 hover:border-[#2F5B41]"}`}>
+                          className={`px-4 py-1.5 text-xs font-bold rounded-full border transition-colors ${zsel === z.id ? "bg-[#1F3BB3] text-white border-[#1F3BB3]" : "bg-white border-slate-200 hover:border-[#1F3BB3]"}`}>
                           {z.nome} · {z.pacchetti_count}
                         </button>
                       ))}
@@ -157,7 +156,7 @@ export default function OOHPlanner() {
                         {zs.map((z) => (
                           <Polygon key={z.id} positions={z.polygon}
                             eventHandlers={{ click: () => setZonaSel({ ...zonaSel, [cid]: z.id }) }}
-                            pathOptions={{ color: zsel === z.id ? "#1F3D2B" : "#8FAE96", fillColor: zsel === z.id ? "#2F5B41" : "#DDE8DE", fillOpacity: 0.45, weight: 2 }}>
+                            pathOptions={{ color: zsel === z.id ? "#2B4BDB" : "#93A6E8", fillColor: zsel === z.id ? "#1F3BB3" : "#DCE4F7", fillOpacity: 0.45, weight: 2 }}>
                             <Tooltip sticky>{z.nome} · {z.impianti_count} impianti</Tooltip>
                           </Polygon>
                         ))}
@@ -172,33 +171,33 @@ export default function OOHPlanner() {
                     <div className="mt-4 grid md:grid-cols-2 xl:grid-cols-3 gap-4">
                       {pacs.map((p) => (
                         <div key={p.id} data-testid={`ooh-pacchetto-${p.id}`}
-                          className={`border rounded-2xl p-5 transition-colors ${selected.includes(p.id) ? "border-[#2F5B41] ring-2 ring-[#2F5B41]/30 bg-[#F5F8F4]" : p.disponibile ? "border-slate-100" : "border-slate-100 opacity-50"}`}>
+                          className={`border rounded-2xl p-5 transition-colors ${selected.includes(p.id) ? "border-[#1F3BB3] ring-2 ring-[#1F3BB3]/30 bg-[#F0F4FF]" : p.disponibile ? "border-slate-100" : "border-slate-100 opacity-50"}`}>
                           <div className="flex items-start justify-between gap-2">
                             <div>
-                              <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#2F5B41]">{p.zona_nome}</div>
+                              <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#1F3BB3]">{p.zona_nome}</div>
                               <div className="font-heading font-extrabold text-lg">{p.nome}</div>
                             </div>
                             {!p.disponibile && <span className="text-[10px] font-bold rounded-full bg-[#26292B] text-white px-2.5 py-1">Occupato</span>}
                           </div>
                           <div className="text-xs text-slate-500 mt-1">{p.descrizione}</div>
                           <div className="mt-3 flex items-center justify-between">
-                            <span className="text-[11px] font-bold rounded-full bg-[#F5F6F3] px-2.5 py-1">{p.n_impianti} impianti · formati misti</span>
+                            <span className="text-[11px] font-bold rounded-full bg-[#F8F9FD] px-2.5 py-1">{p.n_impianti} impianti · formati misti</span>
                             <span className="font-heading font-extrabold">{p.prezzo_giornaliero} €<span className="text-xs font-normal text-slate-500">/g</span></span>
                           </div>
                           <div className="mt-4 flex gap-2">
                             <button type="button" data-testid={`ooh-toggle-${p.id}`} disabled={!p.disponibile} onClick={() => togglePacchetto(p.id)}
-                              className={`flex-1 rounded-full py-2 text-sm font-bold transition-colors disabled:opacity-40 ${selected.includes(p.id) ? "bg-[#2F5B41] text-white" : "border border-slate-200 hover:border-[#2F5B41]"}`}>
+                              className={`flex-1 rounded-full py-2 text-sm font-bold transition-colors disabled:opacity-40 ${selected.includes(p.id) ? "bg-[#1F3BB3] text-white" : "border border-slate-200 hover:border-[#1F3BB3]"}`}>
                               {selected.includes(p.id) ? "Selezionato ✓" : "Seleziona"}
                             </button>
                             <button type="button" data-testid={`ooh-impianti-${p.id}`} onClick={() => setExpanded(expanded === p.id ? null : p.id)}
-                              className="border border-slate-200 rounded-full px-3 hover:border-[#2F5B41] transition-colors">
+                              className="border border-slate-200 rounded-full px-3 hover:border-[#1F3BB3] transition-colors">
                               {expanded === p.id ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
                             </button>
                           </div>
                           {expanded === p.id && (
                             <div className="mt-3 space-y-1.5 max-h-56 overflow-auto">
                               {p.impianti.map((i) => (
-                                <div key={i.id} className="flex items-center gap-2.5 text-xs bg-[#FAFAF8] border border-slate-100 rounded-xl px-2.5 py-1.5">
+                                <div key={i.id} className="flex items-center gap-2.5 text-xs bg-[#F8F9FD] border border-slate-100 rounded-xl px-2.5 py-1.5">
                                   <img src={imgSrc(i.foto_url)} alt="" className="w-10 h-8 object-cover rounded-lg" />
                                   <div className="flex-1 min-w-0">
                                     <div className="font-bold">{i.codice} · {i.tipologia}</div>
@@ -215,7 +214,7 @@ export default function OOHPlanner() {
                   </div>
                 );
               })}
-              <div className="bg-[#F5F6F3] rounded-xl px-5 py-3 flex flex-wrap gap-2 justify-between items-center text-sm font-bold" data-testid="ooh-totale">
+              <div className="bg-[#F8F9FD] rounded-xl px-5 py-3 flex flex-wrap gap-2 justify-between items-center text-sm font-bold" data-testid="ooh-totale">
                 <span>{selected.length} circuiti selezionati{pacchettiSel.length > 0 && <span className="font-normal text-slate-500"> — {pacchettiSel.map((p) => p.nome).join(" · ")}</span>}</span>
                 <span className="font-heading">{totale.toFixed(2)} €</span>
               </div>
@@ -232,7 +231,7 @@ export default function OOHPlanner() {
                     <span className="font-mono">{(p.prezzo_giornaliero * giorni).toFixed(2)} €</span>
                   </div>
                 ))}
-                <div className="px-5 py-3 flex justify-between font-bold bg-[#F5F6F3]">
+                <div className="px-5 py-3 flex justify-between font-bold bg-[#F8F9FD]">
                   <span>Totale · {dal} → {al} ({giorni} giorni)</span>
                   <span className="font-heading text-lg" data-testid="ooh-riepilogo-totale">{totale.toFixed(2)} €</span>
                 </div>
@@ -247,16 +246,16 @@ export default function OOHPlanner() {
 
           <div className="mt-8 flex justify-between">
             <button onClick={() => setStep(Math.max(0, step - 1))} disabled={step === 0}
-              className="px-6 py-2.5 font-bold border border-slate-200 rounded-full hover:border-[#2F5B41] transition-colors disabled:opacity-40">
+              className="px-6 py-2.5 font-bold border border-slate-200 rounded-full hover:border-[#1F3BB3] transition-colors disabled:opacity-40">
               Indietro
             </button>
             <button data-testid="ooh-next-button" onClick={next} disabled={busy}
-              className="px-8 py-2.5 font-bold rounded-full bg-[#2F5B41] text-white hover:bg-[#26492F] transition-colors disabled:opacity-50">
+              className="px-8 py-2.5 font-bold rounded-full bg-[#1F3BB3] text-white hover:bg-[#172E93] transition-colors disabled:opacity-50">
               {busy ? "Attendi..." : step === 3 ? "Genera Campagna" : "Avanti"}
             </button>
           </div>
         </div>
       </div>
-    </div>
+    </UserShell>
   );
 }

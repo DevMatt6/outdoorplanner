@@ -81,14 +81,14 @@ export default function AdminComuni() {
     } catch (err) { toast.error(apiError(err)); }
   };
 
-  const input = "border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#2F5B41] transition-colors bg-white w-full";
+  const input = "border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#1F3BB3] transition-colors bg-white w-full";
 
   return (
     <BackofficeLayout title="Superadmin" links={ADMIN_LINKS}>
       <div className="flex flex-wrap items-center justify-between gap-4">
         <h1 className="text-2xl sm:text-3xl font-heading font-extrabold tracking-tight">Comuni</h1>
         <button data-testid="onboard-comune-button" onClick={() => setForm({ ...EMPTY })}
-          className="inline-flex items-center gap-2 bg-[#2F5B41] text-white rounded-full px-5 py-2.5 font-bold hover:bg-[#26492F] transition-colors">
+          className="inline-flex items-center gap-2 bg-[#1F3BB3] text-white rounded-full px-5 py-2.5 font-bold hover:bg-[#172E93] transition-colors">
           <Plus size={17} /> Onboarding comune
         </button>
       </div>
@@ -112,7 +112,7 @@ export default function AdminComuni() {
             ) : (
               <span className="w-14 h-14 rounded-xl border border-dashed border-slate-200 flex items-center justify-center text-slate-300"><Landmark size={22} /></span>
             )}
-            <label className="cursor-pointer inline-flex items-center gap-2 border border-slate-200 rounded-full px-4 py-2 text-sm font-bold hover:border-[#2F5B41] hover:text-[#2F5B41] transition-colors">
+            <label className="cursor-pointer inline-flex items-center gap-2 border border-slate-200 rounded-full px-4 py-2 text-sm font-bold hover:border-[#1F3BB3] hover:text-[#1F3BB3] transition-colors">
               <Upload size={15} /> Carica logo comune
               <input data-testid="onboard-logo-input" type="file" accept=".png,.svg,.jpg,.jpeg,.webp" className="hidden" onChange={uploadLogo} />
             </label>
@@ -122,7 +122,7 @@ export default function AdminComuni() {
           <div className="flex gap-4">
             {[1, 2, 3].map((l) => (
               <label key={l} className="flex items-center gap-2 text-sm font-bold">
-                <input type="checkbox" data-testid={`livello-check-${l}`} className="w-4 h-4 accent-[#2F5B41]"
+                <input type="checkbox" data-testid={`livello-check-${l}`} className="w-4 h-4 accent-[#1F3BB3]"
                   checked={form.livelli.includes(l)}
                   onChange={(e) => setForm({ ...form, livelli: e.target.checked ? [...form.livelli, l].sort() : form.livelli.filter((x) => x !== l) })} />
                 L{l} {l === 1 ? "(operatore)" : l === 2 ? "(responsabile)" : "(dirigente)"}
@@ -133,8 +133,8 @@ export default function AdminComuni() {
             <>
               <div className="text-xs font-bold uppercase tracking-widest text-slate-500 mt-5 mb-2">Utenze comunali ({form.utenze.length})</div>
               {form.utenze.map((u, i) => (
-                <div key={i} className="flex flex-wrap items-center gap-2 text-xs bg-[#FAFAF8] border border-slate-100 rounded-xl px-3 py-2 mb-1.5">
-                  <span className="font-bold rounded-full bg-[#2F5B41] text-white px-2 py-0.5">L{u.livello}</span>
+                <div key={i} className="flex flex-wrap items-center gap-2 text-xs bg-[#F8F9FD] border border-slate-100 rounded-xl px-3 py-2 mb-1.5">
+                  <span className="font-bold rounded-full bg-[#1F3BB3] text-white px-2 py-0.5">L{u.livello}</span>
                   <span className="font-bold">{u.nome}</span><span className="text-slate-500 flex-1">{u.email}</span>
                   <button type="button" onClick={() => setForm({ ...form, utenze: form.utenze.filter((_, j) => j !== i) })}
                     className="border border-slate-200 rounded-lg p-1 hover:border-[#EF4444] hover:text-[#EF4444]"><Trash2 size={12} /></button>
@@ -151,32 +151,32 @@ export default function AdminComuni() {
                   if (!nuovaUt.nome || !nuovaUt.email || !nuovaUt.password) return toast.error("Compila nome, email e password");
                   setForm({ ...form, utenze: [...form.utenze, { ...nuovaUt }] });
                   setNuovaUt({ ...NUOVA_UTENZA, livello: form.livelli[0] || 1 });
-                }} className="border border-slate-200 rounded-full px-4 py-2 text-sm font-bold hover:border-[#2F5B41] hover:text-[#2F5B41] transition-colors">+ Aggiungi utenza</button>
+                }} className="border border-slate-200 rounded-full px-4 py-2 text-sm font-bold hover:border-[#1F3BB3] hover:text-[#1F3BB3] transition-colors">+ Aggiungi utenza</button>
               </div>
             </>
           )}
           <div className="mt-5 flex gap-3">
-            <button data-testid="onboard-submit" className="px-6 py-2.5 font-bold rounded-full bg-[#2F5B41] text-white hover:bg-[#26492F] transition-colors">{form.id ? "Salva modifiche" : "Attiva comune"}</button>
-            <button type="button" onClick={() => setForm(null)} className="px-6 py-2.5 font-bold border border-slate-200 rounded-full hover:border-[#2F5B41] transition-colors">Annulla</button>
+            <button data-testid="onboard-submit" className="px-6 py-2.5 font-bold rounded-full bg-[#1F3BB3] text-white hover:bg-[#172E93] transition-colors">{form.id ? "Salva modifiche" : "Attiva comune"}</button>
+            <button type="button" onClick={() => setForm(null)} className="px-6 py-2.5 font-bold border border-slate-200 rounded-full hover:border-[#1F3BB3] transition-colors">Annulla</button>
           </div>
         </form>
       )}
 
       {utentiPanel && (
         <div className="mt-6 border border-slate-100 bg-white rounded-2xl overflow-hidden" data-testid="utenti-panel">
-          <div className="px-5 py-3 bg-[#FAFAF8] border-b border-slate-100 flex items-center justify-between">
+          <div className="px-5 py-3 bg-[#F8F9FD] border-b border-slate-100 flex items-center justify-between">
             <span className="font-heading font-extrabold">Utenze e livelli — Comune di {utentiPanel.comune.nome} ({(utentiPanel.comune.livelli_attivi || []).map((l) => `L${l}`).join(" + ")})</span>
             <button onClick={() => setUtentiPanel(null)} className="text-slate-400 hover:text-slate-700 text-sm font-bold">Chiudi ✕</button>
           </div>
           <div className="p-5 space-y-2">
             {utentiPanel.utenti.map((u) => (
               <div key={u.id} className="flex flex-wrap items-center gap-3 border border-slate-100 rounded-xl px-4 py-2 text-sm" data-testid={`utente-row-${u.id}`}>
-                <span className="font-bold rounded-full bg-[#2F5B41] text-white px-2.5 py-0.5 text-xs">L{u.livello}</span>
+                <span className="font-bold rounded-full bg-[#1F3BB3] text-white px-2.5 py-0.5 text-xs">L{u.livello}</span>
                 <span className="font-bold">{u.nome}</span>
                 <span className="text-slate-500 flex-1">{u.email}</span>
-                <span className={`text-[10px] font-bold rounded-full px-2.5 py-1 ${u.attivo !== false ? "bg-[#D8EADB] text-[#1F5B33]" : "bg-[#FEE2E2] text-[#B91C1C]"}`}>{u.attivo !== false ? "Attivo" : "Disabilitato"}</span>
+                <span className={`text-[10px] font-bold rounded-full px-2.5 py-1 ${u.attivo !== false ? "bg-[#E8EFFF] text-[#1F3BB3]" : "bg-[#FEE2E2] text-[#B91C1C]"}`}>{u.attivo !== false ? "Attivo" : "Disabilitato"}</span>
                 <button data-testid={`toggle-utente-${u.id}`} onClick={() => toggleAttivo(u)}
-                  className="border border-slate-200 rounded-full px-3 py-1 text-xs font-bold hover:border-[#2F5B41] transition-colors">
+                  className="border border-slate-200 rounded-full px-3 py-1 text-xs font-bold hover:border-[#1F3BB3] transition-colors">
                   {u.attivo !== false ? "Disabilita" : "Riattiva"}
                 </button>
               </div>
@@ -190,7 +190,7 @@ export default function AdminComuni() {
                 {(utentiPanel.comune.livelli_attivi || [1, 2, 3]).map((l) => <option key={l} value={l}>L{l}</option>)}
               </select>
               <button data-testid="panel-aggiungi-utenza" onClick={aggiungiUtente}
-                className="border border-slate-200 rounded-full px-4 py-2 text-sm font-bold hover:border-[#2F5B41] hover:text-[#2F5B41] transition-colors">+ Crea utenza</button>
+                className="border border-slate-200 rounded-full px-4 py-2 text-sm font-bold hover:border-[#1F3BB3] hover:text-[#1F3BB3] transition-colors">+ Crea utenza</button>
             </div>
           </div>
         </div>
@@ -199,7 +199,7 @@ export default function AdminComuni() {
       <div className="mt-6 border border-slate-100 bg-white rounded-2xl overflow-hidden overflow-x-auto">
         <table className="w-full text-sm border-collapse">
           <thead>
-            <tr className="bg-[#FAFAF8] border-b border-slate-100 text-left">
+            <tr className="bg-[#F8F9FD] border-b border-slate-100 text-left">
               {["Comune", "Zone", "Impianti", "Circuiti", "Aree OSP", "Pratiche", "Incasso", "Livelli", "Stato", "Azioni"].map((h) => (
                 <th key={h} className="px-4 py-3 text-[11px] font-bold uppercase tracking-widest text-slate-500">{h}</th>
               ))}
@@ -207,13 +207,13 @@ export default function AdminComuni() {
           </thead>
           <tbody>
             {comuni.map((c) => (
-              <tr key={c.id} className="border-b border-slate-200 hover:bg-[#F1F5F0] transition-colors" data-testid={`comune-row-${c.id}`}>
+              <tr key={c.id} className="border-b border-slate-200 hover:bg-[#F0F4FF] transition-colors" data-testid={`comune-row-${c.id}`}>
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-3">
                     {c.logo_url ? (
                       <img src={imgSrc(c.logo_url)} alt="" className="w-9 h-9 rounded-lg object-contain border border-slate-100 bg-white" />
                     ) : (
-                      <span className="w-9 h-9 rounded-lg bg-[#EEF2EC] flex items-center justify-center text-[#2F5B41]"><Landmark size={16} /></span>
+                      <span className="w-9 h-9 rounded-lg bg-[#F0F4FF] flex items-center justify-center text-[#1F3BB3]"><Landmark size={16} /></span>
                     )}
                     <div><div className="font-bold">{c.nome}</div><div className="text-xs text-slate-400">{c.provincia}</div></div>
                   </div>
@@ -235,16 +235,16 @@ export default function AdminComuni() {
                         load();
                       } catch (err) { toast.error(apiError(err)); }
                     }}
-                    className={`text-[11px] font-bold rounded-full px-2 py-1 border cursor-pointer ${(c.stato_onboarding || "ATTIVO") === "ATTIVO" ? "bg-[#D8EADB] text-[#1F5B33] border-[#D8EADB]" : "bg-[#FEF3C7] text-[#B45309] border-[#FEF3C7]"}`}>
+                    className={`text-[11px] font-bold rounded-full px-2 py-1 border cursor-pointer ${(c.stato_onboarding || "ATTIVO") === "ATTIVO" ? "bg-[#E8EFFF] text-[#1F3BB3] border-[#E8EFFF]" : "bg-[#FEF3C7] text-[#B45309] border-[#FEF3C7]"}`}>
                     {["DA_CONFIGURARE", "IN_CONFIGURAZIONE", "ATTIVO", "SOSPESO", "DISATTIVATO"].map((s) => <option key={s} value={s}>{s.replaceAll("_", " ")}</option>)}
                   </select>
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex gap-2">
                     <button data-testid={`utenti-comune-${c.id}`} onClick={() => openUtenti(c)} title="Utenze e livelli"
-                      className="border border-slate-200 rounded-lg p-1.5 hover:border-[#2F5B41] transition-colors"><Users size={14} /></button>
+                      className="border border-slate-200 rounded-lg p-1.5 hover:border-[#1F3BB3] transition-colors"><Users size={14} /></button>
                     <button data-testid={`edit-comune-${c.id}`} onClick={() => openEdit(c)} title="Modifica"
-                      className="border border-slate-200 rounded-lg p-1.5 hover:border-[#2F5B41] transition-colors"><Pencil size={14} /></button>
+                      className="border border-slate-200 rounded-lg p-1.5 hover:border-[#1F3BB3] transition-colors"><Pencil size={14} /></button>
                     <button data-testid={`delete-comune-${c.id}`} onClick={() => remove(c)} title="Elimina"
                       className="border border-slate-200 rounded-lg p-1.5 hover:border-[#EF4444] hover:text-[#EF4444] transition-colors"><Trash2 size={14} /></button>
                   </div>

@@ -64,7 +64,7 @@ export default function PraticaIstruttoria() {
         <div className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-3">Azioni istruttoria</div>
         <textarea data-testid="nota-istruttoria" value={nota} onChange={(e) => setNota(e.target.value)} rows={2}
           placeholder="Nota / motivazione (visibile al richiedente): indica quali dati o file vanno corretti..."
-          className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2F5B41] transition-colors" />
+          className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#1F3BB3] transition-colors" />
         <div className="mt-3 flex flex-wrap gap-3">
           {pratica.stato === "INVIATA" && (
             <button data-testid="btn-presa-in-carico" onClick={() => azione("presa_in_carico", "Pratica presa in carico")}
@@ -77,7 +77,7 @@ export default function PraticaIstruttoria() {
               {can(2) ? (
                 <>
                   <button data-testid="btn-approva" onClick={() => azione("approva", "Pratica approvata")}
-                    className="px-5 py-2.5 rounded-full font-bold text-sm bg-[#2F5B41] text-white hover:bg-[#26492F] transition-colors">
+                    className="px-5 py-2.5 rounded-full font-bold text-sm bg-[#1F3BB3] text-white hover:bg-[#172E93] transition-colors">
                     Approva
                   </button>
                   <button data-testid="btn-rifiuta" onClick={() => azione("rifiuta", "Pratica rifiutata")}
@@ -103,7 +103,7 @@ export default function PraticaIstruttoria() {
           {pratica.stato === "INTEGRAZIONE_RICHIESTA" && <span className="text-sm text-slate-500 py-2.5">In attesa di integrazione dal richiedente.</span>}
           {pratica.stato === "APPROVATA" && (
             <button data-testid="btn-pdf-comune" onClick={scaricaPdf}
-              className="inline-flex items-center gap-2 px-5 py-2.5 font-bold text-sm border border-emerald-200 text-[#1F5B33] rounded-full bg-emerald-50 hover:bg-[#10B981] hover:text-slate-950 transition-colors">
+              className="inline-flex items-center gap-2 px-5 py-2.5 font-bold text-sm border border-emerald-200 text-[#1F3BB3] rounded-full bg-emerald-50 hover:bg-[#10B981] hover:text-slate-950 transition-colors">
               <Download size={15} /> PDF autorizzazione {pratica.numero_autorizzazione}
             </button>
           )}
@@ -120,7 +120,7 @@ export default function PraticaIstruttoria() {
           <SezioneDatiForm dati={pratica.dati_form} />
           <SezioneDocumenti documenti={pratica.documenti} />
           <div className="border border-slate-100 bg-white rounded-2xl">
-            <div className="px-5 py-2.5 border-b border-slate-100 text-xs font-bold uppercase tracking-widest bg-[#FAFAF8]">Log stati</div>
+            <div className="px-5 py-2.5 border-b border-slate-100 text-xs font-bold uppercase tracking-widest bg-[#F8F9FD]">Log stati</div>
             <div className="p-5 space-y-2">
               {pratica.log_stato.map((l) => (
                 <div key={l.id} className="text-xs">

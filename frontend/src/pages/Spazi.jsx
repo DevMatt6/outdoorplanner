@@ -60,7 +60,7 @@ export default function Spazi() {
     .slice()
     .sort((a, b) => (countPerComune[b.nome] || 0) - (countPerComune[a.nome] || 0));
 
-  const input = "border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#2F5B41] bg-white";
+  const input = "border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#1F3BB3] bg-white";
 
   return (
     <div className="min-h-screen">
@@ -68,10 +68,10 @@ export default function Spazi() {
       <div className="max-w-7xl mx-auto px-6 py-8">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <h1 className="text-3xl sm:text-4xl font-heading font-extrabold tracking-tight">
-            Spazi OSP / Eventi {filters.citta ? <span className="text-[#2F5B41]">· {filters.citta}{filters.zona ? ` / ${filters.zona}` : ""}</span> : filters.regione && <span className="text-[#2F5B41]">· {filters.regione}</span>}
+            Spazi OSP / Eventi {filters.citta ? <span className="text-[#1F3BB3]">· {filters.citta}{filters.zona ? ` / ${filters.zona}` : ""}</span> : filters.regione && <span className="text-[#1F3BB3]">· {filters.regione}</span>}
           </h1>
           <button data-testid="avvia-campagna-button" onClick={() => navigate("/campagne/ooh/nuova")}
-            className="inline-flex items-center gap-2 bg-[#2F5B41] text-white rounded-full px-6 py-3 font-bold hover:bg-[#26492F] transition-colors">
+            className="inline-flex items-center gap-2 bg-[#1F3BB3] text-white rounded-full px-6 py-3 font-bold hover:bg-[#172E93] transition-colors">
             <Megaphone size={17} /> Pianifica campagna OOH
           </button>
         </div>
@@ -108,15 +108,15 @@ export default function Spazi() {
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4" data-testid="comuni-grid">
               {comuniGrid.map((c) => (
                 <button key={c.id} data-testid={`comune-card-${c.id}`} onClick={() => onComune(c.nome)}
-                  className="bg-white border border-slate-100 rounded-2xl p-5 text-left hover:border-[#2F5B41] transition-colors group">
+                  className="bg-white border border-slate-100 rounded-2xl p-5 text-left hover:border-[#1F3BB3] transition-colors group">
                   {c.logo_url ? (
                     <img src={imgSrc(c.logo_url)} alt="" className="w-10 h-10 rounded-xl object-contain border border-slate-100 bg-white" />
                   ) : (
-                    <span className="w-10 h-10 rounded-xl bg-[#EEF2EC] flex items-center justify-center text-[#2F5B41]"><Landmark size={18} /></span>
+                    <span className="w-10 h-10 rounded-xl bg-[#F0F4FF] flex items-center justify-center text-[#1F3BB3]"><Landmark size={18} /></span>
                   )}
-                  <div className="font-heading font-extrabold mt-3 group-hover:text-[#1F3D2B] transition-colors">{c.nome}</div>
+                  <div className="font-heading font-extrabold mt-3 group-hover:text-[#2B4BDB] transition-colors">{c.nome}</div>
                   <div className="text-xs text-slate-500">{c.regione}</div>
-                  <div className="text-xs font-bold text-[#2F5B41] mt-2">{countPerComune[c.nome] || 0} spazi</div>
+                  <div className="text-xs font-bold text-[#1F3BB3] mt-2">{countPerComune[c.nome] || 0} spazi</div>
                 </button>
               ))}
               {comuniGrid.length === 0 && <div className="col-span-full text-sm text-slate-500 bg-white border border-slate-100 rounded-2xl p-8 text-center">Nessun Comune attivo in questa regione.</div>}
@@ -131,7 +131,7 @@ export default function Spazi() {
                 Spazi a {filters.citta}{filters.zona ? ` — ${filters.zona}` : ""}
               </div>
               <button data-testid="torna-comuni-button" onClick={() => onComune(null)}
-                className="inline-flex items-center gap-1.5 text-sm font-bold text-slate-600 hover:text-[#2F5B41] transition-colors">
+                className="inline-flex items-center gap-1.5 text-sm font-bold text-slate-600 hover:text-[#1F3BB3] transition-colors">
                 <ArrowLeft size={15} /> Tutti i Comuni
               </button>
             </div>

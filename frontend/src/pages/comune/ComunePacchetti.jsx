@@ -50,14 +50,14 @@ export default function ComunePacchetti() {
   const perFormato = selImp.reduce((m, i) => ({ ...m, [i.formato]: (m[i.formato] || 0) + 1 }), {});
   const tipologieZona = [...new Set(impiantiZona.map((i) => i.tipologia))];
   const vieZona = [...new Set(impiantiZona.map((i) => i.via).filter(Boolean))];
-  const input = "border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#2F5B41] bg-white w-full";
+  const input = "border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#1F3BB3] bg-white w-full";
 
   return (
     <BackofficeLayout title="Backoffice Comune" links={COMUNE_LINKS}>
       <div className="flex flex-wrap items-center justify-between gap-4">
         <h1 className="text-2xl sm:text-3xl font-heading font-extrabold tracking-tight">Circuiti / Pacchetti OOH</h1>
         <button data-testid="nuovo-pacchetto-button" onClick={() => setForm({ ...EMPTY })}
-          className="inline-flex items-center gap-2 bg-[#2F5B41] text-white rounded-full px-5 py-2.5 font-bold hover:bg-[#26492F] transition-colors">
+          className="inline-flex items-center gap-2 bg-[#1F3BB3] text-white rounded-full px-5 py-2.5 font-bold hover:bg-[#172E93] transition-colors">
           <Plus size={17} /> Nuovo circuito
         </button>
       </div>
@@ -92,15 +92,15 @@ export default function ComunePacchetti() {
               </div>
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2 max-h-64 overflow-auto">
                 {impiantiFiltrati.map((i) => (
-                  <label key={i.id} className={`flex items-center gap-2.5 border rounded-xl px-3 py-2 text-xs cursor-pointer transition-colors ${form.impianti_ids.includes(i.id) ? "border-[#2F5B41] bg-[#F5F8F4]" : "border-slate-100 hover:border-[#2F5B41]"}`}>
-                    <input type="checkbox" data-testid={`pacchetto-imp-${i.id}`} className="w-4 h-4 accent-[#2F5B41]" checked={form.impianti_ids.includes(i.id)} onChange={() => toggleImp(i.id)} />
+                  <label key={i.id} className={`flex items-center gap-2.5 border rounded-xl px-3 py-2 text-xs cursor-pointer transition-colors ${form.impianti_ids.includes(i.id) ? "border-[#1F3BB3] bg-[#F0F4FF]" : "border-slate-100 hover:border-[#1F3BB3]"}`}>
+                    <input type="checkbox" data-testid={`pacchetto-imp-${i.id}`} className="w-4 h-4 accent-[#1F3BB3]" checked={form.impianti_ids.includes(i.id)} onChange={() => toggleImp(i.id)} />
                     <span className="flex-1"><strong>{i.codice}</strong> · {i.tipologia}<br /><span className="text-slate-500">{i.via}</span></span>
                     <span className="font-bold">{(i.prezzo || 0).toFixed(0)} €</span>
                   </label>
                 ))}
                 {impiantiFiltrati.length === 0 && <div className="col-span-full text-xs text-slate-500 p-3">Nessun impianto con questi filtri.</div>}
               </div>
-              <div className="mt-4 bg-[#F5F6F3] rounded-xl px-5 py-4" data-testid="pacchetto-riepilogo">
+              <div className="mt-4 bg-[#F8F9FD] rounded-xl px-5 py-4" data-testid="pacchetto-riepilogo">
                 <div className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-2">Riepilogo circuito</div>
                 <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm">
                   <span><strong>{selImp.length}</strong> impianti</span>
@@ -112,8 +112,8 @@ export default function ComunePacchetti() {
             </>
           )}
           <div className="mt-4 flex gap-3">
-            <button data-testid="pacchetto-submit" className="px-6 py-2.5 font-bold rounded-full bg-[#2F5B41] text-white hover:bg-[#26492F] transition-colors">Salva circuito</button>
-            <button type="button" onClick={() => setForm(null)} className="px-6 py-2.5 font-bold border border-slate-200 rounded-full hover:border-[#2F5B41] transition-colors">Annulla</button>
+            <button data-testid="pacchetto-submit" className="px-6 py-2.5 font-bold rounded-full bg-[#1F3BB3] text-white hover:bg-[#172E93] transition-colors">Salva circuito</button>
+            <button type="button" onClick={() => setForm(null)} className="px-6 py-2.5 font-bold border border-slate-200 rounded-full hover:border-[#1F3BB3] transition-colors">Annulla</button>
           </div>
         </form>
       )}
@@ -123,18 +123,18 @@ export default function ComunePacchetti() {
           <div key={p.id} className="bg-white border border-slate-100 rounded-2xl p-5" data-testid={`pacchetto-card-${p.id}`}>
             <div className="flex items-start justify-between gap-2">
               <div>
-                <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#2F5B41]">{p.zona_nome}</div>
+                <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#1F3BB3]">{p.zona_nome}</div>
                 <div className="font-heading font-extrabold text-lg">{p.nome}</div>
               </div>
               <div className="flex gap-2">
                 <button data-testid={`edit-pacchetto-${p.id}`} onClick={() => setForm({ ...EMPTY, ...p })}
-                  className="border border-slate-200 rounded-lg p-1.5 hover:border-[#2F5B41] transition-colors"><Pencil size={13} /></button>
+                  className="border border-slate-200 rounded-lg p-1.5 hover:border-[#1F3BB3] transition-colors"><Pencil size={13} /></button>
                 <button data-testid={`delete-pacchetto-${p.id}`} onClick={() => remove(p)}
                   className="border border-slate-200 rounded-lg p-1.5 hover:border-[#EF4444] hover:text-[#EF4444] transition-colors"><Trash2 size={13} /></button>
               </div>
             </div>
             <div className="mt-2 flex items-center justify-between">
-              <span className="text-[11px] font-bold rounded-full bg-[#F5F6F3] px-2.5 py-1">{p.n_impianti} impianti</span>
+              <span className="text-[11px] font-bold rounded-full bg-[#F8F9FD] px-2.5 py-1">{p.n_impianti} impianti</span>
               <span className="font-heading font-extrabold">{p.prezzo_giornaliero} €<span className="text-xs font-normal text-slate-500">/g</span></span>
             </div>
           </div>

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "leaflet/dist/leaflet.css";
-import { NavBar } from "../../components/NavBar";
+import { UserShell } from "../../components/BackofficeLayout";
 import { DateRangePicker, fmtDay } from "../../components/DateRangePicker";
 import { DynamicField, isVisible } from "../../components/DynamicField";
 import { EsploraMappa } from "../../components/EsploraMappa";
@@ -154,19 +154,18 @@ export default function CampagnaPlanner() {
     } catch (e) { setError(apiError(e)); } finally { setBusy(false); }
   };
 
-  const input = "border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#2F5B41] transition-colors bg-white";
+  const input = "border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#1F3BB3] transition-colors bg-white";
 
   return (
-    <div className="min-h-screen">
-      <NavBar />
-      <div className="max-w-7xl mx-auto px-6 py-10" data-testid="campagna-planner">
+    <UserShell>
+      <div className="max-w-7xl mx-auto" data-testid="campagna-planner">
         <div className="text-xs font-bold uppercase tracking-[0.25em] text-slate-400">Campaign Planner</div>
         <h1 className="text-3xl font-heading font-extrabold tracking-tight mt-1">Nuova campagna multi-spazio</h1>
 
         <div className="mt-8 grid grid-cols-4 bg-white border border-slate-100 rounded-2xl overflow-hidden" data-testid="planner-steps">
           {STEPS.map((s, i) => (
             <div key={s} className={`py-3 px-2 text-center text-[11px] font-bold uppercase tracking-wider transition-colors
-              ${i === step ? "bg-[#2F5B41] text-white" : i < step ? "bg-[#1F3D2B] text-white" : "text-slate-400"}`}>
+              ${i === step ? "bg-[#1F3BB3] text-white" : i < step ? "bg-[#2B4BDB] text-white" : "text-slate-400"}`}>
               {i + 1}. {s}
             </div>
           ))}
@@ -210,15 +209,15 @@ export default function CampagnaPlanner() {
                   <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4" data-testid="planner-comuni-grid">
                     {comuniGrid.map((c) => (
                       <button key={c.id} type="button" data-testid={`planner-comune-card-${c.id}`} onClick={() => onComune(c.nome)}
-                        className="bg-white border border-slate-100 rounded-2xl p-5 text-left hover:border-[#2F5B41] transition-colors group">
+                        className="bg-white border border-slate-100 rounded-2xl p-5 text-left hover:border-[#1F3BB3] transition-colors group">
                         {c.logo_url ? (
                           <img src={imgSrc(c.logo_url)} alt="" className="w-10 h-10 rounded-xl object-contain border border-slate-100 bg-white" />
                         ) : (
-                          <span className="w-10 h-10 rounded-xl bg-[#EEF2EC] flex items-center justify-center text-[#2F5B41]"><Landmark size={18} /></span>
+                          <span className="w-10 h-10 rounded-xl bg-[#F0F4FF] flex items-center justify-center text-[#1F3BB3]"><Landmark size={18} /></span>
                         )}
-                        <div className="font-heading font-extrabold mt-3 group-hover:text-[#1F3D2B] transition-colors">{c.nome}</div>
+                        <div className="font-heading font-extrabold mt-3 group-hover:text-[#2B4BDB] transition-colors">{c.nome}</div>
                         <div className="text-xs text-slate-500">{c.regione}</div>
-                        <div className="text-xs font-bold text-[#2F5B41] mt-2">{countPerComune[c.nome] || 0} disponibili</div>
+                        <div className="text-xs font-bold text-[#1F3BB3] mt-2">{countPerComune[c.nome] || 0} disponibili</div>
                       </button>
                     ))}
                     {comuniGrid.length === 0 && <div className="col-span-full text-sm text-slate-500 p-6 text-center">Nessun Comune attivo in questa regione.</div>}
@@ -233,7 +232,7 @@ export default function CampagnaPlanner() {
                       Spazi a {comuneSel}{zonaSel ? ` — ${zonaSel}` : ""} · clicca per selezionare
                     </div>
                     <button type="button" data-testid="planner-torna-comuni" onClick={() => onComune(null)}
-                      className="inline-flex items-center gap-1.5 text-sm font-bold text-slate-600 hover:text-[#2F5B41] transition-colors">
+                      className="inline-flex items-center gap-1.5 text-sm font-bold text-slate-600 hover:text-[#1F3BB3] transition-colors">
                       <ArrowLeft size={15} /> Tutti i Comuni
                     </button>
                   </div>
@@ -246,7 +245,7 @@ export default function CampagnaPlanner() {
                 </div>
               )}
 
-              <div className="bg-[#F5F6F3] rounded-xl px-5 py-3 flex flex-wrap gap-2 justify-between items-center text-sm font-bold" data-testid="planner-totale">
+              <div className="bg-[#F8F9FD] rounded-xl px-5 py-3 flex flex-wrap gap-2 justify-between items-center text-sm font-bold" data-testid="planner-totale">
                 <span>{selected.length} spazi selezionati{spaziSelezionati.length > 0 && <span className="font-normal text-slate-500"> — {spaziSelezionati.map((s) => s.nome).join(" · ")}</span>}</span>
                 <span className="font-heading">{totale.toFixed(2)} €</span>
               </div>
@@ -265,7 +264,7 @@ export default function CampagnaPlanner() {
                 const visibili = (tpl?.campi || []).filter((c) => isVisible(c, values));
                 return (
                   <div key={p.id} className="border border-slate-100 rounded-2xl overflow-hidden" data-testid={`modulo-pratica-${p.id}`}>
-                    <div className="px-5 py-3 bg-[#FAFAF8] border-b border-slate-100 flex flex-wrap items-center justify-between gap-2">
+                    <div className="px-5 py-3 bg-[#F8F9FD] border-b border-slate-100 flex flex-wrap items-center justify-between gap-2">
                       <div className="font-heading font-extrabold">{p.spazio_nome}</div>
                       <div className="text-xs text-slate-500">Comune di {comuneNomeById(p.comune_id)} · modulo "{tpl?.nome || "standard"}"</div>
                     </div>
@@ -281,7 +280,7 @@ export default function CampagnaPlanner() {
                         <div key={d.id} className="flex flex-wrap items-center gap-3 border border-slate-100 rounded-xl px-4 py-2" data-testid={`doc-pratica-${p.id}-${d.id}`}>
                           <span className="text-sm font-semibold flex-1 min-w-[160px]">{d.label}{d.required && <span className="text-[#B91C1C]"> *</span>}</span>
                           <span className="text-xs text-slate-500">{docsUp[`${p.id}:${d.id}`] || "Nessun file"}</span>
-                          <label className="cursor-pointer inline-flex items-center gap-2 border border-slate-200 rounded-full px-4 py-1.5 text-xs font-bold hover:border-[#2F5B41] hover:text-[#2F5B41] transition-colors">
+                          <label className="cursor-pointer inline-flex items-center gap-2 border border-slate-200 rounded-full px-4 py-1.5 text-xs font-bold hover:border-[#1F3BB3] hover:text-[#1F3BB3] transition-colors">
                             <Upload size={13} /> Carica
                             <input data-testid={`upload-pratica-${p.id}-${d.id}`} type="file" className="hidden" onChange={(e) => uploadDoc(e, p, d)} />
                           </label>
@@ -307,19 +306,19 @@ export default function CampagnaPlanner() {
                     <span className="font-mono">{p.importo.toFixed(2)} €</span>
                   </div>
                 ))}
-                <div className="px-5 py-3 flex justify-between font-bold bg-[#F5F6F3]">
+                <div className="px-5 py-3 flex justify-between font-bold bg-[#F8F9FD]">
                   <span>Totale · {dal} → {al}</span>
                   <span className="font-heading text-lg" data-testid="riepilogo-totale">{campagna.importo_totale.toFixed(2)} €</span>
                 </div>
               </div>
               {!pagata ? (
                 <button data-testid="checkout-campagna-button" onClick={checkout} disabled={busy}
-                  className="w-full bg-[#2F5B41] text-white rounded-full py-3.5 font-bold flex items-center justify-center gap-2 hover:bg-[#26492F] transition-colors disabled:opacity-50">
+                  className="w-full bg-[#1F3BB3] text-white rounded-full py-3.5 font-bold flex items-center justify-center gap-2 hover:bg-[#172E93] transition-colors disabled:opacity-50">
                   <CreditCard size={18} /> {busy ? "Elaborazione..." : `Paga ${campagna.importo_totale.toFixed(2)} € (mock)`}
                 </button>
               ) : (
                 <button data-testid="invia-campagna-button" onClick={invia} disabled={busy}
-                  className="w-full bg-[#2F5B41] text-white rounded-full py-3.5 font-bold flex items-center justify-center gap-2 hover:bg-[#26492F] transition-colors disabled:opacity-50">
+                  className="w-full bg-[#1F3BB3] text-white rounded-full py-3.5 font-bold flex items-center justify-center gap-2 hover:bg-[#172E93] transition-colors disabled:opacity-50">
                   <Send size={18} /> Invia tutte le pratiche ai Comuni
                 </button>
               )}
@@ -331,17 +330,17 @@ export default function CampagnaPlanner() {
           {step < 3 && (
             <div className="mt-8 flex justify-between">
               <button onClick={() => setStep(Math.max(0, step - 1))} disabled={step === 0 || (step === 2 && !!campagna)}
-                className="px-6 py-2.5 font-bold border border-slate-200 rounded-full hover:border-[#2F5B41] transition-colors disabled:opacity-40">
+                className="px-6 py-2.5 font-bold border border-slate-200 rounded-full hover:border-[#1F3BB3] transition-colors disabled:opacity-40">
                 Indietro
               </button>
               <button data-testid="planner-next-button" onClick={next} disabled={busy}
-                className="px-8 py-2.5 font-bold rounded-full bg-[#2F5B41] text-white hover:bg-[#26492F] transition-colors disabled:opacity-50">
+                className="px-8 py-2.5 font-bold rounded-full bg-[#1F3BB3] text-white hover:bg-[#172E93] transition-colors disabled:opacity-50">
                 {busy ? "Attendi..." : step === 1 && !campagna ? "Crea pratiche e compila moduli" : "Avanti"}
               </button>
             </div>
           )}
         </div>
       </div>
-    </div>
+    </UserShell>
   );
 }

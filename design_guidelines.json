@@ -1,107 +1,230 @@
 {
-  "theme_strategy": "Light Theme Only (High Contrast Flat Design / Swiss Brutalist)",
+  "theme": "StarAdmin 2 Pro inspired Blue Enterprise SaaS Dashboard",
+  "archetype": "ARCHETYPE 4: SWISS & HIGH-CONTRAST + STARADMIN 2 PRO (Blue Precision)",
+  "overview": {
+    "inspiration": "StarAdmin 2 Pro (BootstrapDash) reference screenshot with crisp white sidebar, top header greeting ('Good Morning, [Name]'), soft subtle background (#F4F5F7), pure white rounded cards, large bold KPI numbers with positive (+ green) and negative (- red) badge deltas, cobalt royal blue primary accent (#1F3BB3 / #0D6EFD), and complete removal of the prior forest-green theme.",
+    "user_directive": "Replicate StarAdmin 2 Pro visual style across all three roles: Inserzionista (user), Comune, Superadmin. The user role MUST now also have a full sidebar dashboard layout (UserDashboard / BackofficeLayout) for order and consistency. Color palette is strictly BLUE (no more green #2F5B41)."
+  },
   "typography": {
-    "font_headings": "Cabinet Grotesk",
-    "font_body": "IBM Plex Sans",
-    "font_mono": "JetBrains Mono",
-    "scale_hierarchy": {
-      "H1": "text-4xl sm:text-5xl lg:text-6xl tracking-tight font-black",
-      "H2": "text-2xl sm:text-3xl lg:text-4xl tracking-tight font-bold",
-      "H3": "text-xl sm:text-2xl tracking-tight font-bold",
-      "H4": "text-lg sm:text-xl font-bold",
-      "Body": "text-base leading-relaxed text-slate-800",
-      "Labels": "text-xs tracking-[0.2em] uppercase font-bold text-slate-500"
-    },
-    "rules": [
-      "NO default Inter, Roboto, or generic sans for headings.",
-      "Strict typography hierarchy, never jump more than two tailwind size steps between heading and subheading.",
-      "Headlines > 32px MUST use tracking-tight."
-    ]
+    "primary_font": "Plus Jakarta Sans, sans-serif",
+    "secondary_font": "Manrope, sans-serif",
+    "mono_font": "JetBrains Mono, monospace",
+    "google_fonts_url": "https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Manrope:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap",
+    "hierarchy": {
+      "page_greeting_h1": "text-2xl sm:text-3xl font-bold tracking-tight text-[#1F2937]",
+      "page_greeting_sub": "text-sm text-[#6C7383] font-normal mt-0.5",
+      "section_h2": "text-lg sm:text-xl font-bold tracking-tight text-[#1F2937]",
+      "card_title_h3": "text-base font-semibold text-[#1F2937]",
+      "kpi_value": "text-2xl sm:text-3xl font-extrabold tracking-tight text-[#1F2937]",
+      "kpi_label": "text-xs font-medium uppercase tracking-wider text-[#6C7383]",
+      "delta_badge": "text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1",
+      "body": "text-sm text-[#484B5B] leading-relaxed",
+      "caption": "text-xs text-[#8D94A5]"
+    }
   },
   "colors": {
-    "palette": {
-      "base_bg": "#FFFFFF",
-      "surface_bg": "#F8FAFC",
-      "text_primary": "#020617",
-      "text_secondary": "#475569",
-      "brand_primary": "#0A3D91",
-      "brand_accent": "#0033FF",
-      "border_default": "#CBD5E1",
-      "border_dark": "#0F172A"
+    "primary_blue": {
+      "main": "#1F3BB3",
+      "hover": "#172E93",
+      "active": "#102375",
+      "light": "#E8EFFF",
+      "subtle": "#F0F4FF",
+      "gradient_start": "#1F3BB3",
+      "gradient_end": "#3A5BEF"
     },
-    "statuses": {
-      "BOZZA": "#94A3B8",
-      "INVIATA": "#3B82F6",
-      "IN_ISTRUTTORIA": "#F59E0B",
-      "INTEGRAZIONE_RICHIESTA": "#EF4444",
-      "APPROVATA": "#10B981",
-      "RIFIUTATA": "#0F172A"
+    "secondary_blue": {
+      "electric": "#0D6EFD",
+      "sky": "#52CDFF",
+      "royal": "#2B4BDB"
     },
-    "rules": [
-      "NO full-screen gradients. NO shadow values. Only flat solid colors.",
-      "NO pure black (#000000). Use #020617 (slate-950).",
-      "Never use pure transparent background on elements that overlap content (e.g., sticky headers)."
-    ]
-  },
-  "visual_enhancers": {
-    "flat_design_enforcement": "Strict 'Flat Design Assoluto'. ALL box-shadow, drop-shadow, and blur utilities are STRICTLY FORBIDDEN.",
-    "separation": "Visual separation MUST rely entirely on 1px solid borders, stark color contrasts, typography weight, and padding/margin.",
-    "border_radius": "Keep it sharp. Use 'rounded-none' for pure brutalism or max 'rounded-sm' for subtle softening. No pill-shaped large components except specific CTAs.",
-    "textures": "Use subtle noise/grain overlays ONLY on the public landing page hero section if needed, otherwise stick to clean flat blocks."
-  },
-  "components": {
-    "buttons": "Sharp rectangular (`rounded-none`), solid background. Hover state: invert colors or add thick 2px dark border. Focus: strong 2px offset ring.",
-    "cards": "border border-slate-300 bg-white shadow-none. No rounded corners. Inner padding p-6 or p-8.",
-    "tables": "Crisp borders (`border-collapse`, `border-slate-300`). Use `border-b` for rows. Dense paddings in backoffice.",
-    "badges": "Solid fill with contrasting text, sharp corners (`rounded-none`), no shadows. Color code based on pratiche state machine.",
-    "forms": "Inputs with flat borders, focus state is solid 2px outline of primary brand color. Step-by-step wizard uses explicit bordered segments.",
-    "map": "Leaflet with GeoJSON. Hover states on regions should use fluid SVG fill transitions (color shift) without drop shadows or glow. Use sharp tooltips.",
-    "wizard": "Clear segmented progress bar without any rounded corners. Bold typography for current step."
-  },
-  "grids_and_layouts": {
-    "spacing": "Generous spacing for public pages (`p-12` to `p-24`). Dense structured layout for backoffice dashboards (`p-4` to `p-6`).",
-    "dashboard_grid": "Dense BENTO or strict analytical grid (`grid-cols-1 md:grid-cols-3 lg:grid-cols-4`). Use `border-r` and `border-b` on grid cells to create technical look.",
-    "alignment": "Left-align mostly. Only center hero text if structurally needed."
-  },
-  "motion": {
-    "rules": "Micro-interactions on hover (border color change, background fill shift, text color change). ZERO shadow animations. ZERO blur animations.",
-    "transitions": "Use specific properties (`transition-colors`, `transition-transform`) rather than `transition-all`."
-  },
-  "accessibility": {
-    "contrast": "APCA/WCAG AA compliant. High contrast text on all colored badges/buttons.",
-    "testing": "All interactive and informational elements MUST include `data-testid` attribute (e.g., `data-testid='submit-pratica-button'`)."
-  },
-  "media_and_libraries": {
-    "icons": "@phosphor-icons/react (Duotone or Regular weight, matches business software well).",
-    "charts": "recharts (styled with sharp lines, flat colors, zero drop-shadows on tooltips).",
-    "map": "leaflet, react-leaflet (GeoJSON per Italia).",
-    "animations": "framer-motion (for layout shifts, entrance, state transitions)."
-  },
-  "image_urls": [
-    {
-      "url": "https://images.unsplash.com/photo-1699480114704-ac153307d2a0?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA2MTJ8MHwxfHNlYXJjaHwyfHxvdXRkb29yJTIwYWR2ZXJ0aXNpbmclMjBiaWxsYm9hcmR8ZW58MHx8fHwxNzg0Mjc2NTA1fDA&ixlib=rb-4.1.0&q=85",
-      "category": "hero_landing",
-      "description": "A billboard by the road, suitable for public space advertising (OSP) SaaS context."
+    "neutrals": {
+      "app_background": "#F4F5F7",
+      "card_surface": "#FFFFFF",
+      "sidebar_bg": "#FFFFFF",
+      "header_bg": "#FFFFFF",
+      "border_subtle": "#E5E9F2",
+      "border_card": "#E9ECEF",
+      "border_input": "#DDE2EC",
+      "text_dark": "#1F2937",
+      "text_body": "#484B5B",
+      "text_muted": "#6C7383",
+      "text_light": "#9CA3AF"
     },
-    {
-      "url": "https://images.unsplash.com/photo-1777403705903-9704d002ca8a?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDk1NzZ8MHwxfHNlYXJjaHwzfHxwdWJsaWMlMjBzcXVhcmUlMjBldmVudCUyMGl0YWx5fGVufDB8fHx8MTc4NDI3NjUwNXww&ixlib=rb-4.1.0&q=85",
-      "category": "event_showcase",
-      "description": "Italian public square (Piazza), ideal for representing events and public space occupation."
+    "functional": {
+      "success_green": "#198754",
+      "success_light": "#E8F5E9",
+      "danger_red": "#DC3545",
+      "danger_light": "#FDE8E8",
+      "warning_amber": "#FFC107",
+      "warning_light": "#FFF8E1",
+      "info_cyan": "#0DCAF0",
+      "info_light": "#E1F8FC"
     },
-    {
-      "url": "https://images.unsplash.com/photo-1639917714192-557a6143f788?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2NzB8MHwxfHNlYXJjaHwyfHxvZmZpY2UlMjBkZXNrJTIwY29tcHV0ZXIlMjBncmFwaHN8ZW58MHx8fHwxNzg0Mjc2NTA1fDA&ixlib=rb-4.1.0&q=85",
-      "category": "dashboard_admin",
-      "description": "Computer monitor displaying data and graphs, representing Superadmin and Comune workflow."
+    "tailwind_css_variables": {
+      "--background": "220 16% 96%",
+      "--foreground": "222 47% 11%",
+      "--card": "0 0% 100%",
+      "--card-foreground": "222 47% 11%",
+      "--popover": "0 0% 100%",
+      "--popover-foreground": "222 47% 11%",
+      "--primary": "228 71% 41%",
+      "--primary-foreground": "0 0% 100%",
+      "--secondary": "220 50% 96%",
+      "--secondary-foreground": "228 71% 35%",
+      "--muted": "220 20% 96%",
+      "--muted-foreground": "220 10% 46%",
+      "--accent": "220 60% 94%",
+      "--accent-foreground": "228 71% 35%",
+      "--destructive": "354 70% 54%",
+      "--destructive-foreground": "0 0% 100%",
+      "--border": "220 20% 91%",
+      "--input": "220 20% 88%",
+      "--ring": "228 71% 41%",
+      "--radius": "0.75rem",
+      "--chart-1": "228 71% 41%",
+      "--chart-2": "199 89% 48%",
+      "--chart-3": "42 100% 50%",
+      "--chart-4": "354 70% 54%",
+      "--chart-5": "152 69% 31%"
     }
-  ],
+  },
+  "layout_and_components": {
+    "layout_mode": "StarAdmin 2 Pro Fixed Sidebar with Top Greeting & Navbar",
+    "sidebar": {
+      "background": "bg-white",
+      "border": "border-r border-[#E5E9F2]",
+      "width": "w-64",
+      "logo_container": "h-16 flex items-center gap-3 px-6 border-b border-[#E5E9F2]",
+      "logo_badge": "bg-[#1F3BB3] text-white font-bold rounded-xl w-9 h-9 flex items-center justify-center text-sm shadow-sm",
+      "logo_text": "text-[#1F2937] font-extrabold text-base tracking-tight",
+      "user_summary_box": "mx-4 my-3 p-3 bg-[#F8F9FD] rounded-xl border border-[#E5E9F2] flex items-center gap-3",
+      "nav_category_label": "px-6 pt-4 pb-2 text-[11px] font-bold uppercase tracking-[0.15em] text-[#8D94A5]",
+      "nav_item_default": "flex items-center gap-3.5 px-4 py-2.5 mx-3 text-sm font-medium rounded-xl text-[#525B6C] hover:bg-[#F0F4FF] hover:text-[#1F3BB3] transition-colors",
+      "nav_item_active": "flex items-center gap-3.5 px-4 py-2.5 mx-3 text-sm font-semibold rounded-xl bg-[#1F3BB3] text-white shadow-sm shadow-[#1F3BB3]/20"
+    },
+    "header": {
+      "height": "h-16 sm:h-20",
+      "background": "bg-white/95 backdrop-blur-md",
+      "border": "border-b border-[#E5E9F2]",
+      "sticky": "sticky top-0 z-30",
+      "left_greeting": {
+        "title": "Good Morning, {userName} (or Buongiorno, {userName})",
+        "subtitle": "Panoramica delle attività, prenotazioni e campagne attive"
+      },
+      "right_actions": [
+        "search_bar_compact",
+        "notification_bell_dropdown",
+        "user_profile_avatar_menu"
+      ]
+    },
+    "kpi_cards": {
+      "surface": "bg-white rounded-2xl p-5 border border-[#E9ECEF] shadow-[0_2px_8px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_20px_rgba(31,59,179,0.06)] transition-all duration-200",
+      "accent_feature_card": "bg-gradient-to-br from-[#1F3BB3] to-[#2B4BDB] text-white rounded-2xl p-6 shadow-lg shadow-[#1F3BB3]/25",
+      "number_style": "text-2xl sm:text-3xl font-extrabold text-[#1F2937]",
+      "delta_positive": "text-[#198754] bg-[#E8F5E9] px-2 py-0.5 rounded-full text-xs font-semibold inline-flex items-center gap-1",
+      "delta_negative": "text-[#DC3545] bg-[#FDE8E8] px-2 py-0.5 rounded-full text-xs font-semibold inline-flex items-center gap-1"
+    },
+    "buttons": {
+      "primary": "bg-[#1F3BB3] hover:bg-[#172E93] text-white font-semibold px-4 py-2 rounded-xl shadow-sm shadow-[#1F3BB3]/20 transition-all",
+      "secondary": "bg-[#F0F4FF] hover:bg-[#E2EBFC] text-[#1F3BB3] font-semibold px-4 py-2 rounded-xl transition-all",
+      "outline": "border border-[#DDE2EC] hover:bg-[#F8F9FD] text-[#1F2937] font-medium px-4 py-2 rounded-xl transition-all",
+      "pill_cta": "rounded-full px-5 py-2.5 font-bold shadow-md"
+    },
+    "tables": {
+      "container": "bg-white rounded-2xl border border-[#E9ECEF] overflow-hidden shadow-sm",
+      "head": "bg-[#F8F9FD] border-b border-[#E5E9F2] text-[11px] font-bold uppercase tracking-wider text-[#6C7383]",
+      "row": "border-b border-[#F0F2F5] hover:bg-[#F8F9FD]/60 transition-colors",
+      "cell": "py-3.5 px-4 text-sm text-[#333843]"
+    },
+    "badges": {
+      "in_istruttoria": "bg-[#FFF8E1] text-[#B78103] border border-[#FFE082]",
+      "approvata": "bg-[#E8F5E9] text-[#198754] border border-[#A5D6A7]",
+      "rifiutata": "bg-[#FDE8E8] text-[#DC3545] border border-[#FFCDD2]",
+      "completata": "bg-[#E8EFFF] text-[#1F3BB3] border border-[#C5D5F9]",
+      "bozza": "bg-[#F4F5F7] text-[#6C7383] border border-[#E0E2E7]"
+    }
+  },
+  "role_dashboards_structure": {
+    "user_advertiser": {
+      "layout": "BackofficeLayout (with user sidebar)",
+      "sidebar_links": [
+        {"to": "/dashboard", "label": "Dashboard", "testid": "link-user-dashboard", "icon": "LayoutDashboard"},
+        {"to": "/home", "label": "Le Mie Pratiche", "testid": "link-user-pratiche", "icon": "FileText"},
+        {"to": "/campagne", "label": "Campagne OOH", "testid": "link-user-campagne", "icon": "Megaphone"},
+        {"to": "/campagne/ooh/nuova", "label": "Pianifica OOH", "testid": "link-user-ooh-planner", "icon": "Sparkles"},
+        {"to": "/spazi", "label": "Catalogo & Mappa", "testid": "link-user-catalogo", "icon": "MapPin"}
+      ],
+      "greeting": "Good Morning, {userName}",
+      "sub_greeting": "Gestisci le tue prenotazioni affissioni e occupazioni suolo pubblico"
+    },
+    "comune_backoffice": {
+      "layout": "BackofficeLayout",
+      "sidebar_links": [
+        {"to": "/comune", "label": "Scrivania pratiche", "testid": "link-scrivania", "icon": "Inbox"},
+        {"to": "/comune/zone", "label": "Zone & confini", "testid": "link-zone", "level": 3, "icon": "Map"},
+        {"to": "/comune/impianti", "label": "Impianti OOH", "testid": "link-impianti", "level": 3, "icon": "Tv"},
+        {"to": "/comune/pacchetti", "label": "Circuiti / Pacchetti", "testid": "link-pacchetti", "level": 3, "icon": "Layers"},
+        {"to": "/comune/spazi", "label": "Aree OSP", "testid": "link-spazi", "level": 3, "icon": "MapPin"},
+        {"to": "/comune/form", "label": "Modulo dinamico", "testid": "link-form", "level": 3, "icon": "FileSliders"},
+        {"to": "/comune/report", "label": "Report & incassi", "testid": "link-report", "icon": "ChartColumn"},
+        {"to": "/comune/monitor", "label": "Monitor anomalie", "testid": "link-monitor", "level": 3, "icon": "Radar"}
+      ],
+      "greeting": "Good Morning, {userName} · Comune di {comuneNome}",
+      "sub_greeting": "Scrivania di istruttoria e gestione impianti pubblici"
+    },
+    "superadmin": {
+      "layout": "BackofficeLayout",
+      "sidebar_links": [
+        {"to": "/admin", "label": "Dashboard KPI", "testid": "link-kpi", "icon": "LayoutGrid"},
+        {"to": "/admin/comuni", "label": "Gestione Comuni", "testid": "link-comuni", "icon": "Landmark"},
+        {"to": "/admin/monitor", "label": "Monitor Anomalie", "testid": "link-monitor", "icon": "Radar"}
+      ],
+      "greeting": "Good Morning, Administrator",
+      "sub_greeting": "Panoramica nazionale affissioni OOH e concessioni OSP"
+    }
+  },
+  "charts_recharts_theme": {
+    "primary_line_or_bar": "#1F3BB3",
+    "secondary_line_or_bar": "#52CDFF",
+    "accent_third": "#FFA800",
+    "grid_color": "#EDF0F5",
+    "tooltip_bg": "#1F2937",
+    "tooltip_text": "#FFFFFF",
+    "font_family": "Plus Jakarta Sans, sans-serif"
+  },
+  "image_urls": {
+    "hero_billboard_rome": {
+      "url": "https://images.unsplash.com/photo-1707680112437-ac7e57217e7c?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA3MDR8MHwxfHNlYXJjaHwxfHxiaWxsYm9hcmQlMjBzdHJlZXQlMjBhZHZlcnRpc2luZyUyMG1pbGFuJTIwcm9tZXxlbnwwfHx8fDE3ODk0NzA4Mjh8MA&ixlib=rb-4.1.0&q=85",
+      "category": "ooh_billboard_urban",
+      "description": "Urban billboard framing historical street in Italy"
+    },
+    "urban_piazzas_italy": {
+      "url": "https://images.unsplash.com/photo-1529154036614-a60975f5c760?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2NjZ8MHwxfHNlYXJjaHwxfHxpdGFsaWFuJTIwcGlhenphJTIwY2l0eSUyMGhhbGwlMjByb21lfGVufDB8fHx8MTc4OTQ3MDgzNXww&ixlib=rb-4.1.0&q=85",
+      "category": "osp_suolo_pubblico_events",
+      "description": "Italian public piazza and monuments for suolo pubblico events"
+    },
+    "digital_ooh_screen": {
+      "url": "https://images.unsplash.com/photo-1708107243374-52eddcc3fe64?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NTYxOTJ8MHwxfHNlYXJjaHwxfHxtb2Rlcm4lMjBkaWdpdGFsJTIwYmlsbGJvYXJkJTIwc2NyZWVuJTIwc3RyZWV0fGVufDB8fHx8MTc4OTQ3MDgzOHww&ixlib=rb-4.1.0&q=85",
+      "category": "digital_screen_ooh",
+      "description": "Modern digital illuminated screen on busy traffic street"
+    }
+  },
   "instructions_to_main_agent": [
-    "TUTTA LA UI DEVE ESSERE IN ITALIANO. Labels, placeholder, table headers, form steps must be perfectly translated in Italian.",
-    "Apply absolute flat design. Use standard Tailwind border classes (`border`, `border-2`) and specific background colors. Never use `shadow-*` or `drop-shadow-*`.",
-    "Implement the Leaflet map of Italy for the public landing page with interactive GeoJSON. Hover events should trigger a fluid path fill transition.",
-    "Build the dashboard using Shadcn UI but STRIP OUT all rounded corners and shadows from the default components (e.g., adjust radius in `tailwind.config.js` to 0 or hardcode `rounded-none`).",
-    "For the Comune backoffice, implement the Pratiche state machine (BOZZA → INVIATA → IN_ISTRUTTORIA → INTEGRAZIONE_RICHIESTA → APPROVATA/RIFIUTATA) using the explicit colors defined in the palette.",
-    "Use mock SPID/CIE logic for the login entry points.",
-    "Integrate a clear multi-step Wizard for the Pratica creation with document upload placeholder, ending in a Checkout mock."
+    "1. Replace the old olive-green palette (#2F5B41, #F2F3F0, #D8EADB) in index.css with the StarAdmin 2 Pro Blue palette (Primary: #1F3BB3, Background: #F4F5F7, Light Blue: #F0F4FF, Card: #FFFFFF).",
+    "2. Update BackofficeLayout.jsx to adopt StarAdmin 2 Pro layout: clean white sidebar with crisp borders (#E5E9F2), rounded-xl nav links with blue active state (#1F3BB3) and soft hover (#F0F4FF), sticky top header featuring the iconic 'Good Morning, {user?.nome}' greeting with date/subtitle and actions (search, notification bell, user avatar).",
+    "3. Wrap the Inserzionista (user) pages (UserDashboard, Home/Pratiche, Campagne, OOHPlanner, Catalogo) into the BackofficeLayout or provide a unified User Sidebar matching StarAdmin 2 Pro so that advertisers enjoy the neat, ordered sidebar experience requested by the user.",
+    "4. Eliminate all remaining hardcoded green color hexes (#2F5B41, #1F5B33, #D8EADB, #EEF2EC) in buttons, badges, selection states, scrollbar thumbs, and Leaflet containers, replacing them with the StarAdmin Royal Blue hierarchy (#1F3BB3, #172E93, #E8EFFF).",
+    "5. Format KPI widgets across UserDashboard, Comune Scrivania, and AdminDashboard with bold numbers (text-2xl or text-3xl font-extrabold), muted uppercase labels, and clear green/red positive/negative delta badges (+14%, -3%) matching the StarAdmin 2 Pro card layout.",
+    "6. Include a standout StarAdmin featured accent card in royal blue gradient ('bg-gradient-to-br from-[#1F3BB3] to-[#2B4BDB] text-white') on primary dashboards for high visual impact.",
+    "7. Recharts bar/line/donut charts should use #1F3BB3 (primary), #52CDFF (light blue), and #FFA800 (warm accent) instead of green shades.",
+    "8. Ensure all interactive and key informational elements have rigorous kebab-case `data-testid` attributes."
   ],
-  "UNIVERSAL GUIDELINES FOR MAIN AGENT": "You tend to converge toward generic outputs. Avoid this: make creative, distinctive frontends. DO NOT use generic centered layouts or uniform styling. Prioritize high contrast and 1px sharp borders. Every interaction needs micro-animations (hover states, structural transitions) but WITHOUT blur/shadows. Subdued grain textures, custom cursors, clear selection states separate good from extraordinary. Ensure all placeholder images use the provided URLs."
+  "UNIVERSAL GUIDELINES FOR MAIN AGENT": {
+    "anti_ai_slop": "Avoid generic centered cards and uniform styling. Use StarAdmin 2 Pro's distinctive crisp asymmetry: clean white structural cards on subtle neutral canvas (#F4F5F7), vibrant cobalt blue highlights, and purposeful data hierarchy.",
+    "transitions": "Never use universal 'transition: all'. Apply targeted transitions: 'transition: color 0.15s ease, background-color 0.15s ease, border-color 0.15s ease'.",
+    "spacing": "Maintain generous breathing room: p-5 to p-6 inside cards, gap-4 to gap-6 between dashboard widgets, sticky top headers with z-30.",
+    "contrast": "Ensure minimum 4.5:1 text contrast for all body text on cards (#1F2937 or #484B5B against #FFFFFF or #F4F5F7). Text on primary blue buttons (#1F3BB3) must be pure white (#FFFFFF).",
+    "toasts": "Use Sonner toasts with clean rounded borders and subtle shadows.",
+    "data_testids": "Every button, link, tab, KPI metric, and table row MUST retain or include role-based `data-testid` attributes."
+  }
 }

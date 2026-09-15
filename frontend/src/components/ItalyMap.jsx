@@ -4,8 +4,8 @@ import { useNavigate } from "react-router-dom";
 import "leaflet/dist/leaflet.css";
 import { api } from "../lib/api";
 
-const BASE_STYLE = { fillColor: "#DDE8DE", fillOpacity: 1, color: "#8FAE96", weight: 1 };
-const HOVER_STYLE = { fillColor: "#2F5B41", fillOpacity: 1, color: "#1F3D2B", weight: 1.5 };
+const BASE_STYLE = { fillColor: "#DCE4F7", fillOpacity: 1, color: "#93A6E8", weight: 1 };
+const HOVER_STYLE = { fillColor: "#1F3BB3", fillOpacity: 1, color: "#2B4BDB", weight: 1.5 };
 
 export const ItalyMap = () => {
   const [geo, setGeo] = useState(null);
@@ -48,7 +48,7 @@ export const ItalyMap = () => {
             <div className="text-sm text-slate-600">
               {counts[hovered] ? `${counts[hovered]} spazi disponibili` : "Nessuno spazio attivo"}
             </div>
-            <div className="text-xs font-semibold text-[#2F5B41] mt-1">Clicca per esplorare →</div>
+            <div className="text-xs font-semibold text-[#1F3BB3] mt-1">Clicca per esplorare →</div>
           </>
         ) : (
           <div className="text-sm text-slate-600">Passa il mouse su una regione<br />e clicca per filtrare gli spazi</div>

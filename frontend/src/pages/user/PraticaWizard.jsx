@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { NavBar } from "../../components/NavBar";
+import { UserShell } from "../../components/BackofficeLayout";
 import { DynamicField, isVisible } from "../../components/DynamicField";
 import { DateRangePicker, fmtDay } from "../../components/DateRangePicker";
 import { api, apiError } from "../../lib/api";
@@ -36,7 +36,7 @@ export default function PraticaWizard() {
     });
   }, [spazioId]);
 
-  if (!spazio || !template) return <div><NavBar /><div className="p-12 text-slate-500">Caricamento...</div></div>;
+  if (!spazio || !template) return <UserShell><div className="text-slate-500">Caricamento...</div></UserShell>;
 
   const giorni = date.inizio && date.fine
     ? Math.max(Math.floor((new Date(date.fine) - new Date(date.inizio)) / 86400000) + 1, 1) : 0;
@@ -113,12 +113,11 @@ export default function PraticaWizard() {
     }
   };
 
-  const input = "w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2F5B41] transition-colors";
+  const input = "w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#1F3BB3] transition-colors";
 
   return (
-    <div className="min-h-screen">
-      <NavBar />
-      <div className="max-w-3xl mx-auto px-6 py-10" data-testid="pratica-wizard">
+    <UserShell>
+      <div className="max-w-3xl mx-auto" data-testid="pratica-wizard">
         <div className="text-xs font-bold uppercase tracking-[0.25em] text-slate-500">Nuova candidatura</div>
         <h1 className="text-3xl font-heading font-extrabold tracking-tight mt-1">{spazio.nome}</h1>
         <div className="text-sm text-slate-600">{spazio.citta} · {spazio.tipologia} · {spazio.canone_giornaliero} €/giorno</div>
@@ -126,7 +125,7 @@ export default function PraticaWizard() {
         <div className="mt-8 grid grid-cols-5 border border-slate-100 bg-white rounded-2xl overflow-hidden" data-testid="wizard-steps">
           {STEPS.map((s, i) => (
             <div key={s} className={`py-2.5 px-2 text-center text-[11px] font-bold uppercase tracking-wider border-r border-slate-100 last:border-r-0 transition-colors
-              ${i === step ? "bg-[#2F5B41] text-white" : i < step ? "bg-[#1F3D2B] text-white" : "text-slate-400"}`}>
+              ${i === step ? "bg-[#1F3BB3] text-white" : i < step ? "bg-[#2B4BDB] text-white" : "text-slate-400"}`}>
               {i + 1}. {s}
             </div>
           ))}
@@ -175,7 +174,7 @@ export default function PraticaWizard() {
                     <div className="font-bold text-sm">{d.label}{d.required && <span className="text-[#B91C1C]"> *</span>}</div>
                     <div className="text-xs text-slate-500">{docs.filter((x) => x.tipo === d.id).map((x) => x.nome).join(", ") || "Nessun file caricato"}</div>
                   </div>
-                  <label className="cursor-pointer inline-flex items-center gap-2 border border-slate-200 rounded-full px-4 py-2 text-sm font-bold hover:bg-[#2F5B41] hover:text-white transition-colors">
+                  <label className="cursor-pointer inline-flex items-center gap-2 border border-slate-200 rounded-full px-4 py-2 text-sm font-bold hover:bg-[#1F3BB3] hover:text-white transition-colors">
                     <Upload size={15} /> Carica
                     <input data-testid={`upload-${d.id}`} type="file" className="hidden" onChange={(e) => uploadFile(e, d.id)} />
                   </label>
@@ -198,7 +197,7 @@ export default function PraticaWizard() {
                 Pagamento simulato (demo) — nessun addebito reale. In produzione: Stripe / PagoPA.
               </div>
               <button data-testid="checkout-button" onClick={pay} disabled={paying}
-                className="w-full bg-[#2F5B41] text-white rounded-full py-3.5 font-bold flex items-center justify-center gap-2 hover:bg-[#26492F] hover:text-white transition-colors disabled:opacity-60">
+                className="w-full bg-[#1F3BB3] text-white rounded-full py-3.5 font-bold flex items-center justify-center gap-2 hover:bg-[#172E93] hover:text-white transition-colors disabled:opacity-60">
                 <CreditCard size={18} /> {paying ? "Elaborazione..." : `Paga ${pratica?.importo?.toFixed(2)} € (mock)`}
               </button>
             </div>
@@ -210,7 +209,7 @@ export default function PraticaWizard() {
               <h2 className="font-heading font-extrabold text-2xl">Tutto pronto</h2>
               <p className="text-sm text-slate-600">Pagamento registrato. Invia la pratica al Comune di {spazio.comune?.nome} per avviare l'istruttoria.</p>
               <button data-testid="invia-pratica-button" onClick={invia}
-                className="w-full bg-[#2F5B41] text-white rounded-full py-3.5 font-bold flex items-center justify-center gap-2 hover:bg-[#26492F] transition-colors">
+                className="w-full bg-[#1F3BB3] text-white rounded-full py-3.5 font-bold flex items-center justify-center gap-2 hover:bg-[#172E93] transition-colors">
                 <FileText size={18} /> Invia pratica
               </button>
             </div>
@@ -221,17 +220,17 @@ export default function PraticaWizard() {
           {step < 3 && (
             <div className="mt-8 flex justify-between">
               <button onClick={() => setStep(Math.max(0, step - 1))} disabled={step === 0}
-                className="px-6 py-2.5 font-bold border border-slate-200 rounded-full hover:border-[#2F5B41] transition-colors disabled:opacity-40">
+                className="px-6 py-2.5 font-bold border border-slate-200 rounded-full hover:border-[#1F3BB3] transition-colors disabled:opacity-40">
                 Indietro
               </button>
               <button data-testid="wizard-next-button" onClick={next}
-                className="px-8 py-2.5 font-bold rounded-full bg-[#2F5B41] text-white hover:bg-[#26492F] transition-colors">
+                className="px-8 py-2.5 font-bold rounded-full bg-[#1F3BB3] text-white hover:bg-[#172E93] transition-colors">
                 Avanti
               </button>
             </div>
           )}
         </div>
       </div>
-    </div>
+    </UserShell>
   );
 }

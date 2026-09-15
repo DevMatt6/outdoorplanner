@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { NavBar } from "../../components/NavBar";
+import { UserShell } from "../../components/BackofficeLayout";
 import { StatusBadge } from "../../components/StatusBadge";
 import { api, apiError } from "../../lib/api";
 import { toast } from "sonner";
@@ -13,7 +13,7 @@ export default function CampagnaDetail() {
   const load = () => api.get(`/campagne/${id}`).then(({ data }) => setCampagna(data));
   useEffect(() => { load(); }, [id]);
 
-  if (!campagna) return <div><NavBar /><div className="p-12 text-slate-500">Caricamento...</div></div>;
+  if (!campagna) return <UserShell><div className="text-slate-500">Caricamento...</div></UserShell>;
 
   const bozze = campagna.pratiche.filter((p) => p.stato === "BOZZA");
   const daPagare = bozze.some((p) => !p.pagata);
@@ -35,9 +35,8 @@ export default function CampagnaDetail() {
   };
 
   return (
-    <div className="min-h-screen">
-      <NavBar />
-      <div className="max-w-5xl mx-auto px-6 py-10" data-testid="campagna-detail">
+    <UserShell>
+      <div className="max-w-5xl mx-auto" data-testid="campagna-detail">
         <Link to="/campagne" className="inline-flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-slate-900 transition-colors">
           <ArrowLeft size={16} /> Le mie campagne
         </Link>
@@ -52,13 +51,13 @@ export default function CampagnaDetail() {
           <div className="flex gap-3">
             {bozze.length > 0 && daPagare && (
               <button data-testid="campagna-checkout-button" onClick={checkout}
-                className="inline-flex items-center gap-2 bg-[#2F5B41] text-white rounded-full px-5 py-2.5 font-bold hover:bg-[#26492F] transition-colors">
+                className="inline-flex items-center gap-2 bg-[#1F3BB3] text-white rounded-full px-5 py-2.5 font-bold hover:bg-[#172E93] transition-colors">
                 <CreditCard size={16} /> Paga (mock)
               </button>
             )}
             {bozze.length > 0 && !daPagare && (
               <button data-testid="campagna-invia-button" onClick={invia}
-                className="inline-flex items-center gap-2 bg-[#2F5B41] text-white rounded-full px-5 py-2.5 font-bold hover:bg-[#26492F] transition-colors">
+                className="inline-flex items-center gap-2 bg-[#1F3BB3] text-white rounded-full px-5 py-2.5 font-bold hover:bg-[#172E93] transition-colors">
                 <Send size={16} /> Invia pratiche
               </button>
             )}
@@ -66,10 +65,10 @@ export default function CampagnaDetail() {
         </div>
 
         <div className="mt-8 bg-white border border-slate-100 rounded-2xl overflow-hidden">
-          <div className="px-6 py-3 border-b border-slate-100 text-xs font-bold uppercase tracking-widest bg-[#FAFAF8]">Pratiche della campagna</div>
+          <div className="px-6 py-3 border-b border-slate-100 text-xs font-bold uppercase tracking-widest bg-[#F8F9FD]">Pratiche della campagna</div>
           {campagna.pratiche.map((p) => (
             <Link key={p.id} to={`/pratiche/${p.id}`} data-testid={`campagna-pratica-${p.id}`}
-              className="flex flex-wrap items-center gap-4 px-6 py-4 border-b border-slate-100 hover:bg-[#F1F5F0] transition-colors">
+              className="flex flex-wrap items-center gap-4 px-6 py-4 border-b border-slate-100 hover:bg-[#F0F4FF] transition-colors">
               <div className="flex-1 min-w-[200px]">
                 <div className="font-bold">{p.spazio_nome}</div>
                 <div className="text-xs text-slate-500 font-mono mt-0.5">{p.importo.toFixed(2)} € {p.pagata && "· pagata ✓"}</div>
@@ -80,6 +79,6 @@ export default function CampagnaDetail() {
           ))}
         </div>
       </div>
-    </div>
+    </UserShell>
   );
 }

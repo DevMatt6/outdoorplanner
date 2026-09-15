@@ -37,17 +37,17 @@ export const DateRangePicker = ({ occupazioni = [], value, onChange, months = 2 
         modifiers={{ occupato: occupiedRanges }}
         modifiersClassNames={{ occupato: "!bg-red-50 !text-red-300 line-through" }}
         classNames={{
-          day_selected: "!bg-[#2F5B41] !text-white hover:!bg-[#2F5B41]",
-          day_range_middle: "!bg-[#D8EADB] !text-[#1F5B33] !rounded-none",
-          day_today: "bg-[#E4EEE6] text-[#1F5B33] font-bold",
+          day_selected: "!bg-[#1F3BB3] !text-white hover:!bg-[#1F3BB3]",
+          day_range_middle: "!bg-[#E8EFFF] !text-[#1F3BB3] !rounded-none",
+          day_today: "bg-[#E8EFFF] text-[#1F3BB3] font-bold",
         }}
         className="rounded-2xl border border-slate-100 bg-white w-fit"
       />
       <div className="mt-3 flex flex-wrap items-center gap-4 text-xs text-slate-500">
-        <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-[#2F5B41]" /> Periodo selezionato</span>
+        <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-[#1F3BB3]" /> Periodo selezionato</span>
         <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-red-100" /> Date già occupate</span>
         {value?.from && (
-          <span className="ml-auto font-mono text-slate-700 bg-[#F5F6F3] rounded-full px-3 py-1" data-testid="range-summary">
+          <span className="ml-auto font-mono text-slate-700 bg-[#F8F9FD] rounded-full px-3 py-1" data-testid="range-summary">
             {fmtDay(value.from)} → {value.to ? fmtDay(value.to) : "..."}
           </span>
         )}

@@ -41,14 +41,14 @@ export default function ComuneZone() {
     catch (err) { toast.error(apiError(err)); }
   };
 
-  const input = "border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#2F5B41] bg-white w-full";
+  const input = "border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#1F3BB3] bg-white w-full";
 
   return (
     <BackofficeLayout title="Backoffice Comune" links={COMUNE_LINKS}>
       <div className="flex flex-wrap items-center justify-between gap-4">
         <h1 className="text-2xl sm:text-3xl font-heading font-extrabold tracking-tight">Zone & confini</h1>
         <button data-testid="nuova-zona-button" onClick={() => setForm({ ...EMPTY })}
-          className="inline-flex items-center gap-2 bg-[#2F5B41] text-white rounded-full px-5 py-2.5 font-bold hover:bg-[#26492F] transition-colors">
+          className="inline-flex items-center gap-2 bg-[#1F3BB3] text-white rounded-full px-5 py-2.5 font-bold hover:bg-[#172E93] transition-colors">
           <Plus size={17} /> Nuova zona
         </button>
       </div>
@@ -73,16 +73,16 @@ export default function ComuneZone() {
               <TileLayer url={FLAT_TILES} className="flat-tiles" />
               <ClickCapture onPoint={(pt) => setForm((f) => ({ ...f, polygon: [...(f.polygon || []), pt] }))} />
               {(form.polygon || []).length >= 2 && (
-                <Polygon positions={form.polygon} pathOptions={{ color: "#1F3D2B", fillColor: "#2F5B41", fillOpacity: 0.35 }} />
+                <Polygon positions={form.polygon} pathOptions={{ color: "#2B4BDB", fillColor: "#1F3BB3", fillOpacity: 0.35 }} />
               )}
               {zone.filter((z) => z.id !== form.id).map((z) => (
-                <Polygon key={z.id} positions={z.polygon} pathOptions={{ color: "#8FAE96", fillColor: "#DDE8DE", fillOpacity: 0.3, weight: 1 }} />
+                <Polygon key={z.id} positions={z.polygon} pathOptions={{ color: "#93A6E8", fillColor: "#DCE4F7", fillOpacity: 0.3, weight: 1 }} />
               ))}
             </MapContainer>
           </div>
           <div className="mt-4 flex gap-3">
-            <button data-testid="zona-submit" className="px-6 py-2.5 font-bold rounded-full bg-[#2F5B41] text-white hover:bg-[#26492F] transition-colors">Salva zona</button>
-            <button type="button" onClick={() => setForm(null)} className="px-6 py-2.5 font-bold border border-slate-200 rounded-full hover:border-[#2F5B41] transition-colors">Annulla</button>
+            <button data-testid="zona-submit" className="px-6 py-2.5 font-bold rounded-full bg-[#1F3BB3] text-white hover:bg-[#172E93] transition-colors">Salva zona</button>
+            <button type="button" onClick={() => setForm(null)} className="px-6 py-2.5 font-bold border border-slate-200 rounded-full hover:border-[#1F3BB3] transition-colors">Annulla</button>
           </div>
         </form>
       )}
@@ -97,7 +97,7 @@ export default function ComuneZone() {
               </div>
               <div className="flex gap-2">
                 <button data-testid={`edit-zona-${z.id}`} onClick={() => setForm({ id: z.id, nome: z.nome, descrizione: z.descrizione || "", quartiere: z.quartiere || "", polygon: z.polygon || [] })}
-                  className="border border-slate-200 rounded-lg p-1.5 hover:border-[#2F5B41] transition-colors"><Pencil size={14} /></button>
+                  className="border border-slate-200 rounded-lg p-1.5 hover:border-[#1F3BB3] transition-colors"><Pencil size={14} /></button>
                 <button data-testid={`delete-zona-${z.id}`} onClick={() => remove(z)}
                   className="border border-slate-200 rounded-lg p-1.5 hover:border-[#EF4444] hover:text-[#EF4444] transition-colors"><Trash2 size={14} /></button>
               </div>

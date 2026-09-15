@@ -9,8 +9,8 @@ body {
     font-family: 'Plus Jakarta Sans', sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    background: #F2F3F0;
-    color: #1A1D1A;
+    background: #F4F5F7;
+    color: #1F2937;
 }
 
 h1, h2, h3, h4, .font-heading {
@@ -24,31 +24,31 @@ code, .font-mono {
 
 @layer base {
     :root {
-        --background: 80 6% 95%;
-        --foreground: 120 6% 10%;
+        --background: 220 16% 96%;
+        --foreground: 222 47% 11%;
         --card: 0 0% 100%;
-        --card-foreground: 120 6% 10%;
+        --card-foreground: 222 47% 11%;
         --popover: 0 0% 100%;
-        --popover-foreground: 120 6% 10%;
-        --primary: 145 32% 27%;
+        --popover-foreground: 222 47% 11%;
+        --primary: 228 71% 41%;
         --primary-foreground: 0 0% 100%;
-        --secondary: 140 15% 94%;
-        --secondary-foreground: 145 32% 20%;
-        --muted: 80 6% 94%;
-        --muted-foreground: 120 4% 42%;
-        --accent: 140 25% 88%;
-        --accent-foreground: 145 32% 20%;
-        --destructive: 0 72% 51%;
-        --destructive-foreground: 0 0% 98%;
-        --border: 80 6% 90%;
-        --input: 80 6% 88%;
-        --ring: 145 32% 27%;
-        --chart-1: 145 32% 27%;
-        --chart-2: 140 30% 55%;
-        --chart-3: 38 92% 50%;
-        --chart-4: 0 72% 51%;
-        --chart-5: 120 4% 42%;
-        --radius: 1rem;
+        --secondary: 220 50% 96%;
+        --secondary-foreground: 228 71% 35%;
+        --muted: 220 20% 96%;
+        --muted-foreground: 220 10% 46%;
+        --accent: 220 60% 94%;
+        --accent-foreground: 228 71% 35%;
+        --destructive: 354 70% 54%;
+        --destructive-foreground: 0 0% 100%;
+        --border: 220 20% 91%;
+        --input: 220 20% 88%;
+        --ring: 228 71% 41%;
+        --chart-1: 228 71% 41%;
+        --chart-2: 199 89% 48%;
+        --chart-3: 42 100% 50%;
+        --chart-4: 354 70% 54%;
+        --chart-5: 152 69% 31%;
+        --radius: 0.75rem;
     }
 }
 
@@ -60,7 +60,7 @@ code, .font-mono {
         @apply bg-background text-foreground;
     }
     ::selection {
-        background: #2F5B41;
+        background: #1F3BB3;
         color: #ffffff;
     }
 }
@@ -68,7 +68,7 @@ code, .font-mono {
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: #C9CFC7; border-radius: 8px; }
-::-webkit-scrollbar-thumb:hover { background: #2F5B41; }
+::-webkit-scrollbar-thumb:hover { background: #1F3BB3; }
 
 /* Leaflet: look morbido coerente col tema */
 .leaflet-container {
@@ -78,15 +78,15 @@ code, .font-mono {
 }
 .leaflet-tooltip {
     border-radius: 10px;
-    border: 1px solid #DDE2DC;
+    border: 1px solid #DDE2EC;
     background: #ffffff;
-    color: #1A1D1A;
+    color: #1F2937;
     font-weight: 600;
     padding: 6px 12px;
 }
 .leaflet-popup-content-wrapper {
     border-radius: 14px;
-    border: 1px solid #DDE2DC;
+    border: 1px solid #DDE2EC;
 }
 .leaflet-bar a {
     border-radius: 8px !important;

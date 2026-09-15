@@ -10,7 +10,7 @@ const isImg = (u) => /\.(jpg|jpeg|png|webp|gif)$/i.test(u || "");
 
 const Box = ({ title, children, testId }) => (
   <div className="border border-slate-100 bg-white rounded-2xl overflow-hidden" data-testid={testId}>
-    <div className="px-5 py-2.5 border-b border-slate-100 text-xs font-bold uppercase tracking-widest bg-[#FAFAF8]">{title}</div>
+    <div className="px-5 py-2.5 border-b border-slate-100 text-xs font-bold uppercase tracking-widest bg-[#F8F9FD]">{title}</div>
     {children}
   </div>
 );
@@ -72,7 +72,7 @@ export const SezioneImpiantiCreativita = ({ pratica }) => {
               <img src={i.foto_url.startsWith("/") ? `${BK}${i.foto_url}` : i.foto_url} alt={i.codice}
                 className="w-16 h-16 object-cover rounded-xl border border-slate-100 shrink-0" />
             ) : (
-              <div className="w-16 h-16 rounded-xl bg-[#F1F5F0] flex items-center justify-center shrink-0"><FileImage size={20} className="text-slate-400" /></div>
+              <div className="w-16 h-16 rounded-xl bg-[#F0F4FF] flex items-center justify-center shrink-0"><FileImage size={20} className="text-slate-400" /></div>
             )}
             <div className="flex-1 min-w-0">
               <div className="font-bold text-sm">{i.codice} {i.via && <span className="font-normal text-slate-500">· {i.via}</span>}</div>
@@ -80,7 +80,7 @@ export const SezioneImpiantiCreativita = ({ pratica }) => {
               <div className="mt-2 text-xs">
                 {sog ? (
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="inline-flex items-center gap-1 bg-[#D8EADB] text-[#1F5B33] font-bold rounded-full px-2.5 py-1">Creatività: {sog.nome}</span>
+                    <span className="inline-flex items-center gap-1 bg-[#E8EFFF] text-[#1F3BB3] font-bold rounded-full px-2.5 py-1">Creatività: {sog.nome}</span>
                     <a href={`${BK}${sog.file_url}`} target="_blank" rel="noreferrer"
                       className="font-semibold underline text-slate-600 hover:text-slate-900" data-testid={`creativita-file-${i.codice}`}>
                       {sog.file_nome || "Apri file"}
@@ -125,7 +125,7 @@ export const SezioneDocumenti = ({ documenti }) => (
     {(documenti || []).length === 0 && <div className="p-5 text-sm text-slate-500">Nessun documento caricato.</div>}
     {(documenti || []).map((d) => (
       <a key={d.id} href={`${BK}${d.url}`} target="_blank" rel="noreferrer"
-        className="flex justify-between px-5 py-3 border-b border-slate-100 last:border-b-0 text-sm hover:bg-[#F1F5F0] transition-colors">
+        className="flex justify-between px-5 py-3 border-b border-slate-100 last:border-b-0 text-sm hover:bg-[#F0F4FF] transition-colors">
         <span className="font-semibold">{d.nome}</span>
         <span className="text-xs text-slate-500 uppercase">{d.tipo}</span>
       </a>

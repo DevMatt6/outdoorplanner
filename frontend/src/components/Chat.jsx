@@ -34,7 +34,7 @@ export const Chat = ({ praticaId }) => {
 
   return (
     <div className="border border-slate-100 bg-white rounded-2xl flex flex-col" data-testid="chat-box">
-      <div className="px-4 py-2 border-b border-slate-100 text-xs font-bold uppercase tracking-widest bg-[#FAFAF8]">
+      <div className="px-4 py-2 border-b border-slate-100 text-xs font-bold uppercase tracking-widest bg-[#F8F9FD]">
         Chat pratica
       </div>
       <div className="p-4 space-y-3 max-h-80 overflow-y-auto">
@@ -43,7 +43,7 @@ export const Chat = ({ praticaId }) => {
           const mine = m.autore_id === user?.id;
           return (
             <div key={m.id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
-              <div className={`max-w-[80%] px-3 py-2 border ${mine ? "bg-[#1F3D2B] text-white border-[#1F3D2B]" : "bg-slate-50 border-slate-300"}`}>
+              <div className={`max-w-[80%] px-3 py-2 border ${mine ? "bg-[#2B4BDB] text-white border-[#2B4BDB]" : "bg-slate-50 border-slate-300"}`}>
                 <div className={`text-[10px] font-bold uppercase tracking-wider ${mine ? "text-emerald-100" : "text-slate-500"}`}>
                   {m.autore_nome} · {m.autore_ruolo === "comune" ? "Comune" : "Richiedente"}
                 </div>
@@ -57,9 +57,9 @@ export const Chat = ({ praticaId }) => {
       <form onSubmit={send} className="flex border-t border-slate-100">
         <input data-testid="chat-input" value={text} onChange={(e) => setText(e.target.value)}
           placeholder="Scrivi un messaggio..."
-          className="flex-1 px-4 py-3 text-sm outline-none focus:bg-[#F5F6F3] transition-colors" />
+          className="flex-1 px-4 py-3 text-sm outline-none focus:bg-[#F8F9FD] transition-colors" />
         <button data-testid="chat-send-button" type="submit"
-          className="px-5 bg-[#2F5B41] text-white hover:bg-[#26492F] transition-colors">
+          className="px-5 bg-[#1F3BB3] text-white hover:bg-[#172E93] transition-colors">
           <Send size={16} />
         </button>
       </form>

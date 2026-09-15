@@ -51,14 +51,14 @@ export default function ComuneImpianti() {
     (!filtri.zona || i.zona_id === filtri.zona) &&
     (!filtri.tipologia || i.tipologia === filtri.tipologia) &&
     (!filtri.formato || i.formato === filtri.formato));
-  const input = "border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#2F5B41] bg-white w-full";
+  const input = "border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#1F3BB3] bg-white w-full";
 
   return (
     <BackofficeLayout title="Backoffice Comune" links={COMUNE_LINKS}>
       <div className="flex flex-wrap items-center justify-between gap-4">
         <h1 className="text-2xl sm:text-3xl font-heading font-extrabold tracking-tight">Impianti OOH</h1>
         <button data-testid="nuovo-impianto-button" onClick={() => setForm({ ...EMPTY })}
-          className="inline-flex items-center gap-2 bg-[#2F5B41] text-white rounded-full px-5 py-2.5 font-bold hover:bg-[#26492F] transition-colors">
+          className="inline-flex items-center gap-2 bg-[#1F3BB3] text-white rounded-full px-5 py-2.5 font-bold hover:bg-[#172E93] transition-colors">
           <Plus size={17} /> Nuovo impianto
         </button>
       </div>
@@ -88,8 +88,8 @@ export default function ComuneImpianti() {
           </div>
           {form.tipologia && <div className="mt-3 text-xs text-slate-500">Formato derivato dalla tipologia: <strong>{FORMATO_HINT[form.tipologia] || "—"}</strong></div>}
           <div className="mt-4 flex gap-3">
-            <button data-testid="impianto-submit" className="px-6 py-2.5 font-bold rounded-full bg-[#2F5B41] text-white hover:bg-[#26492F] transition-colors">Salva impianto</button>
-            <button type="button" onClick={() => setForm(null)} className="px-6 py-2.5 font-bold border border-slate-200 rounded-full hover:border-[#2F5B41] transition-colors">Annulla</button>
+            <button data-testid="impianto-submit" className="px-6 py-2.5 font-bold rounded-full bg-[#1F3BB3] text-white hover:bg-[#172E93] transition-colors">Salva impianto</button>
+            <button type="button" onClick={() => setForm(null)} className="px-6 py-2.5 font-bold border border-slate-200 rounded-full hover:border-[#1F3BB3] transition-colors">Annulla</button>
           </div>
         </form>
       )}
@@ -117,7 +117,7 @@ export default function ComuneImpianti() {
       <div className="mt-4 border border-slate-100 bg-white rounded-2xl overflow-hidden overflow-x-auto">
         <table className="w-full text-sm border-collapse">
           <thead>
-            <tr className="bg-[#FAFAF8] border-b border-slate-100 text-left">
+            <tr className="bg-[#F8F9FD] border-b border-slate-100 text-left">
               {["Impianto", "Zona", "Via", "Tipologia", "Formato", "Prezzo", "Azioni"].map((h) => (
                 <th key={h} className="px-4 py-3 text-[11px] font-bold uppercase tracking-widest text-slate-500">{h}</th>
               ))}
@@ -125,7 +125,7 @@ export default function ComuneImpianti() {
           </thead>
           <tbody>
             {visibili.map((i) => (
-              <tr key={i.id} className="border-b border-slate-100 hover:bg-[#F1F5F0] transition-colors" data-testid={`impianto-row-${i.id}`}>
+              <tr key={i.id} className="border-b border-slate-100 hover:bg-[#F0F4FF] transition-colors" data-testid={`impianto-row-${i.id}`}>
                 <td className="px-4 py-2.5">
                   <div className="flex items-center gap-3">
                     <img src={imgSrc(i.foto_url)} alt="" className="w-12 h-9 object-cover rounded-lg" />
@@ -140,7 +140,7 @@ export default function ComuneImpianti() {
                 <td className="px-4 py-2.5">
                   <div className="flex gap-2">
                     <button data-testid={`edit-impianto-${i.id}`} onClick={() => setForm({ ...EMPTY, ...i })}
-                      className="border border-slate-200 rounded-lg p-1.5 hover:border-[#2F5B41] transition-colors"><Pencil size={13} /></button>
+                      className="border border-slate-200 rounded-lg p-1.5 hover:border-[#1F3BB3] transition-colors"><Pencil size={13} /></button>
                     <button data-testid={`delete-impianto-${i.id}`} onClick={() => remove(i)}
                       className="border border-slate-200 rounded-lg p-1.5 hover:border-[#EF4444] hover:text-[#EF4444] transition-colors"><Trash2 size={13} /></button>
                   </div>
