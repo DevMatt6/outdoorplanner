@@ -22,6 +22,13 @@ TIPOLOGIE_OOH = [
 ]
 TIPO_TO_CATEGORIA = {t: c["id"] for c in TIPOLOGIE_OOH for t in c["tipi"]}
 
+FORMATO_PER_TIPO = {
+    "Manifesto 200x140": "200x140 cm", "Manifesto 100x140": "100x140 cm", "Manifesto 70x100": "70x100 cm",
+    "Maxi Ledwall Stradale": "Ledwall 6x3 m", "Mupi Digitale / Totem Smart": "Mupi 120x180 cm",
+    "Schermo su Edicola/Chiosco": 'Schermo 55"', "Impianto Digitale Temporaneo – SCIA": "Ledwall 4x3 m",
+    "Poster Maxi 6x3": "6x3 m", "Mega Poster Stradale >18mq": "12x6 m",
+}
+
 STATI_OOH_ATTIVI = ["INVIATA", "IN_VERIFICA", "INTEGRAZIONE_RICHIESTA", "APPROVATA"]
 
 
@@ -29,7 +36,6 @@ class ZonaIn(BaseModel):
     nome: str
     descrizione: str = ""
     quartiere: str = ""
-    vie: List[str] = []
     polygon: List[List[float]] = []
 
 
@@ -37,12 +43,10 @@ class ImpiantoIn(BaseModel):
     codice: str
     zona_id: str
     via: str = ""
-    indirizzo: str = ""
     lat: float
     lng: float
     tipologia: str
-    formato: str = ""
-    dimensioni: str = ""
+    prezzo: float
     foto_url: str = ""
     note: str = ""
     attivo: bool = True
@@ -53,7 +57,6 @@ class PacchettoIn(BaseModel):
     nome: str
     descrizione: str = ""
     impianti_ids: List[str] = []
-    prezzo_giornaliero: float
     form_template_id: Optional[str] = None
     attivo: bool = True
 
@@ -71,7 +74,7 @@ class DatiFormIn(BaseModel):
 
 class CreativitaAssegnaIn(BaseModel):
     impianto_id: str
-    creativita_id: str
+    soggetto_id: str
 
 
 def _giorni(inizio: str, fine: str) -> int:
@@ -103,6 +106,19 @@ def build(db, get_current_user, require_role, require_comune_l3, notifica, log_s
 
     # ---------- disponibilità ----------
 
+    def _derive_impianto(data: ImpiantoIn) -> dict:
+        formato = FORMATO_PER_TIPO.get(data.tipologia, "")
+        return {**data.model_dump(), "formato": formato, "dimensioni": formato,
+                "indirizzo": data.via, "categoria": TIPO_TO_CATEGORIA.get(data.tipologia, "cartacee")}
+
+    async def _vie_zona(zona_id: str) -> List[str]:
+        vie = await db.impianti.distinct("via", {"zona_id": zona_id, "via": {"$nin": ["", None]}})
+        return sorted(vie)
+
+    async def _prezzo_pacchetto(p: dict) -> float:
+        impianti = await db.impianti.find({"id": {"$in": p.get("impianti_ids", [])}}, {"_id": 0, "prezzo": 1}).to_list(200)
+        return round(sum(i.get("prezzo", 0) for i in impianti), 2)
+
     async def _impianti_bloccati(impianti_ids: List[str], inizio: str, fine: str) -> set:
         now = now_iso()
         rows = await db.prenotazioni.find(
@@ -126,6 +142,7 @@ def build(db, get_current_user, require_role, require_comune_l3, notifica, log_s
         for z in zone:
             z["impianti_count"] = await db.impianti.count_documents({"zona_id": z["id"], "attivo": True})
             z["pacchetti_count"] = await db.pacchetti.count_documents({"zona_id": z["id"], "attivo": True})
+            z["vie"] = await _vie_zona(z["id"])
         return zone
 
     @router.get("/ooh/pacchetti")
@@ -146,7 +163,8 @@ def build(db, get_current_user, require_role, require_comune_l3, notifica, log_s
                 busy = await _impianti_bloccati(p["impianti_ids"], data_inizio, data_fine)
                 disponibile = len(busy) == 0
             zona = await db.zone.find_one({"id": p["zona_id"]}, {"_id": 0, "nome": 1, "quartiere": 1})
-            result.append({**p, "impianti": impianti, "disponibile": disponibile,
+            prezzo = round(sum(i.get("prezzo", 0) for i in impianti), 2)
+            result.append({**p, "impianti": impianti, "disponibile": disponibile, "prezzo_giornaliero": prezzo,
                            "zona_nome": zona["nome"] if zona else "", "n_impianti": len(impianti)})
         return result
 
@@ -192,6 +210,7 @@ def build(db, get_current_user, require_role, require_comune_l3, notifica, log_s
         for p, pren in zip(pacchetti, prenotazioni):
             zona = await db.zone.find_one({"id": p["zona_id"]}, {"_id": 0})
             impianti = await db.impianti.find({"id": {"$in": p["impianti_ids"]}}, {"_id": 0}).to_list(100)
+            prezzo_g = round(sum(i.get("prezzo", 0) for i in impianti), 2)
             pratica = {"id": str(uuid.uuid4()), "tipo": "OOH", "user_id": user["id"], "user_nome": user["nome"],
                        "comune_id": p["comune_id"], "campagna_id": campagna_id, "campagna_nome": data.nome,
                        "zona_id": p["zona_id"], "zona_nome": zona["nome"] if zona else "",
@@ -202,7 +221,7 @@ def build(db, get_current_user, require_role, require_comune_l3, notifica, log_s
                                      "foto_url": i.get("foto_url", ""), "lat": i["lat"], "lng": i["lng"]} for i in impianti],
                        "stato": "DA_COMPLETARE", "dati_form": {}, "documenti": [], "creativita": [],
                        "data_inizio": data.data_inizio, "data_fine": data.data_fine,
-                       "importo": round(giorni * p["prezzo_giornaliero"], 2), "pagata": False,
+                       "importo": round(giorni * prezzo_g, 2), "pagata": False,
                        "prenotazione_id": pren["id"], "created_at": now_iso(), "updated_at": now_iso()}
             await db.pratiche.insert_one({**pratica})
             await db.prenotazioni.update_one({"id": pren["id"]}, {"$set": {"pratica_id": pratica["id"]}})
@@ -333,48 +352,81 @@ def build(db, get_current_user, require_role, require_comune_l3, notifica, log_s
         await notifica(user["id"], "Campagna annullata", f"La campagna '{c['nome']}' è stata annullata: gli impianti sono stati liberati.")
         return {"ok": True}
 
-    # ---------- creatività ----------
+    # ---------- soggetti creativi ----------
 
-    @router.post("/creativita")
-    async def upload_creativita(nome: str = "", formato: str = "", digitale: bool = False,
-                                file: UploadFile = File(...), user: dict = Depends(require_role("user"))):
+    @router.get("/ooh/campagne/{campagna_id}/formati")
+    async def formati_campagna(campagna_id: str, user: dict = Depends(require_role("user"))):
+        c = await db.campagne.find_one({"id": campagna_id, "user_id": user["id"]}, {"_id": 0})
+        if not c:
+            raise HTTPException(status_code=404, detail="Campagna non trovata")
+        pratiche = await db.pratiche.find({"campagna_id": campagna_id}, {"_id": 0, "impianti": 1}).to_list(50)
+        formati = {}
+        for p in pratiche:
+            for i in p.get("impianti", []):
+                f = i.get("formato", "")
+                if not f:
+                    continue
+                formati.setdefault(f, {"formato": f, "n_impianti": 0, "tipologie": set()})
+                formati[f]["n_impianti"] += 1
+                formati[f]["tipologie"].add(i["tipologia"])
+        return [{**v, "tipologie": sorted(v["tipologie"])} for v in formati.values()]
+
+    @router.post("/ooh/campagne/{campagna_id}/soggetti")
+    async def crea_soggetto(campagna_id: str, formato: str, ordine: int = 1, nome: str = "",
+                            file: UploadFile = File(...), user: dict = Depends(require_role("user"))):
+        c = await db.campagne.find_one({"id": campagna_id, "user_id": user["id"]}, {"_id": 0})
+        if not c:
+            raise HTTPException(status_code=404, detail="Campagna non trovata")
+        pratiche = await db.pratiche.find({"campagna_id": campagna_id}, {"_id": 0, "impianti": 1}).to_list(50)
+        formati_validi = {i.get("formato") for p in pratiche for i in p.get("impianti", [])}
+        if formato not in formati_validi:
+            raise HTTPException(status_code=400, detail=f"Formato '{formato}' non presente tra gli impianti della campagna")
         ext = (file.filename or "img").rsplit(".", 1)[-1].lower()
         if ext not in ("jpg", "jpeg", "png", "webp", "pdf", "mp4", "gif"):
-            raise HTTPException(status_code=400, detail="Formato non supportato (JPG, PNG, PDF, MP4, GIF)")
+            raise HTTPException(status_code=400, detail="Formato file non supportato (JPG, PNG, PDF, MP4, GIF)")
         folder = upload_dir / "creativita"
         folder.mkdir(exist_ok=True)
         name = f"{uuid.uuid4().hex[:10]}.{ext}"
         (folder / name).write_bytes(await file.read())
-        cr = {"id": str(uuid.uuid4()), "user_id": user["id"], "nome": nome or file.filename,
-              "file_url": f"/api/uploads/creativita/{name}", "formato": formato,
-              "digitale": digitale or ext in ("mp4", "gif"), "created_at": now_iso()}
-        await db.creativita.insert_one({**cr})
-        return cr
+        sog = {"id": str(uuid.uuid4()), "campagna_id": campagna_id, "user_id": user["id"],
+               "formato": formato, "ordine": ordine, "nome": nome or f"Soggetto {ordine} — {formato}",
+               "file_nome": file.filename, "file_url": f"/api/uploads/creativita/{name}",
+               "digitale": ext in ("mp4", "gif"), "created_at": now_iso()}
+        await db.soggetti.insert_one({**sog})
+        return sog
 
-    @router.get("/creativita")
-    async def mie_creativita(user: dict = Depends(require_role("user"))):
-        return await db.creativita.find({"user_id": user["id"]}, {"_id": 0}).sort("created_at", -1).to_list(100)
+    @router.get("/ooh/campagne/{campagna_id}/soggetti")
+    async def lista_soggetti(campagna_id: str, user: dict = Depends(require_role("user"))):
+        return await db.soggetti.find({"campagna_id": campagna_id, "user_id": user["id"]}, {"_id": 0}).sort("ordine", 1).to_list(200)
+
+    @router.delete("/ooh/soggetti/{soggetto_id}")
+    async def elimina_soggetto(soggetto_id: str, user: dict = Depends(require_role("user"))):
+        sog = await db.soggetti.find_one({"id": soggetto_id, "user_id": user["id"]}, {"_id": 0})
+        if not sog:
+            raise HTTPException(status_code=404, detail="Soggetto non trovato")
+        await db.soggetti.delete_one({"id": soggetto_id})
+        pratiche = await db.pratiche.find({"campagna_id": sog["campagna_id"]}, {"_id": 0, "id": 1, "creativita": 1}).to_list(50)
+        for p in pratiche:
+            nuove = [a for a in p.get("creativita", []) if a.get("soggetto_id") != soggetto_id]
+            if len(nuove) != len(p.get("creativita", [])):
+                await db.pratiche.update_one({"id": p["id"]}, {"$set": {"creativita": nuove, "updated_at": now_iso()}})
+        return {"ok": True}
 
     @router.post("/ooh/pratiche/{pratica_id}/creativita")
     async def assegna_creativita(pratica_id: str, data: CreativitaAssegnaIn, user: dict = Depends(require_role("user"))):
         pratica = await db.pratiche.find_one({"id": pratica_id, "user_id": user["id"], "tipo": "OOH"}, {"_id": 0})
         if not pratica:
             raise HTTPException(status_code=404, detail="Pratica non trovata")
-        cr = await db.creativita.find_one({"id": data.creativita_id, "user_id": user["id"]}, {"_id": 0})
-        if not cr:
-            raise HTTPException(status_code=404, detail="Creatività non trovata")
+        sog = await db.soggetti.find_one({"id": data.soggetto_id, "user_id": user["id"]}, {"_id": 0})
+        if not sog:
+            raise HTTPException(status_code=404, detail="Soggetto creativo non trovato")
         impianto = next((i for i in pratica.get("impianti", []) if i["id"] == data.impianto_id), None)
         if not impianto:
             raise HTTPException(status_code=404, detail="Impianto non presente nella pratica")
-        is_dooh = TIPO_TO_CATEGORIA.get(impianto["tipologia"]) == "dooh"
-        if is_dooh and not cr.get("digitale"):
-            raise HTTPException(status_code=400, detail=f"L'impianto '{impianto['codice']}' è digitale (DOOH): serve una creatività digitale")
-        if not is_dooh and cr.get("digitale"):
-            raise HTTPException(status_code=400, detail=f"L'impianto '{impianto['codice']}' è cartaceo: la creatività digitale non è compatibile")
-        if cr.get("formato") and impianto.get("formato") and cr["formato"] != impianto["formato"]:
-            raise HTTPException(status_code=400, detail=f"Formato creatività '{cr['formato']}' non compatibile con impianto '{impianto['formato']}'")
+        if sog["formato"] != impianto.get("formato"):
+            raise HTTPException(status_code=400, detail=f"Il soggetto è per formato '{sog['formato']}': non compatibile con l'impianto '{impianto['codice']}' ({impianto.get('formato')})")
         assoc = [a for a in pratica.get("creativita", []) if a["impianto_id"] != data.impianto_id]
-        assoc.append({"impianto_id": data.impianto_id, "creativita_id": data.creativita_id, "creativita_nome": cr["nome"]})
+        assoc.append({"impianto_id": data.impianto_id, "soggetto_id": sog["id"], "creativita_nome": sog["nome"]})
         await db.pratiche.update_one({"id": pratica_id}, {"$set": {"creativita": assoc, "updated_at": now_iso()}})
         return {"ok": True, "creativita": assoc}
 
@@ -389,19 +441,20 @@ def build(db, get_current_user, require_role, require_comune_l3, notifica, log_s
 
     # ---------- backoffice comune: zone, impianti, pacchetti ----------
 
+    @router.post("/comune/zone")
+    async def crea_zona(data: ZonaIn, user: dict = Depends(require_comune_l3)):
+        zona = {"id": str(uuid.uuid4()), "comune_id": user["comune_id"], **data.model_dump(), "created_at": now_iso()}
+        await db.zone.insert_one({**zona})
+        return zona
+
     @router.get("/comune/zone")
     async def comune_zone(user: dict = Depends(require_role("comune"))):
         zone = await db.zone.find({"comune_id": user["comune_id"]}, {"_id": 0}).to_list(100)
         for z in zone:
             z["impianti_count"] = await db.impianti.count_documents({"zona_id": z["id"]})
             z["pacchetti_count"] = await db.pacchetti.count_documents({"zona_id": z["id"]})
+            z["vie"] = await _vie_zona(z["id"])
         return zone
-
-    @router.post("/comune/zone")
-    async def crea_zona(data: ZonaIn, user: dict = Depends(require_comune_l3)):
-        zona = {"id": str(uuid.uuid4()), "comune_id": user["comune_id"], **data.model_dump(), "created_at": now_iso()}
-        await db.zone.insert_one({**zona})
-        return zona
 
     @router.put("/comune/zone/{zona_id}")
     async def aggiorna_zona(zona_id: str, data: ZonaIn, user: dict = Depends(require_comune_l3)):
@@ -426,15 +479,13 @@ def build(db, get_current_user, require_role, require_comune_l3, notifica, log_s
 
     @router.post("/comune/impianti")
     async def crea_impianto(data: ImpiantoIn, user: dict = Depends(require_comune_l3)):
-        imp = {"id": str(uuid.uuid4()), "comune_id": user["comune_id"], **data.model_dump(),
-               "categoria": TIPO_TO_CATEGORIA.get(data.tipologia, "cartacee"), "created_at": now_iso()}
+        imp = {"id": str(uuid.uuid4()), "comune_id": user["comune_id"], **_derive_impianto(data), "created_at": now_iso()}
         await db.impianti.insert_one({**imp})
         return imp
 
     @router.put("/comune/impianti/{impianto_id}")
     async def aggiorna_impianto(impianto_id: str, data: ImpiantoIn, user: dict = Depends(require_comune_l3)):
-        updates = {**data.model_dump(), "categoria": TIPO_TO_CATEGORIA.get(data.tipologia, "cartacee")}
-        res = await db.impianti.update_one({"id": impianto_id, "comune_id": user["comune_id"]}, {"$set": updates})
+        res = await db.impianti.update_one({"id": impianto_id, "comune_id": user["comune_id"]}, {"$set": _derive_impianto(data)})
         if res.matched_count == 0:
             raise HTTPException(status_code=404, detail="Impianto non trovato")
         return await db.impianti.find_one({"id": impianto_id}, {"_id": 0})
@@ -451,7 +502,12 @@ def build(db, get_current_user, require_role, require_comune_l3, notifica, log_s
     async def comune_pacchetti(user: dict = Depends(require_role("comune"))):
         pacchetti = await db.pacchetti.find({"comune_id": user["comune_id"]}, {"_id": 0}).to_list(200)
         zone = {z["id"]: z["nome"] for z in await db.zone.find({"comune_id": user["comune_id"]}, {"_id": 0}).to_list(100)}
-        return [{**p, "zona_nome": zone.get(p["zona_id"], ""), "n_impianti": len(p["impianti_ids"])} for p in pacchetti]
+        out = []
+        for p in pacchetti:
+            prezzo = await _prezzo_pacchetto(p)
+            out.append({**p, "zona_nome": zone.get(p["zona_id"], ""), "n_impianti": len(p["impianti_ids"]),
+                        "prezzo_giornaliero": prezzo})
+        return out
 
     @router.post("/comune/pacchetti")
     async def crea_pacchetto(data: PacchettoIn, user: dict = Depends(require_comune_l3)):
@@ -487,7 +543,7 @@ def build(db, get_current_user, require_role, require_comune_l3, notifica, log_s
             mie = [x for x in pratiche if x.get("pacchetto_id") == p["id"]]
             pagate = [x for x in mie if x.get("pagata") and x["stato"] not in ("ANNULLATA", "PRENOTAZIONE_SCADUTA")]
             rows.append({"pacchetto_id": p["id"], "nome": p["nome"], "zona": zone.get(p["zona_id"], ""),
-                         "n_impianti": len(p["impianti_ids"]), "prezzo_giornaliero": p["prezzo_giornaliero"],
+                         "n_impianti": len(p["impianti_ids"]), "prezzo_giornaliero": await _prezzo_pacchetto(p),
                          "pratiche": len(mie), "incassato": round(sum(x["importo"] for x in pagate), 2)})
         return {"pacchetti": sorted(rows, key=lambda r: -r["incassato"]),
                 "prenotazioni": {"HELD": held, "CONFIRMED": confirmed, "EXPIRED": expired},

@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { Plus, Trash2, Pencil, Eraser } from "lucide-react";
 
 const FLAT_TILES = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
-const EMPTY = { nome: "", descrizione: "", quartiere: "", vie: "", polygon: [] };
+const EMPTY = { nome: "", descrizione: "", quartiere: "", polygon: [] };
 
 const ClickCapture = ({ onPoint }) => {
   useMapEvents({ click: (e) => onPoint([e.latlng.lat, e.latlng.lng]) });
@@ -25,7 +25,7 @@ export default function ComuneZone() {
   const submit = async (e) => {
     e.preventDefault();
     if ((form.polygon || []).length < 3) return toast.error("Disegna il confine: servono almeno 3 punti (clicca sulla mappa)");
-    const payload = { ...form, vie: form.vie.split(",").map((v) => v.trim()).filter(Boolean) };
+    const payload = { nome: form.nome, descrizione: form.descrizione, quartiere: form.quartiere, polygon: form.polygon };
     try {
       if (form.id) await api.put(`/comune/zone/${form.id}`, payload);
       else await api.post("/comune/zone", payload);
@@ -56,10 +56,9 @@ export default function ComuneZone() {
       {form && (
         <form onSubmit={submit} className="mt-6 border border-slate-100 bg-white rounded-2xl p-6" data-testid="zona-form">
           <h2 className="font-heading font-extrabold text-lg mb-4">{form.id ? `Modifica ${form.nome}` : "Nuova zona"}</h2>
-          <div className="grid md:grid-cols-3 gap-3">
+          <div className="grid md:grid-cols-2 gap-3">
             <input data-testid="zona-nome" className={input} placeholder="Nome zona (es. EUR)" required value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} />
             <input className={input} placeholder="Quartiere / Municipio" value={form.quartiere} onChange={(e) => setForm({ ...form, quartiere: e.target.value })} />
-            <input data-testid="zona-vie" className={input} placeholder="Vie (separate da virgola)" value={form.vie} onChange={(e) => setForm({ ...form, vie: e.target.value })} />
           </div>
           <textarea className={`${input} mt-3`} rows={2} placeholder="Descrizione" value={form.descrizione} onChange={(e) => setForm({ ...form, descrizione: e.target.value })} />
           <div className="mt-4 flex items-center justify-between flex-wrap gap-2">
@@ -97,13 +96,13 @@ export default function ComuneZone() {
                 <div className="text-xs text-slate-500">{z.quartiere} · {z.impianti_count} impianti · {z.pacchetti_count} circuiti</div>
               </div>
               <div className="flex gap-2">
-                <button data-testid={`edit-zona-${z.id}`} onClick={() => setForm({ ...z, vie: (z.vie || []).join(", ") })}
+                <button data-testid={`edit-zona-${z.id}`} onClick={() => setForm({ id: z.id, nome: z.nome, descrizione: z.descrizione || "", quartiere: z.quartiere || "", polygon: z.polygon || [] })}
                   className="border border-slate-200 rounded-lg p-1.5 hover:border-[#2F5B41] transition-colors"><Pencil size={14} /></button>
                 <button data-testid={`delete-zona-${z.id}`} onClick={() => remove(z)}
                   className="border border-slate-200 rounded-lg p-1.5 hover:border-[#EF4444] hover:text-[#EF4444] transition-colors"><Trash2 size={14} /></button>
               </div>
             </div>
-            <div className="text-xs text-slate-500 mt-2">Vie: {(z.vie || []).join(", ") || "—"}</div>
+            <div className="text-xs text-slate-500 mt-2">Vie (dagli impianti): {(z.vie || []).join(", ") || "—"}</div>
           </div>
         ))}
         {zone.length === 0 && <div className="col-span-full bg-white border border-slate-100 rounded-2xl p-8 text-center text-sm text-slate-500">Nessuna zona configurata.</div>}

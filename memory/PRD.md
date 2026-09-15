@@ -82,6 +82,14 @@ Su richiesta utente (screenshot stile "Donezo") il design è passato da flat bru
 - **SPID rimosso** completamente (endpoint + UI); **reset demo**: solo Roma/Milano/Napoli, 4 zone ciascuno, 12 impianti/zona, 3 circuiti/zona, moduli OOH+OSP, aree OSP (seed_demo.py ripetibile)
 - Tile mappa: OSM con filtro CSS flat (CartoDB richiedeva API key)
 
+## Implementato (Iterazione 11 — "Nuove modifiche piattaforma OOH e OSP", testato: 14/14 backend + frontend 100%)
+- Impianti: prezzo per singolo impianto; formato derivato automaticamente dalla tipologia (niente campo manuale né indirizzo); filtri zona/tipologia/formato nella pagina Impianti
+- Zone: vie derivate automaticamente dagli impianti della zona (campo manuale rimosso)
+- Circuiti: prezzo calcolato automaticamente come somma dei prezzi degli impianti; filtri tipologia/via nella selezione; riepilogo dinamico (n. impianti, formati, vie, totale)
+- Aree OSP: tipologia auto "Progetto Speciale", disponibilità solo a calendario (flag rimosso), zona scelta tra le zone condivise del comune
+- Pagina "Profilo & tariffe" rimossa (route, menu, PUT profilo e PATCH canone; GET profilo mantenuto per logo sidebar)
+- Nuovo flusso creatività a livello campagna: formati richiesti auto-rilevati → n. soggetti per formato → upload slot per slot → assegnazione soggetto→impianto con vincolo di formato (400 se non compatibile); eliminazione soggetto rimuove le assegnazioni; validazione formato anche in upload
+
 ## Backlog prioritizzato
 - P2: date picker anche per modifica pratiche in INTEGRAZIONE_RICHIESTA
 - P2: Stripe test mode reale al posto del mock; export report CSV/PDF

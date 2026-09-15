@@ -3,14 +3,13 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../store/auth";
 import { api, imgSrc } from "../lib/api";
 import { NotificationBell } from "./NotificationBell";
-import { LayoutGrid, Inbox, Map, FileSliders, ChartColumn, Settings, LogOut, Landmark, Radar } from "lucide-react";
+import { LayoutGrid, Inbox, Map, FileSliders, ChartColumn, LogOut, Landmark, Radar } from "lucide-react";
 
 const ICONS = {
   "link-scrivania": Inbox,
   "link-spazi": Map,
   "link-form": FileSliders,
   "link-report": ChartColumn,
-  "link-profilo": Settings,
   "link-kpi": LayoutGrid,
   "link-comuni": Landmark,
   "link-monitor": Radar,
@@ -90,7 +89,6 @@ export const COMUNE_LINKS = [
   ["/comune/form", "Modulo dinamico", "link-form", 3],
   ["/comune/report", "Report & incassi", "link-report"],
   ["/comune/monitor", "Monitor anomalie", "link-monitor", 3],
-  ["/comune/profilo", "Profilo & tariffe", "link-profilo", 3],
 ];
 
 export const ADMIN_LINKS = [

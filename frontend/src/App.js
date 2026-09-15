@@ -20,7 +20,6 @@ import PraticaIstruttoria from "./pages/comune/PraticaIstruttoria";
 import ComuneSpazi from "./pages/comune/ComuneSpazi";
 import FormBuilder from "./pages/comune/FormBuilder";
 import Report from "./pages/comune/Report";
-import ComuneProfilo from "./pages/comune/ComuneProfilo";
 import ComuneMonitor from "./pages/comune/ComuneMonitor";
 import ComuneZone from "./pages/comune/ComuneZone";
 import ComuneImpianti from "./pages/comune/ComuneImpianti";
@@ -64,7 +63,6 @@ function App() {
           <Route path="/comune/spazi" element={<Protected role="comune"><ComuneSpazi /></Protected>} />
           <Route path="/comune/form" element={<Protected role="comune"><FormBuilder /></Protected>} />
           <Route path="/comune/report" element={<Protected role="comune"><Report /></Protected>} />
-          <Route path="/comune/profilo" element={<Protected role="comune"><ComuneProfilo /></Protected>} />
           <Route path="/comune/monitor" element={<Protected role="comune"><ComuneMonitor /></Protected>} />
           <Route path="/comune/zone" element={<Protected role="comune"><ComuneZone /></Protected>} />
           <Route path="/comune/impianti" element={<Protected role="comune"><ComuneImpianti /></Protected>} />

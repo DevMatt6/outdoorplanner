@@ -29,6 +29,12 @@ FORMATO_PER_TIPO = {
     "Poster Maxi 6x3": "6x3 m", "Mega Poster Stradale >18mq": "12x6 m",
 }
 TIPI = list(IMG_PER_TIPO.keys())
+PREZZO_PER_TIPO = {
+    "Manifesto 200x140": 250, "Manifesto 100x140": 180, "Manifesto 70x100": 120,
+    "Maxi Ledwall Stradale": 600, "Mupi Digitale / Totem Smart": 320,
+    "Schermo su Edicola/Chiosco": 200, "Impianto Digitale Temporaneo – SCIA": 450,
+    "Poster Maxi 6x3": 400, "Mega Poster Stradale >18mq": 800,
+}
 
 now = lambda: datetime.now(timezone.utc).isoformat()
 
@@ -166,39 +172,43 @@ async def main():
             lat, lng = zdata["c"]
             zona = {"id": str(uuid.uuid4()), "comune_id": cid, "nome": znome,
                     "descrizione": f"Zona {znome} — {zdata['q']}", "quartiere": zdata["q"],
-                    "vie": zdata["vie"], "polygon": rect_polygon(lat, lng), "created_at": now()}
+                    "polygon": rect_polygon(lat, lng), "created_at": now()}
             await db.zone.insert_one(dict(zona))
+            if znome == "Centro":
+                data.setdefault("_zona_centro", zona["id"])
 
             impianti = []
             n_imp = 12
             for i in range(n_imp):
                 tipo = TIPI[i % len(TIPI)]
                 via = zdata["vie"][i % len(zdata["vie"])]
+                moltiplicatore = {"Roma": 1.0, "Milano": 1.2, "Napoli": 0.8}[nome]
                 imp = {"id": str(uuid.uuid4()), "comune_id": cid, "zona_id": zona["id"],
-                       "codice": f"{sigla}-{znome[:3].upper()}-{i+1:03d}", "via": via,
-                       "indirizzo": f"{via}, {random.randint(1, 120)}",
+                       "codice": f"{sigla}-{znome[:3].upper()}-{i+1:03d}", "via": via, "indirizzo": via,
                        "lat": lat + random.uniform(-0.006, 0.006), "lng": lng + random.uniform(-0.009, 0.009),
                        "tipologia": tipo, "categoria": "dooh" if "Led" in tipo or "Digital" in tipo or "Mupi" in tipo or "Schermo" in tipo else ("maxi" if "6x3" in tipo or "Mega" in tipo else "cartacee"),
                        "formato": FORMATO_PER_TIPO[tipo], "dimensioni": FORMATO_PER_TIPO[tipo],
+                       "prezzo": round(PREZZO_PER_TIPO[tipo] * moltiplicatore, 2),
                        "foto_url": IMG_PER_TIPO[tipo], "note": "", "attivo": True, "created_at": now()}
                 impianti.append(imp)
             await db.impianti.insert_many([dict(i) for i in impianti])
 
-            base_price = {"Roma": 60, "Milano": 70, "Napoli": 45}[nome]
-            for size, mult in [(5, 1.0), (8, 1.5), (12, 2.0)]:
+            for size in (5, 8, 12):
                 subset = [i["id"] for i in impianti[:size]]
                 await db.pacchetti.insert_one({
                     "id": str(uuid.uuid4()), "comune_id": cid, "zona_id": zona["id"],
                     "nome": f"Circuito {znome} {size}",
                     "descrizione": f"{size} impianti a formati misti nella zona {znome} di {nome}",
-                    "impianti_ids": subset, "prezzo_giornaliero": round(base_price * mult * size / 5, 2),
+                    "impianti_ids": subset,
                     "form_template_id": tpl_ooh["id"], "attivo": True, "created_at": now()})
-            print(f"{nome}/{znome}: {n_imp} impianti, 3 circuiti")
+            print(f"{nome}/{znome}: {n_imp} impianti (con prezzo), 3 circuiti (prezzo auto)")
 
         for (snome, slat, slng, sind, canone) in data["osp"]:
+            zona_centro = data.get("_zona_centro")
             await db.spazi.insert_one({
                 "id": str(uuid.uuid4()), "comune_id": cid, "citta": nome, "regione": comuni[nome]["regione"],
-                "nome": snome, "tipologia": "Area Eventi / OSP", "formato": "Area su misura", "zona": "",
+                "nome": snome, "tipologia": "Progetto Speciale", "formato": "Area su misura",
+                "zona": "Centro", "zona_id": zona_centro,
                 "indirizzo": sind, "lat": slat, "lng": slng, "canone_giornaliero": canone,
                 "dimensioni": "Area su misura", "descrizione": "Area comunale per eventi, occupazioni temporanee e progetti speciali.",
                 "disponibile": True, "foto_url": IMG_PIAZZA, "form_template_id": tpl_osp["id"], "created_at": now()})

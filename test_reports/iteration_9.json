@@ -1,0 +1,23 @@
+{
+  "summary": "Iter-9 validated the new spec (derived formato, computed pacchetto price, no vie/indirizzo/formato manual fields, Aree OSP Progetto Speciale + shared zone, /comune/profilo & PATCH canone removed, soggetti creativity flow at campaign level). Backend: 14/14 new tests PASS (/app/backend/tests/test_new_features.py). Frontend: comune UI (impianti/pacchetti/zone/spazi) matches spec (no removed inputs, filtri present, dynamic prezzo totale updates 0 -> 430 as impianti are checked), no link-profilo in sidebar, /comune/profilo route renders no page. User creatività flow: soggetti-panel with 5 formato blocks (Circuito EUR 5), file upload with NO prompt/confirm dialogs, filename+delete visible, per-impianto assegna select lists ONLY matching-formato soggetti, riepilogo 'X/Y impianti assegnati' updates correctly.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_new_features.py",
+    "/app/test_reports/pytest/new_features.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "BackofficeLayout.jsx still imports/maps `Settings` icon to key 'link-profilo' (line 13) even though the link is not in NAV array anymore — dead reference. Harmless but should be pruned.",
+    "test_ooh_flow.py (previous iteration file) still exercises the OLD /creativita library endpoint (removed) — running it now fails on TestOOHCompletion.test_full_flow. Suggest updating or gating that suite; the new test_new_features.py fully covers the new soggetti flow.",
+    "ooh.py `crea_soggetto` accepts arbitrary `formato` string but does not verify it belongs to the campagna's formati set — a malicious client could POST a formato that doesn't exist in this campaign; the mismatch check on assign still prevents damage, but adding a check `if formato not in {i['formato'] for pratica.impianti}` would fail-fast.",
+    "server.py SpazioIn still exposes `zona` (free-text) field alongside `zona_id`; the frontend uses `zona_id` only — the legacy `zona` string can now go stale. Consider deprecating."
+  ],
+  "updated_files": ["/app/backend/tests/test_new_features.py"],
+  "success_rate": {"backend": "100% (14/14 new features)", "frontend": "100% for spec areas tested (comune impianti/pacchetti/zone/spazi + user creativita UI)"},
+  "test_credentials": "user@demo.it, comune.l3@demo.it, comune@demo.it — all demo123. Used successfully.",
+  "seed_data_creation": "New tests create TEST_* impianti/pacchetti/spazi and campagne at 2028-05/2028-08 and one UI campaign at 2029-03 (all cleaned up via annulla/delete at end).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Run backend with: `cd /app/backend && REACT_APP_BACKEND_URL=<url> pytest tests/test_new_features.py -v -n 0`. New features covered: derived formato/prezzo/vie, spazio auto tipologia 'Progetto Speciale', PUT profilo & PATCH canone removed, old /creativita library removed, soggetti CRUD+assign+delete cascade. Frontend key testids: soggetti-panel, formato-blocco-{formato}, num-soggetti-{formato}, upload-soggetto-{formato}-{n}, elimina-soggetto-{sog_id}, riepilogo-formato-{formato}, ooh-assegna-{impianto_id}, filtro-imp-{zona|tipologia|formato}, filtro-circ-{tipologia|via}, pacchetto-riepilogo, pacchetto-totale-auto, spazio-zona-select. Login button has no type=submit — click via get_by_role('button', name='Accedi').last."
+}

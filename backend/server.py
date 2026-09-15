@@ -122,18 +122,15 @@ class LoginIn(BaseModel):
 
 class SpazioIn(BaseModel):
     nome: str
-    tipologia: str
-    formato: str = ""
     zona: str = ""
+    zona_id: Optional[str] = None
     form_template_id: Optional[str] = None
     opzioni: dict = {}
     indirizzo: str
     lat: float
     lng: float
     canone_giornaliero: float
-    dimensioni: str = ""
     descrizione: str = ""
-    disponibile: bool = True
     foto_url: str = ""
 
 class CampoTemplate(BaseModel):
@@ -614,13 +611,6 @@ async def leggi_notifiche(user: dict = Depends(get_current_user)):
 async def comune_profilo(user: dict = Depends(require_role("comune"))):
     return await db.comuni.find_one({"id": user["comune_id"]}, {"_id": 0})
 
-@api_router.put("/comune/profilo")
-async def aggiorna_profilo(data: ComuneProfiloIn, user: dict = Depends(require_comune_l3)):
-    updates = {k: v for k, v in data.model_dump().items() if v is not None}
-    if updates:
-        await db.comuni.update_one({"id": user["comune_id"]}, {"$set": updates})
-    return await db.comuni.find_one({"id": user["comune_id"]}, {"_id": 0})
-
 @api_router.get("/comune/spazi")
 async def comune_spazi(user: dict = Depends(require_role("comune"))):
     return await db.spazi.find({"comune_id": user["comune_id"]}, {"_id": 0}).to_list(200)
@@ -629,14 +619,18 @@ async def comune_spazi(user: dict = Depends(require_role("comune"))):
 async def crea_spazio(data: SpazioIn, user: dict = Depends(require_comune_l3)):
     comune = await db.comuni.find_one({"id": user["comune_id"]}, {"_id": 0})
     spazio = {"id": str(uuid.uuid4()), "comune_id": comune["id"], "citta": comune["nome"],
-              "regione": comune["regione"], **data.model_dump(), "dimensioni": data.formato,
+              "regione": comune["regione"], **data.model_dump(),
+              "tipologia": "Progetto Speciale", "formato": "Area su misura",
+              "dimensioni": "Area su misura", "disponibile": True,
               "created_at": now_iso()}
     await db.spazi.insert_one({**spazio})
     return spazio
 
 @api_router.put("/comune/spazi/{spazio_id}")
 async def aggiorna_spazio(spazio_id: str, data: SpazioIn, user: dict = Depends(require_comune_l3)):
-    res = await db.spazi.update_one({"id": spazio_id, "comune_id": user["comune_id"]}, {"$set": data.model_dump()})
+    res = await db.spazi.update_one({"id": spazio_id, "comune_id": user["comune_id"]},
+                                    {"$set": {**data.model_dump(), "tipologia": "Progetto Speciale",
+                                              "formato": "Area su misura", "dimensioni": "Area su misura"}})
     if res.matched_count == 0:
         raise HTTPException(status_code=404, detail="Spazio non trovato")
     return await db.spazi.find_one({"id": spazio_id}, {"_id": 0})
@@ -694,17 +688,6 @@ async def upload_foto_spazio(file: UploadFile = File(...), user: dict = Depends(
     name = f"{uuid.uuid4().hex[:10]}.{ext}"
     (folder / name).write_bytes(await file.read())
     return {"url": f"/api/uploads/spazi/{name}"}
-
-@api_router.patch("/comune/spazi/{spazio_id}/canone")
-async def patch_canone(spazio_id: str, body: dict, user: dict = Depends(require_comune_l3)):
-    canone = float(body.get("canone_giornaliero", 0))
-    if canone <= 0:
-        raise HTTPException(status_code=400, detail="Canone non valido")
-    res = await db.spazi.update_one({"id": spazio_id, "comune_id": user["comune_id"]},
-                                    {"$set": {"canone_giornaliero": canone}})
-    if res.matched_count == 0:
-        raise HTTPException(status_code=404, detail="Spazio non trovato")
-    return {"ok": True}
 
 @api_router.get("/comune/report/spazi")
 async def report_per_spazio(user: dict = Depends(require_role("comune"))):

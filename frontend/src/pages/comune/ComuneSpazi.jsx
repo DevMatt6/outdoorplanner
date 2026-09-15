@@ -3,11 +3,10 @@ import { MapContainer, TileLayer, CircleMarker, useMapEvents } from "react-leafl
 import "leaflet/dist/leaflet.css";
 import { BackofficeLayout, COMUNE_LINKS } from "../../components/BackofficeLayout";
 import { api, apiError, BACKEND_URL } from "../../lib/api";
-import { TIPOLOGIE, OPZIONI_TIPOLOGIA } from "../../lib/catalogo";
 import { toast } from "sonner";
 import { Plus, Pencil, Trash2, Upload } from "lucide-react";
 
-const EMPTY = { nome: "", tipologia: "Poster Standard", formato: "6x3", zona: "", form_template_id: "", opzioni: { formato: "6x3" }, indirizzo: "", lat: null, lng: null, canone_giornaliero: 50, descrizione: "", disponibile: true, foto_url: "https://images.unsplash.com/photo-1699480114704-ac153307d2a0?crop=entropy&cs=srgb&fm=jpg&q=85" };
+const EMPTY = { nome: "", zona: "", zona_id: "", form_template_id: "", opzioni: {}, indirizzo: "", lat: null, lng: null, canone_giornaliero: 300, descrizione: "", foto_url: "https://images.unsplash.com/photo-1777403705903-9704d002ca8a?crop=entropy&cs=srgb&fm=jpg&q=85" };
 
 const ClickPicker = ({ onPick }) => {
   useMapEvents({ click: (e) => onPick(e.latlng) });
@@ -20,6 +19,7 @@ export default function ComuneSpazi() {
   const [spazi, setSpazi] = useState([]);
   const [profilo, setProfilo] = useState(null);
   const [templates, setTemplates] = useState([]);
+  const [zone, setZone] = useState([]);
   const [editing, setEditing] = useState(null);
 
   const load = () => api.get("/comune/spazi").then(({ data }) => setSpazi(data));
@@ -27,20 +27,8 @@ export default function ComuneSpazi() {
     load();
     api.get("/comune/profilo").then(({ data }) => setProfilo(data));
     api.get("/comune/form-templates").then(({ data }) => setTemplates(data));
+    api.get("/comune/zone").then(({ data }) => setZone(data));
   }, []);
-
-  const opzioniConfig = editing ? OPZIONI_TIPOLOGIA[editing.tipologia] || [] : [];
-
-  const setOpzione = (id, v) => {
-    const opzioni = { ...(editing.opzioni || {}), [id]: v };
-    setEditing({ ...editing, opzioni, formato: id === "formato" ? v : editing.formato });
-  };
-
-  const cambiaTipologia = (t) => {
-    const prima = (OPZIONI_TIPOLOGIA[t] || []).find((o) => o.id === "formato");
-    const formato = prima ? prima.opzioni[0] : "Su misura";
-    setEditing({ ...editing, tipologia: t, formato, opzioni: { formato } });
-  };
 
   const uploadFoto = async (e) => {
     const file = e.target.files[0];
@@ -60,14 +48,14 @@ export default function ComuneSpazi() {
     if (editing.lat == null) return toast.error("Posiziona lo spazio cliccando sulla mappa");
     try {
       const payload = {
-        nome: editing.nome, tipologia: editing.tipologia,
-        formato: editing.opzioni?.formato || editing.formato || "Su misura",
-        zona: editing.zona || "", form_template_id: editing.form_template_id || null,
+        nome: editing.nome,
+        zona: zone.find((z) => z.id === editing.zona_id)?.nome || "",
+        zona_id: editing.zona_id || null,
+        form_template_id: editing.form_template_id || null,
         opzioni: editing.opzioni || {}, indirizzo: editing.indirizzo,
         lat: editing.lat, lng: editing.lng,
         canone_giornaliero: parseFloat(editing.canone_giornaliero),
-        dimensioni: editing.opzioni?.formato || "", descrizione: editing.descrizione || "",
-        disponibile: editing.disponibile, foto_url: editing.foto_url,
+        descrizione: editing.descrizione || "", foto_url: editing.foto_url,
       };
       if (editing.id) await api.put(`/comune/spazi/${editing.id}`, payload);
       else await api.post("/comune/spazi", payload);
@@ -89,44 +77,26 @@ export default function ComuneSpazi() {
   return (
     <BackofficeLayout title="Backoffice Comune" links={COMUNE_LINKS}>
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <h1 className="text-2xl sm:text-3xl font-heading font-extrabold tracking-tight">Catalogo spazi</h1>
+        <h1 className="text-2xl sm:text-3xl font-heading font-extrabold tracking-tight">Aree OSP / Progetti Speciali</h1>
         <button data-testid="nuovo-spazio-button" onClick={() => setEditing({ ...EMPTY, lat: profilo?.lat, lng: profilo?.lng })}
           className="inline-flex items-center gap-2 bg-[#2F5B41] text-white rounded-full px-5 py-2.5 font-bold hover:bg-[#26492F] transition-colors">
-          <Plus size={17} /> Nuovo spazio
+          <Plus size={17} /> Nuova area OSP
         </button>
       </div>
 
       {editing && (
         <form onSubmit={save} className="mt-6 border border-slate-100 bg-white rounded-2xl p-6 grid lg:grid-cols-2 gap-6" data-testid="spazio-form">
           <div className="space-y-3">
-            <h2 className="font-heading font-extrabold text-lg">{editing.id ? "Modifica spazio" : "Nuovo spazio"}</h2>
-            <input data-testid="spazio-nome-input" className={input} placeholder="Nome spazio" required value={editing.nome} onChange={(e) => setEditing({ ...editing, nome: e.target.value })} />
-            <div>
-              <label className={label}>Tipologia impianto</label>
-              <select data-testid="spazio-tipologia-select" className={input} value={editing.tipologia} onChange={(e) => cambiaTipologia(e.target.value)}>
-                {TIPOLOGIE.map((t) => <option key={t}>{t}</option>)}
-              </select>
-            </div>
-            <div className="grid grid-cols-2 gap-3 border border-slate-100 rounded-xl p-3 bg-[#FAFAF8]">
-              <div className="col-span-2 text-[10px] font-bold uppercase tracking-widest text-slate-400">Opzioni {editing.tipologia}</div>
-              {opzioniConfig.map((o) => (
-                <div key={o.id}>
-                  <label className={label}>{o.label}</label>
-                  {o.tipo === "select" ? (
-                    <select data-testid={`opzione-${o.id}`} className={input} value={editing.opzioni?.[o.id] || ""} onChange={(e) => setOpzione(o.id, e.target.value)}>
-                      <option value="">—</option>
-                      {o.opzioni.map((v) => <option key={v}>{v}</option>)}
-                    </select>
-                  ) : (
-                    <input data-testid={`opzione-${o.id}`} className={input} type="number" value={editing.opzioni?.[o.id] || ""} onChange={(e) => setOpzione(o.id, e.target.value)} />
-                  )}
-                </div>
-              ))}
-            </div>
+            <h2 className="font-heading font-extrabold text-lg">{editing.id ? "Modifica area OSP" : "Nuova area OSP"}</h2>
+            <div className="text-xs text-slate-500 -mt-1">Tipologia assegnata automaticamente: <strong>Progetto Speciale</strong>. Disponibilità gestita a calendario dalle richieste.</div>
+            <input data-testid="spazio-nome-input" className={input} placeholder="Nome area (es. Area Eventi Piazza...)" required value={editing.nome} onChange={(e) => setEditing({ ...editing, nome: e.target.value })} />
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className={label}>Zona / quartiere</label>
-                <input data-testid="spazio-zona-input" className={input} placeholder="es. Trastevere" value={editing.zona || ""} onChange={(e) => setEditing({ ...editing, zona: e.target.value })} />
+                <label className={label}>Zona (condivisa del Comune)</label>
+                <select data-testid="spazio-zona-select" className={input} value={editing.zona_id || ""} onChange={(e) => setEditing({ ...editing, zona_id: e.target.value })}>
+                  <option value="">— Nessuna zona —</option>
+                  {zone.map((z) => <option key={z.id} value={z.id}>{z.nome}</option>)}
+                </select>
               </div>
               <div>
                 <label className={label}>Canone €/giorno</label>
@@ -150,10 +120,6 @@ export default function ComuneSpazi() {
               <span className="text-xs text-slate-400">JPG, PNG, WebP</span>
             </div>
             <textarea className={input} rows={2} placeholder="Descrizione" value={editing.descrizione || ""} onChange={(e) => setEditing({ ...editing, descrizione: e.target.value })} />
-            <label className="flex items-center gap-2 text-sm font-semibold">
-              <input type="checkbox" className="w-4 h-4 accent-[#2F5B41]" checked={editing.disponibile} onChange={(e) => setEditing({ ...editing, disponibile: e.target.checked })} />
-              Disponibile
-            </label>
             <div className="flex gap-3 pt-2">
               <button data-testid="salva-spazio-button" className="px-6 py-2.5 font-bold rounded-full bg-[#2F5B41] text-white hover:bg-[#26492F] transition-colors">Salva</button>
               <button type="button" onClick={() => setEditing(null)} className="px-6 py-2.5 font-bold border border-slate-200 rounded-full hover:border-[#2F5B41] transition-colors">Annulla</button>
@@ -163,7 +129,7 @@ export default function ComuneSpazi() {
             <div className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-2">Posizionamento — clicca sulla mappa</div>
             <div className="border border-slate-100 rounded-2xl overflow-hidden">
               <MapContainer center={[editing.lat || profilo?.lat || 41.9, editing.lng || profilo?.lng || 12.5]} zoom={12} style={{ height: 380 }}>
-                <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" className="flat-tiles" />
                 <ClickPicker onPick={(ll) => setEditing({ ...editing, lat: ll.lat, lng: ll.lng })} />
                 {editing.lat != null && <CircleMarker center={[editing.lat, editing.lng]} radius={10} pathOptions={{ color: "#1F3D2B", fillColor: "#2F5B41", fillOpacity: 1 }} />}
               </MapContainer>
@@ -177,7 +143,7 @@ export default function ComuneSpazi() {
         <table className="w-full text-sm border-collapse">
           <thead>
             <tr className="bg-[#FAFAF8] border-b border-slate-100 text-left">
-              {["Spazio", "Tipologia", "Zona", "Modulo", "Canone", "Stato", "Azioni"].map((h) => (
+              {["Area", "Zona", "Modulo", "Canone", "Azioni"].map((h) => (
                 <th key={h} className="px-4 py-3 text-[11px] font-bold uppercase tracking-widest text-slate-500">{h}</th>
               ))}
             </tr>
@@ -191,15 +157,9 @@ export default function ComuneSpazi() {
                     <div><div className="font-bold">{s.nome}</div><div className="text-xs text-slate-400">{s.indirizzo}</div></div>
                   </div>
                 </td>
-                <td className="px-4 py-3">{s.tipologia}<div className="text-xs text-slate-400">{s.formato}</div></td>
                 <td className="px-4 py-3">{s.zona || "—"}</td>
                 <td className="px-4 py-3 text-xs">{templates.find((t) => t.id === s.form_template_id)?.nome || "Predefinito"}</td>
                 <td className="px-4 py-3 font-semibold">{s.canone_giornaliero} €/g</td>
-                <td className="px-4 py-3">
-                  <span className={`text-[10px] font-bold rounded-full px-2.5 py-1 ${s.disponibile ? "bg-[#D8EADB] text-[#1F5B33]" : "bg-[#26292B] text-white"}`}>
-                    {s.disponibile ? "Disponibile" : "Occupato"}
-                  </span>
-                </td>
                 <td className="px-4 py-3">
                   <div className="flex gap-2">
                     <button data-testid={`edit-spazio-${s.id}`} onClick={() => setEditing({ ...EMPTY, ...s })} className="border border-slate-200 rounded-lg p-1.5 hover:border-[#2F5B41] transition-colors"><Pencil size={14} /></button>
