@@ -33,7 +33,7 @@ export default function PraticaDetail() {
   const inviaIntegrazione = async () => {
     try {
       await api.post(`/pratiche/${pratica.id}/invia`);
-      toast.success("Integrazione inviata, pratica di nuovo in istruttoria");
+      toast.success(pratica.tipo === "OOH" ? "Integrazione inviata, pratica di nuovo in verifica" : "Integrazione inviata, pratica di nuovo in istruttoria");
       load();
     } catch (err) { toast.error(apiError(err)); }
   };

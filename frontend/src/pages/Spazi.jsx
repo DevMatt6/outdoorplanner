@@ -1,11 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { NavBar } from "../components/NavBar";
+import { useAuth } from "../store/auth";
+import { UserShell } from "../components/BackofficeLayout";
 import { EsploraMappa } from "../components/EsploraMappa";
 import { SpazioCard } from "../components/SpazioCard";
 import { api, imgSrc } from "../lib/api";
 import { TIPOLOGIE, FORMATI } from "../lib/catalogo";
 import { Megaphone, Landmark, ArrowLeft } from "lucide-react";
+
+const PublicShell = ({ children }) => (<div className="min-h-screen"><NavBar />{children}</div>);
 
 export default function Spazi() {
   const [params, setParams] = useSearchParams();
@@ -13,6 +17,8 @@ export default function Spazi() {
   const [comuni, setComuni] = useState([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const Shell = user?.ruolo === "user" ? UserShell : PublicShell;
   const filters = {
     regione: params.get("regione") || "",
     citta: params.get("citta") || "",
@@ -63,8 +69,7 @@ export default function Spazi() {
   const input = "border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#1F3BB3] bg-white";
 
   return (
-    <div className="min-h-screen">
-      <NavBar />
+    <Shell>
       <div className="max-w-7xl mx-auto px-6 py-8">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <h1 className="text-3xl sm:text-4xl font-heading font-extrabold tracking-tight">
@@ -147,6 +152,6 @@ export default function Spazi() {
           </div>
         )}
       </div>
-    </div>
+    </Shell>
   );
 }

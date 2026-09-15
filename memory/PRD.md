@@ -107,6 +107,13 @@ Su richiesta utente (screenshot stile "Donezo") il design è passato da flat bru
 - Fix: bottoni istruttoria ora appaiono anche per pratiche OOH in stato IN_VERIFICA
 - Autocompilazione: snapshot richiedente salvato alla creazione pratica (OSP wizard, campagna OSP, campagna OOH) + prefill dati_form dei campi anagrafici corrispondenti; wizard OSP mostra i campi precompilati; lato user il box integrazione mostra la motivazione del comune
 
+## Implementato (Iterazione 14 — Restyle blu StarAdmin + sidebar user + editor integrazione, testato: backend 10/10 + frontend 100%, report iteration_12.json)
+- Restyle completo stile StarAdmin 2 Pro: palette BLU (#1F3BB3) al posto del verde su tutta la piattaforma (sed globale hex + variabili CSS), sfondo #F4F5F7, card bianche, sidebar bianca con active blu, header con saluto "Buongiorno, {nome}"
+- Sidebar anche per l'inserzionista (UserShell + USER_LINKS): tutte le pagine user migrate da NavBar a layout con barra laterale; /spazi e /spazi/:id usano la sidebar quando l'utente è loggato (NavBar per i visitatori)
+- Sidebar responsive off-canvas su mobile con hamburger (nessun overflow a 390px)
+- Editor "Modifica dati integrazione" (IntegrazioneEditor.jsx): in INTEGRAZIONE_RICHIESTA l'utente corregge i dati del modulo e (per OOH) riassegna le creatività per impianto e carica nuovi soggetti; backend blocca modifiche creatività fuori da DA_COMPLETARE/INTEGRAZIONE_RICHIESTA
+- FIX CRITICO: reinvio integrazione di pratica OOH ora torna a IN_VERIFICA (prima IN_ISTRUTTORIA hardcoded, rendeva la pratica inapprovabile)
+
 ## Backlog prioritizzato
 - P2: date picker anche per modifica pratiche in INTEGRAZIONE_RICHIESTA
 - P2: Stripe test mode reale al posto del mock; export report CSV/PDF

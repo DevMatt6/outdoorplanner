@@ -1,0 +1,44 @@
+{
+  "summary": "Iterazione 12: testati (a) restyle blu #1F3BB3 + sidebar per tutti i ruoli + header greeting, (b) UserShell con USER_LINKS, (c) editor 'modifica dati integrazione' (IntegrazioneEditor), (d) state guards backend su OOH dati-form e creativita in stato non consentito, (e) OSP PUT dati_form in INTEGRAZIONE_RICHIESTA. Backend: 10 passed + 1 skipped. Frontend: smoke UI OK su tutti i ruoli, integrazione editor funziona (motivo, select creativita per impianto, upload nuovo soggetto, riassegnazione, reinvio). BUG CRITICO trovato: per OOH pratica in INTEGRAZIONE_RICHIESTA, POST /api/pratiche/{id}/invia imposta stato=IN_ISTRUTTORIA invece di IN_VERIFICA — questo rende INAPPROVABILE la pratica dopo il reinvio (TRANSIZIONI_OOH.approva richiede da=IN_VERIFICA).",
+  "backend_issues": {
+    "critical": [
+      {"endpoint": "POST /api/pratiche/{id}/invia (per pratica OOH in INTEGRAZIONE_RICHIESTA)", "issue": "Imposta hardcoded stato='IN_ISTRUTTORIA' (server.py:446) invece di 'IN_VERIFICA'. Per pratiche OOH lo state machine (server.py:766-770 TRANSIZIONI_OOH) usa IN_VERIFICA, quindi dopo il reinvio integrazione il comune riceve errore 400 'Transizione non consentita da IN_ISTRUTTORIA' su approva/rifiuta/annulla. Deve differenziare per pratica.get('tipo')=='OOH' → IN_VERIFICA, altrimenti IN_ISTRUTTORIA.", "priority": "CRITICAL"}
+    ],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration_12.py",
+    "/app/test_reports/pytest/iteration_12.xml"
+  ],
+  "action_items": [
+    "FIX CRITICO server.py:446 — in invia_pratica, quando pratica['stato']=='INTEGRAZIONE_RICHIESTA' impostare nuovo='IN_VERIFICA' se pratica.get('tipo')=='OOH' altrimenti 'IN_ISTRUTTORIA'. Senza questo fix il flow completo OOH è rotto: user reinvia → comune non può approvare/rifiutare. Aggiungere test di regressione (già presente logica in test_09_approva_dopo_reinvio nel nuovo test_iteration_12.py).",
+    "(Nice) Considerare di riflettere lo stesso stato nel toast lato client (PraticaDetail.jsx:36 dice 'di nuovo in istruttoria', ma per OOH dovrebbe dire 'di nuovo in verifica')."
+  ],
+  "critical_code_review_comments": [
+    "server.py:435-455 invia_pratica: fa hardcoding di IN_ISTRUTTORIA per la transizione da INTEGRAZIONE_RICHIESTA senza distinguere OOH/OSP. Bug critico (vedi action_items).",
+    "ooh.py:427-455 assegna_creativita/rimuovi_creativita: guard 'stato in (DA_COMPLETARE, INTEGRAZIONE_RICHIESTA)' funziona correttamente (400 in altri stati). Test 03/04/07/08 confermano.",
+    "ooh.py:300-310 dati_form_ooh: guard 'stato in (DA_COMPLETARE, INTEGRAZIONE_RICHIESTA)' funziona correttamente. Test 02/06/10 confermano.",
+    "server.py:389-399 aggiorna_pratica OSP: accetta BOZZA|INTEGRAZIONE_RICHIESTA per dati_form. Verificato indirettamente (test_11 skippato per assenza spazi).",
+    "IntegrazioneEditor.jsx: sezione 'Correggi i dati del modulo' fa early return se campi.length==0 → il testid salva-dati-integrazione non compare quando il template è vuoto. Comportamento intenzionale ma può creare confusione: se il comune chiede integrazione dei dati modulo ma il template non ha campi visibili, l'utente vede solo il pannello creativita. Documentato.",
+    "BackofficeLayout.jsx: header-greeting mostra 'Buongiorno/Buon pomeriggio/Buonasera' in base a getHours(). Palette blu #1F3BB3 confermata (rgb(31,59,179)). Sidebar 64 white con active-state blu. Corretto.",
+    "USER_LINKS include /spazi 'OSP / Eventi': la pagina /spazi però è pubblica (usa NavBar, sidebar=0 quando non loggato). Da loggato l'app naviga a /spazi ma la pagina Spazi.jsx non usa UserShell → salto contestuale. Considerare di wrapping Spazi in UserShell quando l'utente è autenticato (o rendering condizionale in Spazi.jsx)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration_12.py"
+  ],
+  "success_rate": {
+    "backend": "100% (10/10 + 1 skip documentato)",
+    "frontend": "100% smoke (user/admin/comune sidebar + integrazione editor + reinvio)"
+  },
+  "test_credentials": "Superadmin: mattia.fabrizi92@gmail.com/demo123. Utenti/comuni di test creati con prefisso TEST_/ui12_ ed eliminati a fine test (cascade DELETE /admin/comuni/{id}). Dati reali (user@demo.it e comune Roma) NON toccati.",
+  "seed_data_creation": "Nessun seed permanente. Ogni test crea comuni con prefisso TEST_ui12_/TEST_it12_ ed esegue cleanup.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Il flow completo OOH end-to-end con integrazione è BLOCCATO dal bug in server.py:446 (invia_pratica hardcoded IN_ISTRUTTORIA). Una volta corretto: test_09_approva_dopo_reinvio dovrà passare al ramo 'else' (approvazione OK). Il resto dell'editor integrazione (UI e endpoint) funziona correttamente: motivo-integrazione, integrazione-editor, select-creativita-{codice}, upload-soggetto-{formato}, salva-dati-integrazione (solo se campi>0), invia-integrazione-button. Il restyle blu è completo e stabile su tutti i ruoli.",
+  "rca of the issue": "server.py:435-455 invia_pratica gestisce sia INVIA da BOZZA (OSP) sia REINVIO da INTEGRAZIONE_RICHIESTA (OSP+OOH) ma il target 'IN_ISTRUTTORIA' è codificato senza switch per il tipo pratica. Per OSP è corretto (state machine COMUNE usa IN_ISTRUTTORIA), per OOH andrebbe IN_VERIFICA (state machine OOH). Riproduzione: creare pratica OOH, portarla in INTEGRAZIONE_RICHIESTA, chiamare POST /pratiche/{id}/invia → stato=IN_ISTRUTTORIA; poi POST /comune/pratiche/{id}/transizione azione=approva → 400 'Transizione non consentita da IN_ISTRUTTORIA'. Fix: in server.py:446 sostituire con: nuovo = 'IN_VERIFICA' if pratica.get('tipo') == 'OOH' else 'IN_ISTRUTTORIA'."
+}

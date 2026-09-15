@@ -3,21 +3,25 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { MapContainer, TileLayer, CircleMarker } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import { NavBar } from "../components/NavBar";
+import { UserShell } from "../components/BackofficeLayout";
 import { api } from "../lib/api";
 import { useAuth } from "../store/auth";
 import { MapPin, ArrowLeft, Ruler, Landmark } from "lucide-react";
+
+const PublicShell = ({ children }) => (<div className="min-h-screen"><NavBar />{children}</div>);
 
 export default function SpazioDetail() {
   const { id } = useParams();
   const [spazio, setSpazio] = useState(null);
   const { user } = useAuth();
   const navigate = useNavigate();
+  const Shell = user?.ruolo === "user" ? UserShell : PublicShell;
 
   useEffect(() => {
     api.get(`/spazi/${id}`).then(({ data }) => setSpazio(data));
   }, [id]);
 
-  if (!spazio) return <div><NavBar /><div className="p-12 text-slate-500">Caricamento...</div></div>;
+  if (!spazio) return <PublicShell><div className="p-12 text-slate-500">Caricamento...</div></PublicShell>;
 
   const avvia = () => {
     if (!user) return navigate("/login");
@@ -25,8 +29,7 @@ export default function SpazioDetail() {
   };
 
   return (
-    <div className="min-h-screen">
-      <NavBar />
+    <Shell>
       <div className="max-w-6xl mx-auto px-6 py-8">
         <Link to="/spazi" className="inline-flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-slate-900 transition-colors">
           <ArrowLeft size={16} /> Torna alla ricerca
@@ -76,6 +79,6 @@ export default function SpazioDetail() {
           </div>
         </div>
       </div>
-    </div>
+    </Shell>
   );
 }

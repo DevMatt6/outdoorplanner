@@ -443,7 +443,7 @@ async def invia_pratica(pratica_id: str, user: dict = Depends(require_role("user
         nuovo = "INVIATA"
         nota = "Pratica inviata dal richiedente"
     elif pratica["stato"] == "INTEGRAZIONE_RICHIESTA":
-        nuovo = "IN_ISTRUTTORIA"
+        nuovo = "IN_VERIFICA" if pratica.get("tipo") == "OOH" else "IN_ISTRUTTORIA"
         nota = "Integrazione fornita dal richiedente"
     else:
         raise HTTPException(status_code=400, detail="Transizione non consentita")

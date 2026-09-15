@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../store/auth";
 import { api, imgSrc } from "../lib/api";
 import { NotificationBell } from "./NotificationBell";
-import { LayoutGrid, Inbox, Map, FileSliders, ChartColumn, LogOut, Landmark, Radar, House, Megaphone, PlusCircle, Package, Presentation } from "lucide-react";
+import { LayoutGrid, Inbox, Map, FileSliders, ChartColumn, LogOut, Landmark, Radar, House, Megaphone, PlusCircle, Package, Presentation, Menu } from "lucide-react";
 
 const ICONS = {
   "link-scrivania": Inbox,
@@ -35,6 +35,7 @@ export const BackofficeLayout = ({ title, links, children }) => {
   const location = useLocation();
   const livello = user?.livello || 1;
   const [comuneInfo, setComuneInfo] = useState(null);
+  const [open, setOpen] = useState(false);
   useEffect(() => {
     if (user?.ruolo === "comune") api.get("/comune/profilo").then(({ data }) => setComuneInfo(data));
   }, [user?.ruolo]);
@@ -46,8 +47,9 @@ export const BackofficeLayout = ({ title, links, children }) => {
   const saluto = ora < 13 ? "Buongiorno" : ora < 18 ? "Buon pomeriggio" : "Buonasera";
 
   return (
-    <div className="min-h-screen bg-[#F4F5F7] flex">
-      <aside className="w-64 shrink-0 bg-white border-r border-[#E5E9F2] flex flex-col sticky top-0 h-screen">
+    <div className="min-h-screen bg-[#F4F5F7] lg:flex">
+      {open && <div className="fixed inset-0 bg-black/30 z-[1190] lg:hidden" onClick={() => setOpen(false)} data-testid="sidebar-overlay" />}
+      <aside className={`w-64 shrink-0 bg-white border-r border-[#E5E9F2] flex flex-col fixed top-0 h-screen z-[1200] transition-transform duration-200 lg:sticky lg:translate-x-0 ${open ? "translate-x-0" : "-translate-x-full"}`}>
         <Link to="/" className="flex items-center gap-3 px-6 h-16 border-b border-[#E5E9F2] shrink-0">
           <span className="bg-[#1F3BB3] text-white font-heading font-extrabold w-9 h-9 rounded-xl flex items-center justify-center text-sm shadow-sm">OP</span>
           <span className="font-heading font-extrabold text-base tracking-tight text-[#1F2937]">Outdoor Planner</span>
@@ -73,7 +75,7 @@ export const BackofficeLayout = ({ title, links, children }) => {
             const active = location.pathname === to;
             const Icon = ICONS[testid] || LayoutGrid;
             return (
-              <Link key={to} to={to} data-testid={testid}
+              <Link key={to} to={to} data-testid={testid} onClick={() => setOpen(false)}
                 className={`flex items-center gap-3 px-3.5 py-2.5 text-sm rounded-xl transition-colors
                   ${active ? "bg-[#1F3BB3] text-white font-semibold shadow-sm shadow-[#1F3BB3]/20" : "font-medium text-[#525B6C] hover:bg-[#F0F4FF] hover:text-[#1F3BB3]"}`}>
                 <Icon size={17} /> {label}
@@ -87,16 +89,22 @@ export const BackofficeLayout = ({ title, links, children }) => {
         </button>
       </aside>
       <main className="flex-1 min-w-0">
-        <div className="h-16 bg-white/95 backdrop-blur-md border-b border-[#E5E9F2] flex items-center justify-between px-6 sticky top-0 z-[1100]">
-          <div>
-            <div className="text-base sm:text-lg font-bold tracking-tight text-[#1F2937]" data-testid="header-greeting">
-              {saluto}, <span className="text-[#1F3BB3]">{user?.nome?.split(" ")[0]}</span>
+        <div className="h-16 bg-white/95 backdrop-blur-md border-b border-[#E5E9F2] flex items-center justify-between px-4 sm:px-6 sticky top-0 z-[1100]">
+          <div className="flex items-center gap-3 min-w-0">
+            <button data-testid="sidebar-toggle" onClick={() => setOpen(true)}
+              className="lg:hidden rounded-xl border border-[#E5E9F2] p-2 text-[#525B6C] hover:text-[#1F3BB3] hover:border-[#1F3BB3] transition-colors">
+              <Menu size={18} />
+            </button>
+            <div className="min-w-0">
+              <div className="text-base sm:text-lg font-bold tracking-tight text-[#1F2937] truncate" data-testid="header-greeting">
+                {saluto}, <span className="text-[#1F3BB3]">{user?.nome?.split(" ")[0]}</span>
+              </div>
+              <div className="text-xs text-[#6C7383] hidden sm:block">{SUBTITLES[user?.ruolo] || ""}</div>
             </div>
-            <div className="text-xs text-[#6C7383] hidden sm:block">{SUBTITLES[user?.ruolo] || ""}</div>
           </div>
           <NotificationBell />
         </div>
-        <div className="py-6 px-6">{children}</div>
+        <div className="py-6 px-4 sm:px-6">{children}</div>
       </main>
     </div>
   );
