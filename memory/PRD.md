@@ -90,6 +90,15 @@ Su richiesta utente (screenshot stile "Donezo") il design è passato da flat bru
 - Pagina "Profilo & tariffe" rimossa (route, menu, PUT profilo e PATCH canone; GET profilo mantenuto per logo sidebar)
 - Nuovo flusso creatività a livello campagna: formati richiesti auto-rilevati → n. soggetti per formato → upload slot per slot → assegnazione soggetto→impianto con vincolo di formato (400 se non compatibile); eliminazione soggetto rimuove le assegnazioni; validazione formato anche in upload
 
+## Implementato (Iterazione 12 — "Reset piattaforma, onboarding ruoli comunali, KPI e dettaglio pratiche", testato: 22/23 backend + frontend 100%, report iteration_10.json)
+- Reset piattaforma via `reset_platform.py`: comuni/pratiche/campagne azzerati; utenti comunali orfani rimossi
+- Onboarding comune da Superadmin (/admin/comuni): wizard con livelli attivi (L1/L2/L3) + creazione utenze comunali (email/password/livello); validazione server-side (400 se utenze vuote, livello non attivato, email duplicata)
+- Stati onboarding comune (DA_CONFIGURARE/IN_CONFIGURAZIONE/ATTIVO/SOSPESO/DISATTIVATO) modificabili da select in tabella; GET /api/comuni filtra solo ATTIVI per gli inserzionisti
+- Gestione utenti comune da Superadmin (GET/POST /api/admin/comuni/{id}/utenti)
+- Ruoli comunali L1 (presa in carico + integrazione), L2 (+ approva/rifiuta), L3 (+ CRUD zone/impianti/pacchetti/form/tariffe) con 403 sugli endpoint protetti; workflow dinamico su POST /api/comune/pratiche/{id}/transizione
+- Dashboard KPI Superadmin estesa (zone, circuiti, impianti, held attivi, confermati, conversione held→confirmed, campagne OOH) + empty-state grafici ("Nessun dato disponibile")
+- Hint account demo in Auth.jsx aggiornato (utenze comunali create solo via onboarding)
+
 ## Backlog prioritizzato
 - P2: date picker anche per modifica pratiche in INTEGRAZIONE_RICHIESTA
 - P2: Stripe test mode reale al posto del mock; export report CSV/PDF

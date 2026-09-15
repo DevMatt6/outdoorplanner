@@ -62,6 +62,9 @@ export default function AdminDashboard() {
       <div className="mt-6 grid lg:grid-cols-2 gap-6">
         <div className="border border-slate-100 bg-white rounded-2xl overflow-hidden p-6">
           <div className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-4">Pratiche per stato (sistema)</div>
+          {statoData.every((d) => !d.count) ? (
+            <div data-testid="empty-stato-chart" className="h-[280px] flex items-center justify-center text-sm text-slate-400">Nessun dato disponibile</div>
+          ) : (
           <ResponsiveContainer width="100%" height={280}>
             <BarChart data={statoData}>
               <CartesianGrid stroke="#E2E8F0" vertical={false} />
@@ -71,9 +74,13 @@ export default function AdminDashboard() {
               <Bar dataKey="count" name="Pratiche" fill="#2F5B41" isAnimationActive={false} />
             </BarChart>
           </ResponsiveContainer>
+          )}
         </div>
         <div className="border border-slate-100 bg-white rounded-2xl overflow-hidden p-6">
           <div className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-4">Volumi per comune</div>
+          {(!kpi.pratiche_per_comune || kpi.pratiche_per_comune.length === 0) ? (
+            <div data-testid="empty-volumi-chart" className="h-[280px] flex items-center justify-center text-sm text-slate-400">Nessun dato disponibile</div>
+          ) : (
           <ResponsiveContainer width="100%" height={280}>
             <BarChart data={kpi.pratiche_per_comune} layout="vertical">
               <CartesianGrid stroke="#E2E8F0" horizontal={false} />
@@ -83,6 +90,7 @@ export default function AdminDashboard() {
               <Bar dataKey="count" name="Pratiche" fill="#1F3D2B" isAnimationActive={false} />
             </BarChart>
           </ResponsiveContainer>
+          )}
         </div>
       </div>
 

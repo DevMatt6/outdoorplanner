@@ -108,7 +108,7 @@ export default function Auth() {
             </button>
           </form>
           <div className="border-t border-slate-100 px-8 py-4 bg-[#FAFAF8] text-xs text-slate-500 leading-relaxed">
-            <strong>Account demo</strong> (password <span className="font-mono">demo123</span>): user@demo.it · comune@demo.it (L1) · comune.l2@demo.it · comune.l3@demo.it · mattia.fabrizi92@gmail.com
+            <strong>Account demo</strong> (password <span className="font-mono">demo123</span>): user@demo.it (inserzionista) · mattia.fabrizi92@gmail.com (superadmin). Le utenze comunali vengono create dal superadmin in fase di onboarding.
           </div>
         </div>
       </div>

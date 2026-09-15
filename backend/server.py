@@ -961,6 +961,8 @@ async def onboard_comune(data: ComuneOnboardIn, user: dict = Depends(require_rol
     livelli = sorted(set(data.livelli_attivi)) or [1]
     if any(l not in (1, 2, 3) for l in livelli):
         raise HTTPException(status_code=400, detail="Livelli ammessi: 1, 2, 3")
+    if not data.utenze:
+        raise HTTPException(status_code=400, detail="Aggiungi almeno un'utenza comunale")
     for u in data.utenze:
         if u.livello not in livelli:
             raise HTTPException(status_code=400, detail=f"L'utenza {u.email} usa il livello L{u.livello} non attivato per il Comune")

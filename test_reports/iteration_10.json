@@ -1,0 +1,44 @@
+{
+  "summary": "Testato reset piattaforma + onboarding comuni + KPI + workflow per livello. Backend: 22/23 passed, 1 skipped (validazione 0-utenze solo lato FE). Frontend: wizard onboarding, tabella comuni, cambio stato SOSPESO/ATTIVO, pannello utenze e login utenze comunali L1/L2/L3 tutti funzionanti.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/admin/comuni", "issue": "Il backend accetta un onboarding con utenze=[] (nessuna utenza comunale). La validazione 'almeno 1 utenza' esiste solo sul frontend (AdminComuni.jsx riga 64). Aggiungere in ComuneOnboardIn/onboard_comune un check server-side per rifiutare con 400 se data.utenze è vuoto — altrimenti chiamate API dirette possono creare comuni non gestibili."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "/admin (Dashboard KPI)", "issues": ["I due chart 'Pratiche per stato (sistema)' e 'Volumi per comune' appaiono vuoti se non ci sono pratiche/comuni — potrebbe essere utile un empty-state esplicito (es. 'Nessun dato disponibile') invece del canvas vuoto."]},
+      {"screen": "/admin/comuni (wizard onboarding)", "issues": ["Warning React di hydration: '<span> cannot be a child of <option>' generato dallo strumentation dev (attributi x-ve-dynamic sui <option> del select L1/L2). È inerzia del tooling di sviluppo, non del codice sorgente — non blocca il flusso ma andrebbe monitorato."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_onboarding_flow.py",
+    "/app/test_reports/pytest/onboarding.xml"
+  ],
+  "action_items": [
+    "(Opzionale/minor) Aggiungere validazione server-side in POST /api/admin/comuni per rifiutare 400 quando data.utenze è vuoto — allinea BE alla regola business già enforced su FE.",
+    "(Opzionale/UX) Aggiungere empty-state ai grafici della Dashboard KPI quando non ci sono dati."
+  ],
+  "critical_code_review_comments": [
+    "server.py ~741: LIVELLO_MIN_AZIONE + logica di degrado a max_lv in transizione è corretta e testata: L1 può presa_in_carico/richiedi_integrazione; approva/rifiuta a L2+. Test 18 conferma 403 per L1 su approva.",
+    "server.py 254: GET /api/comuni filtra correttamente con {'$in':[None,'ATTIVO']}, quindi comuni SOSPESI/DISATTIVATI non appaiono agli inserzionisti (verificato con test_08).",
+    "server.py 993: POST /api/admin/comuni/{id}/utenti valida che il livello sia in livelli_attivi del comune (verificato con test_12: 400).",
+    "server.py 1023: PATCH stato_onboarding valida contro enum STATI_ONBOARDING (verificato test_09).",
+    "server.py 960: onboard_comune accetta livelli_attivi=[] (fallback a [1]) e utenze=[]: OK il fallback livelli ma manca guard su utenze vuote (vedi action items).",
+    "server.py 1064: DELETE comune fa cascade pulita su pratiche/spazi/utenti/zone/impianti/pacchetti — buono.",
+    "AdminComuni.jsx 148: <option>{`L${l}`}</option> — il valore è inserito come JS expression; il tooling dev-mode di Emergent produce warning di hydration (<span> nel <option>) ma non c'è bug reale nel sorgente."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_onboarding_flow.py (nuovo file)"
+  ],
+  "success_rate": {"backend": "95% (22/23 test, 1 skip documentato)", "frontend": "100% flussi critici (login superadmin, KPI, wizard onboarding con 3 utenze, cambio stato, pannello utenze, login L1/L3)"},
+  "test_credentials": "Superadmin: mattia.fabrizi92@gmail.com/demo123. Inserzionista: user@demo.it/demo123. Le utenze di test create durante il run sono state eliminate dallo step di cleanup (backend test_99 + DELETE manuale del comune UITest_Torino_467847). Nessuna utenza comunale residua da questa iterazione.",
+  "seed_data_creation": "Nessun seed permanente. Ogni test crea comuni con prefisso TEST_ o UITest_ e li elimina alla fine.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "La piattaforma è di nuovo VUOTA di comuni dopo il cleanup. Le utenze orfane comune.l2@demo.it e comune.l3@demo.it esistono ma puntano a comune_id inesistente — non causano errori nei test perché il route pratica_id ne verifica il comune_id di appartenenza. Le rotte OOH per impianti richiedono campi 'codice' e 'prezzo' obbligatori (Pydantic), documentato nei test.",
+  "rca of the issue": "N/A — nessun bug bloccante trovato. Unico gap: validazione lato server della lista utenze non vuota in onboard_comune (mirror della validazione FE)."
+}
