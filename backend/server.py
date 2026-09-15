@@ -369,9 +369,13 @@ async def crea_pratica(data: PraticaIn, user: dict = Depends(require_role("user"
     if await _periodo_occupato(spazio["id"], data.data_inizio, data.data_fine):
         raise HTTPException(status_code=409, detail="Periodo non disponibile: lo spazio è già impegnato in queste date")
     importo = round(_giorni(data.data_inizio, data.data_fine) * spazio["canone_giornaliero"], 2)
+    tpl = await db.form_templates.find_one({"comune_id": spazio["comune_id"], "tipo": "OSP"}, {"_id": 0}) \
+        or await db.form_templates.find_one({"comune_id": spazio["comune_id"]}, {"_id": 0}) or {"campi": []}
     pratica = {"id": str(uuid.uuid4()), "tipo": "OSP", "user_id": user["id"], "user_nome": user["nome"],
                "spazio_id": spazio["id"], "spazio_nome": spazio["nome"], "comune_id": spazio["comune_id"],
-               "stato": "BOZZA", "dati_form": data.dati_form, "documenti": [],
+               "stato": "BOZZA", "dati_form": {**prefill_dati_form(tpl.get("campi", []), user),
+                                               **{k: v for k, v in data.dati_form.items() if v not in (None, "")}},
+               "documenti": [], "richiedente": snapshot_richiedente(user),
                "data_inizio": data.data_inizio, "data_fine": data.data_fine,
                "importo": importo, "pagata": False,
                "created_at": now_iso(), "updated_at": now_iso()}
@@ -475,7 +479,26 @@ async def get_pratica(pratica_id: str, user: dict = Depends(get_current_user)):
     spazio = await db.spazi.find_one({"id": pratica["spazio_id"]}, {"_id": 0})
     comune = await db.comuni.find_one({"id": pratica["comune_id"]}, {"_id": 0})
     logs = await db.log_stato.find({"pratica_id": pratica_id}, {"_id": 0}).sort("timestamp", 1).to_list(100)
-    return {**pratica, "spazio": spazio, "comune": comune, "log_stato": logs}
+    richiedente = pratica.get("richiedente")
+    if not richiedente:
+        u = await db.users.find_one({"id": pratica["user_id"]}, {"_id": 0, "password_hash": 0})
+        richiedente = snapshot_richiedente(u) if u else {}
+    prenotazione = None
+    if pratica.get("prenotazione_id"):
+        prenotazione = await db.prenotazioni.find_one({"id": pratica["prenotazione_id"]}, {"_id": 0})
+    campagna = None
+    if pratica.get("campagna_id"):
+        campagna = await db.campagne.find_one({"id": pratica["campagna_id"]}, {"_id": 0})
+    sog_ids = [a["soggetto_id"] for a in pratica.get("creativita", [])]
+    sog_map = {}
+    if sog_ids:
+        soggetti = await db.soggetti.find({"id": {"$in": sog_ids}}, {"_id": 0}).to_list(100)
+        sog_map = {s["id"]: s for s in soggetti}
+    creativita_dettagli = [{"impianto_id": a["impianto_id"], "soggetto": sog_map.get(a["soggetto_id"])}
+                           for a in pratica.get("creativita", [])]
+    return {**pratica, "spazio": spazio, "comune": comune, "log_stato": logs,
+            "richiedente": richiedente, "prenotazione": prenotazione,
+            "campagna": campagna, "creativita_dettagli": creativita_dettagli}
 
 # ---------- campagne (multi-spazio) ----------
 
@@ -497,10 +520,14 @@ async def crea_campagna(data: CampagnaIn, user: dict = Depends(require_role("use
     campagna_id = str(uuid.uuid4())
     pratiche = []
     for s in spazi:
+        tpl = await db.form_templates.find_one({"comune_id": s["comune_id"], "tipo": "OSP"}, {"_id": 0}) \
+            or await db.form_templates.find_one({"comune_id": s["comune_id"]}, {"_id": 0}) or {"campi": []}
         pratica = {"id": str(uuid.uuid4()), "tipo": "OSP", "user_id": user["id"], "user_nome": user["nome"],
                    "spazio_id": s["id"], "spazio_nome": s["nome"], "comune_id": s["comune_id"],
                    "campagna_id": campagna_id, "campagna_nome": data.nome,
-                   "stato": "BOZZA", "dati_form": {"descrizione_contenuto": f"Campagna '{data.nome}'"},
+                   "richiedente": snapshot_richiedente(user),
+                   "stato": "BOZZA", "dati_form": {**prefill_dati_form(tpl.get("campi", []), user),
+                                                   "descrizione_contenuto": f"Campagna '{data.nome}'"},
                    "documenti": [], "data_inizio": data.data_inizio, "data_fine": data.data_fine,
                    "importo": round(giorni * s["canone_giornaliero"], 2), "pagata": False,
                    "created_at": now_iso(), "updated_at": now_iso()}
@@ -717,7 +744,8 @@ async def report_per_spazio(user: dict = Depends(require_role("comune"))):
 async def comune_pratiche(stato: Optional[str] = None, tipo: Optional[str] = None,
                           user: dict = Depends(require_role("comune"))):
     query: dict = {"comune_id": user["comune_id"],
-                   "stato": {"$nin": ["BOZZA", "DA_COMPLETARE", "PRENOTAZIONE_SCADUTA", "ANNULLATA"]}}
+                   "stato": {"$nin": ["BOZZA", "DA_COMPLETARE", "PRENOTAZIONE_SCADUTA"]},
+                   "$or": [{"stato": {"$ne": "ANNULLATA"}}, {"annullata_da": "comune"}]}
     if stato:
         query["stato"] = stato
     if tipo:
@@ -729,6 +757,7 @@ TRANSIZIONI_COMUNE = {
     "richiedi_integrazione": {"da": ["IN_ISTRUTTORIA"], "a": "INTEGRAZIONE_RICHIESTA"},
     "approva": {"da": ["IN_ISTRUTTORIA"], "a": "APPROVATA"},
     "rifiuta": {"da": ["IN_ISTRUTTORIA"], "a": "RIFIUTATA"},
+    "annulla": {"da": ["IN_ISTRUTTORIA"], "a": "ANNULLATA"},
 }
 
 TRANSIZIONI_OOH = {
@@ -736,9 +765,10 @@ TRANSIZIONI_OOH = {
     "richiedi_integrazione": {"da": ["IN_VERIFICA"], "a": "INTEGRAZIONE_RICHIESTA"},
     "approva": {"da": ["IN_VERIFICA"], "a": "APPROVATA"},
     "rifiuta": {"da": ["IN_VERIFICA"], "a": "RIFIUTATA"},
+    "annulla": {"da": ["IN_VERIFICA"], "a": "ANNULLATA"},
 }
 
-LIVELLO_MIN_AZIONE = {"presa_in_carico": 1, "richiedi_integrazione": 1, "approva": 2, "rifiuta": 2}
+LIVELLO_MIN_AZIONE = {"presa_in_carico": 1, "richiedi_integrazione": 1, "approva": 2, "rifiuta": 2, "annulla": 2}
 
 @api_router.post("/comune/pratiche/{pratica_id}/transizione")
 async def transizione(pratica_id: str, data: TransizioneIn, user: dict = Depends(require_role("comune"))):
@@ -754,8 +784,8 @@ async def transizione(pratica_id: str, data: TransizioneIn, user: dict = Depends
     min_richiesto = min(LIVELLO_MIN_AZIONE[data.azione], max_lv)
     if user.get("livello", 1) < min_richiesto:
         raise HTTPException(status_code=403, detail=f"Azione riservata al livello L{min_richiesto} o superiore")
-    if data.azione == "richiedi_integrazione" and not (data.nota or "").strip():
-        raise HTTPException(status_code=400, detail="La motivazione è obbligatoria per la richiesta di integrazione")
+    if data.azione in ("richiedi_integrazione", "annulla") and not (data.nota or "").strip():
+        raise HTTPException(status_code=400, detail="La motivazione è obbligatoria per questa azione")
     if pratica["stato"] not in regola["da"]:
         raise HTTPException(status_code=400, detail=f"Transizione non consentita da {pratica['stato']}")
     nuovo = regola["a"]
@@ -763,13 +793,18 @@ async def transizione(pratica_id: str, data: TransizioneIn, user: dict = Depends
     if nuovo == "APPROVATA":
         updates["numero_autorizzazione"] = f"AUT-{datetime.now().year}-{uuid.uuid4().hex[:6].upper()}"
         updates["data_approvazione"] = now_iso()
+    if nuovo == "ANNULLATA":
+        updates["annullata_da"] = "comune"
+    if nuovo in ("ANNULLATA", "RIFIUTATA") and pratica.get("prenotazione_id"):
+        await db.prenotazioni.update_one({"id": pratica["prenotazione_id"]}, {"$set": {"stato": "CANCELLED"}})
     await db.pratiche.update_one({"id": pratica_id}, {"$set": updates})
     await log_stato(pratica_id, pratica["stato"], nuovo, user, data.nota)
     labels = {"IN_ISTRUTTORIA": "La tua pratica è in istruttoria",
               "IN_VERIFICA": "La tua pratica è in verifica",
               "INTEGRAZIONE_RICHIESTA": "Richiesta integrazione documenti",
               "APPROVATA": "Pratica approvata! Autorizzazione disponibile",
-              "RIFIUTATA": "Pratica rifiutata"}
+              "RIFIUTATA": "Pratica rifiutata",
+              "ANNULLATA": "Pratica annullata dal Comune"}
     await notifica(pratica["user_id"], labels[nuovo],
                    f"Pratica '{pratica['spazio_nome']}': {data.nota or labels[nuovo]}", pratica_id)
     return {"ok": True, "stato": nuovo}
@@ -1070,7 +1105,7 @@ async def elimina_comune(comune_id: str, user: dict = Depends(require_role("supe
 
 # ---------- app setup ----------
 
-from ooh import build as build_ooh
+from ooh import build as build_ooh, snapshot_richiedente, prefill_dati_form
 ooh_router, expire_holds = build_ooh(db, get_current_user, require_role, require_comune_l3,
                                      notifica, log_stato, now_iso, UPLOAD_DIR)
 api_router.include_router(ooh_router)

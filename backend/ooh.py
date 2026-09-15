@@ -31,6 +31,14 @@ FORMATO_PER_TIPO = {
 
 STATI_OOH_ATTIVI = ["INVIATA", "IN_VERIFICA", "INTEGRAZIONE_RICHIESTA", "APPROVATA"]
 
+CAMPI_ANAGRAFICI = ["nome", "email", "tipo_soggetto", "ragione_sociale", "partita_iva", "codice_fiscale", "pec", "telefono"]
+
+def snapshot_richiedente(user: dict) -> dict:
+    return {k: user.get(k) for k in CAMPI_ANAGRAFICI if user.get(k)}
+
+def prefill_dati_form(campi: list, user: dict) -> dict:
+    return {c["id"]: user[c["id"]] for c in campi if c.get("id") in CAMPI_ANAGRAFICI and user.get(c["id"])}
+
 
 class ZonaIn(BaseModel):
     nome: str
@@ -220,9 +228,12 @@ def build(db, get_current_user, require_role, require_comune_l3, notifica, log_s
                                      "tipologia": i["tipologia"], "formato": i.get("formato", ""),
                                      "foto_url": i.get("foto_url", ""), "lat": i["lat"], "lng": i["lng"]} for i in impianti],
                        "stato": "DA_COMPLETARE", "dati_form": {}, "documenti": [], "creativita": [],
+                       "richiedente": snapshot_richiedente(user),
                        "data_inizio": data.data_inizio, "data_fine": data.data_fine,
                        "importo": round(giorni * prezzo_g, 2), "pagata": False,
                        "prenotazione_id": pren["id"], "created_at": now_iso(), "updated_at": now_iso()}
+            tpl = await _template_pratica(pratica)
+            pratica["dati_form"] = prefill_dati_form(tpl.get("campi", []), user)
             await db.pratiche.insert_one({**pratica})
             await db.prenotazioni.update_one({"id": pren["id"]}, {"$set": {"pratica_id": pratica["id"]}})
             await log_stato(pratica["id"], None, "DA_COMPLETARE", user, f"Pratica generata dalla campagna OOH '{data.nome}'")

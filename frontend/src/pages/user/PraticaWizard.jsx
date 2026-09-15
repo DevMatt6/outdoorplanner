@@ -52,6 +52,7 @@ export default function PraticaWizard() {
         if (!pratica) {
           const { data } = await api.post("/pratiche", { spazio_id: spazio.id, data_inizio: date.inizio, data_fine: date.fine, dati_form: {} });
           setPratica(data);
+          setValues((v) => ({ ...(data.dati_form || {}), ...v }));
         } else {
           const { data } = await api.put(`/pratiche/${pratica.id}`, { data_inizio: date.inizio, data_fine: date.fine });
           setPratica(data);

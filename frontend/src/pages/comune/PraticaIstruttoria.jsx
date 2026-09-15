@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { BackofficeLayout, COMUNE_LINKS } from "../../components/BackofficeLayout";
 import { StatusBadge, STATO_COLORS } from "../../components/StatusBadge";
 import { Chat } from "../../components/Chat";
+import { SezioneRichiedente, SezionePrenotazione, SezioneImpiantiCreativita, SezioneDatiForm, SezioneDocumenti } from "../../components/PraticaDettagli";
 import { api, apiError, API } from "../../lib/api";
 import { useAuth } from "../../store/auth";
 import { toast } from "sonner";
@@ -20,7 +21,12 @@ export default function PraticaIstruttoria() {
 
   if (!pratica) return <BackofficeLayout title="Backoffice Comune" links={COMUNE_LINKS}><div className="text-slate-500">Caricamento...</div></BackofficeLayout>;
 
-  const azione = async (az, label) => {
+  const maxLv = Math.max(...((pratica.comune?.livelli_attivi || [1, 2, 3])));
+  const can = (min) => livello >= Math.min(min, maxLv);
+  const inIstruttoria = ["IN_ISTRUTTORIA", "IN_VERIFICA"].includes(pratica.stato);
+
+  const azione = async (az, label, notaObbligatoria = false) => {
+    if (notaObbligatoria && !nota.trim()) return toast.error("Inserisci la motivazione: indica quali dati o file vanno corretti");
     try {
       await api.post(`/comune/pratiche/${pratica.id}/transizione`, { azione: az, nota });
       toast.success(label);
@@ -57,7 +63,7 @@ export default function PraticaIstruttoria() {
       <div className="mt-6 border border-slate-100 bg-white rounded-2xl p-6" data-testid="istruttoria-actions">
         <div className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-3">Azioni istruttoria</div>
         <textarea data-testid="nota-istruttoria" value={nota} onChange={(e) => setNota(e.target.value)} rows={2}
-          placeholder="Nota / motivazione (visibile al richiedente)..."
+          placeholder="Nota / motivazione (visibile al richiedente): indica quali dati o file vanno corretti..."
           className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2F5B41] transition-colors" />
         <div className="mt-3 flex flex-wrap gap-3">
           {pratica.stato === "INVIATA" && (
@@ -66,9 +72,9 @@ export default function PraticaIstruttoria() {
               Prendi in carico
             </button>
           )}
-          {pratica.stato === "IN_ISTRUTTORIA" && (
+          {inIstruttoria && (
             <>
-              {livello >= 2 ? (
+              {can(2) ? (
                 <>
                   <button data-testid="btn-approva" onClick={() => azione("approva", "Pratica approvata")}
                     className="px-5 py-2.5 rounded-full font-bold text-sm bg-[#2F5B41] text-white hover:bg-[#26492F] transition-colors">
@@ -78,15 +84,19 @@ export default function PraticaIstruttoria() {
                     className="px-5 py-2.5 rounded-full font-bold text-sm bg-[#26292B] text-white hover:bg-[#EF4444] transition-colors">
                     Rifiuta
                   </button>
+                  <button data-testid="btn-annulla" onClick={() => azione("annulla", "Pratica annullata", true)}
+                    className="px-5 py-2.5 rounded-full font-bold text-sm border-2 border-slate-300 text-slate-600 hover:border-slate-900 hover:text-slate-900 transition-colors">
+                    Annulla pratica
+                  </button>
                 </>
               ) : (
                 <span data-testid="livello-lock-msg" className="inline-flex items-center gap-1.5 text-sm text-slate-500 border border-dashed border-slate-300 rounded-xl px-4 py-2.5">
-                  <Lock size={14} /> Approvazione e rifiuto riservati al Referente L2+
+                  <Lock size={14} /> Approvazione, rifiuto e annullamento riservati al livello L{Math.min(2, maxLv)}+
                 </span>
               )}
-              <button data-testid="btn-integrazione" onClick={() => azione("richiedi_integrazione", "Integrazione richiesta")}
+              <button data-testid="btn-integrazione" onClick={() => azione("richiedi_integrazione", "Richiesta di modifiche/integrazione inviata", true)}
                 className="px-5 py-2.5 rounded-full font-bold text-sm bg-[#EF4444] text-white hover:bg-slate-900 transition-colors">
-                Richiedi integrazione
+                Richiedi modifiche / integrazione
               </button>
             </>
           )}
@@ -98,41 +108,28 @@ export default function PraticaIstruttoria() {
             </button>
           )}
           {pratica.stato === "RIFIUTATA" && <span className="text-sm text-slate-500 py-2.5">Pratica chiusa con rifiuto.</span>}
+          {pratica.stato === "ANNULLATA" && <span className="text-sm text-slate-500 py-2.5">Pratica annullata: gli impianti sono stati liberati.</span>}
         </div>
       </div>
 
       <div className="mt-6 grid lg:grid-cols-2 gap-6">
         <div className="space-y-6">
-          <div className="border border-slate-100 bg-white rounded-2xl">
-            <div className="px-5 py-2.5 border-b border-slate-100 text-xs font-bold uppercase tracking-widest bg-[#FAFAF8]">Dati dichiarati</div>
-            <div className="p-5 grid grid-cols-2 gap-3 text-sm">
-              {Object.entries(pratica.dati_form || {}).map(([k, v]) => (
-                <div key={k}>
-                  <div className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">{k.replaceAll("_", " ")}</div>
-                  <div className="font-semibold">{String(v === true ? "Sì" : v === false ? "No" : v)}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-          <div className="border border-slate-100 bg-white rounded-2xl">
-            <div className="px-5 py-2.5 border-b border-slate-100 text-xs font-bold uppercase tracking-widest bg-[#FAFAF8]">Documenti ({pratica.documenti.length})</div>
-            {pratica.documenti.length === 0 && <div className="p-5 text-sm text-slate-500">Nessun documento.</div>}
-            {pratica.documenti.map((d) => (
-              <a key={d.id} href={`${process.env.REACT_APP_BACKEND_URL}${d.url}`} target="_blank" rel="noreferrer"
-                className="flex justify-between px-5 py-3 border-b border-slate-200 text-sm hover:bg-[#F1F5F0] transition-colors">
-                <span className="font-semibold">{d.nome}</span>
-                <span className="text-xs text-slate-500 uppercase">{d.tipo}</span>
-              </a>
-            ))}
-          </div>
+          <SezionePrenotazione pratica={pratica} />
+          <SezioneRichiedente richiedente={pratica.richiedente} />
+          <SezioneImpiantiCreativita pratica={pratica} />
+          <SezioneDatiForm dati={pratica.dati_form} />
+          <SezioneDocumenti documenti={pratica.documenti} />
           <div className="border border-slate-100 bg-white rounded-2xl">
             <div className="px-5 py-2.5 border-b border-slate-100 text-xs font-bold uppercase tracking-widest bg-[#FAFAF8]">Log stati</div>
             <div className="p-5 space-y-2">
               {pratica.log_stato.map((l) => (
-                <div key={l.id} className="flex items-center gap-3 text-xs">
-                  <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: STATO_COLORS[l.a]?.dot }} />
-                  <span className="font-bold w-40">{l.da ? `${l.da} → ${l.a}` : l.a}</span>
-                  <span className="text-slate-500">{l.autore_nome} · {new Date(l.timestamp).toLocaleString("it-IT")}</span>
+                <div key={l.id} className="text-xs">
+                  <div className="flex items-center gap-3">
+                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: STATO_COLORS[l.a]?.dot }} />
+                    <span className="font-bold w-40">{l.da ? `${l.da} → ${l.a}` : l.a}</span>
+                    <span className="text-slate-500">{l.autore_nome} · {new Date(l.timestamp).toLocaleString("it-IT")}</span>
+                  </div>
+                  {l.nota && <div className="ml-5 text-slate-600 italic mt-0.5">"{l.nota}"</div>}
                 </div>
               ))}
             </div>

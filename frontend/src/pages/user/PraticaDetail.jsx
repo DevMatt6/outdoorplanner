@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { NavBar } from "../../components/NavBar";
 import { StatusBadge, STATO_COLORS } from "../../components/StatusBadge";
 import { Chat } from "../../components/Chat";
+import { SezioneRichiedente, SezionePrenotazione, SezioneImpiantiCreativita, SezioneDatiForm, SezioneDocumenti } from "../../components/PraticaDettagli";
 import { api, apiError, API } from "../../lib/api";
 import { toast } from "sonner";
 import { ArrowLeft, Download, Upload, Send } from "lucide-react";
@@ -48,6 +49,8 @@ export default function PraticaDetail() {
     a.click();
   };
 
+  const motivoIntegrazione = [...(pratica.log_stato || [])].reverse().find((l) => l.a === "INTEGRAZIONE_RICHIESTA")?.nota;
+
   return (
     <div className="min-h-screen">
       <NavBar />
@@ -78,8 +81,9 @@ export default function PraticaDetail() {
 
         {pratica.stato === "INTEGRAZIONE_RICHIESTA" && (
           <div className="mt-6 border border-red-200 bg-red-50 rounded-2xl p-5" data-testid="integrazione-box">
-            <div className="font-heading font-extrabold text-lg text-[#B91C1C]">Il Comune richiede un'integrazione</div>
-            <p className="text-sm text-slate-700 mt-1">Carica i documenti richiesti (vedi chat) e reinvia la pratica.</p>
+            <div className="font-heading font-extrabold text-lg text-[#B91C1C]">Il Comune richiede modifiche / integrazioni</div>
+            {motivoIntegrazione && <p className="text-sm text-slate-800 mt-1 font-semibold" data-testid="motivo-integrazione">Motivazione: "{motivoIntegrazione}"</p>}
+            <p className="text-sm text-slate-700 mt-1">Correggi i dati o carica i documenti richiesti e reinvia la pratica.</p>
             <div className="mt-4 flex flex-wrap gap-3">
               <label className="cursor-pointer inline-flex items-center gap-2 border-2 border-slate-900 bg-white px-5 py-2.5 text-sm font-bold hover:bg-[#2F5B41] hover:text-white transition-colors">
                 <Upload size={15} /> Carica documento
@@ -93,8 +97,20 @@ export default function PraticaDetail() {
           </div>
         )}
 
+        {pratica.stato === "ANNULLATA" && pratica.annullata_da === "comune" && (
+          <div className="mt-6 border border-slate-200 bg-[#FAFAF8] rounded-2xl p-5" data-testid="annullata-box">
+            <div className="font-heading font-extrabold text-lg text-slate-700">Pratica annullata dal Comune</div>
+            <p className="text-sm text-slate-600 mt-1">Gli impianti prenotati sono stati liberati. Consulta la cronologia per la motivazione.</p>
+          </div>
+        )}
+
         <div className="mt-8 grid lg:grid-cols-2 gap-6">
           <div className="space-y-6">
+            <SezionePrenotazione pratica={pratica} />
+            <SezioneRichiedente richiedente={pratica.richiedente} />
+            <SezioneImpiantiCreativita pratica={pratica} />
+            <SezioneDatiForm dati={pratica.dati_form} />
+            <SezioneDocumenti documenti={pratica.documenti} />
             <div className="border border-slate-100 bg-white rounded-2xl overflow-hidden">
               <div className="px-5 py-2.5 border-b border-slate-100 text-xs font-bold uppercase tracking-widest bg-[#FAFAF8]">Cronologia stati</div>
               <div className="p-5 space-y-0">
@@ -109,28 +125,6 @@ export default function PraticaDetail() {
                       <div className="text-xs text-slate-500">{l.autore_nome} · {new Date(l.timestamp).toLocaleString("it-IT")}</div>
                       {l.nota && <div className="text-xs text-slate-600 mt-0.5 italic">"{l.nota}"</div>}
                     </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div className="border border-slate-100 bg-white rounded-2xl">
-              <div className="px-5 py-2.5 border-b border-slate-100 text-xs font-bold uppercase tracking-widest bg-[#FAFAF8]">Documenti ({pratica.documenti.length})</div>
-              {pratica.documenti.length === 0 && <div className="p-5 text-sm text-slate-500">Nessun documento caricato.</div>}
-              {pratica.documenti.map((d) => (
-                <a key={d.id} href={`${process.env.REACT_APP_BACKEND_URL}${d.url}`} target="_blank" rel="noreferrer"
-                  className="flex justify-between px-5 py-3 border-b border-slate-200 text-sm hover:bg-[#F1F5F0] transition-colors">
-                  <span className="font-semibold">{d.nome}</span>
-                  <span className="text-xs text-slate-500 uppercase">{d.tipo}</span>
-                </a>
-              ))}
-            </div>
-            <div className="border border-slate-100 bg-white rounded-2xl">
-              <div className="px-5 py-2.5 border-b border-slate-100 text-xs font-bold uppercase tracking-widest bg-[#FAFAF8]">Dati dichiarati</div>
-              <div className="p-5 grid grid-cols-2 gap-3 text-sm">
-                {Object.entries(pratica.dati_form || {}).map(([k, v]) => (
-                  <div key={k}>
-                    <div className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">{k.replaceAll("_", " ")}</div>
-                    <div className="font-semibold">{String(v === true ? "Sì" : v === false ? "No" : v)}</div>
                   </div>
                 ))}
               </div>
