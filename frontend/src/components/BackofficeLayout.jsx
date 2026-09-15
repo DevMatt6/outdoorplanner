@@ -51,8 +51,7 @@ export const BackofficeLayout = ({ title, links, children }) => {
       {open && <div className="fixed inset-0 bg-black/30 z-[1190] lg:hidden" onClick={() => setOpen(false)} data-testid="sidebar-overlay" />}
       <aside className={`w-64 shrink-0 bg-white border-r border-[#E5E9F2] flex flex-col fixed top-0 h-screen z-[1200] transition-transform duration-200 lg:sticky lg:translate-x-0 ${open ? "translate-x-0" : "-translate-x-full"}`}>
         <Link to="/" className="flex items-center gap-3 px-6 h-16 border-b border-[#E5E9F2] shrink-0">
-          <span className="bg-[#1F3BB3] text-white font-heading font-extrabold w-9 h-9 rounded-xl flex items-center justify-center text-sm shadow-sm">OP</span>
-          <span className="font-heading font-extrabold text-base tracking-tight text-[#1F2937]">Outdoor Planner</span>
+          <img src="/logo.png" alt="Outdoor Planner" className="h-7" />
         </Link>
         <div className="mx-4 my-3 p-3 bg-[#F8F9FD] rounded-xl border border-[#E5E9F2]">
           {comuneInfo && (

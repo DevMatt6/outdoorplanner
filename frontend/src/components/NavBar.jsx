@@ -10,8 +10,7 @@ export const NavBar = () => {
     <header className="sticky top-0 z-[1100] px-4 pt-4">
       <div className="max-w-7xl mx-auto bg-white rounded-2xl border border-slate-100 px-6 h-16 flex items-center justify-between">
         <Link to="/" data-testid="nav-logo" className="flex items-center gap-3">
-          <span className="bg-[#1F3BB3] text-white font-heading font-extrabold w-9 h-9 rounded-full flex items-center justify-center text-sm">OP</span>
-          <span className="font-heading font-extrabold text-lg tracking-tight">Outdoor Planner</span>
+          <img src="/logo.png" alt="Outdoor Planner" className="h-8" />
         </Link>
         <nav className="flex items-center gap-2">
           {(!user || user.ruolo === "user") && (

@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api, apiError } from "../lib/api";
 import { useAuth, homeFor } from "../store/auth";
-import { NavBar } from "../components/NavBar";
 
 const EMPTY = { email: "", password: "", nome: "", tipo_soggetto: "Privato", ragione_sociale: "", partita_iva: "", codice_fiscale: "", pec: "", telefono: "" };
 
@@ -42,21 +41,18 @@ export default function Auth() {
   const input = "w-full border border-slate-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-[#1F3BB3] transition-colors";
 
   return (
-    <div className="min-h-screen">
-      <NavBar />
-      <div className="max-w-md mx-auto px-6 py-12">
-        <div className="text-center mb-6">
-          <h1 className="text-3xl font-heading font-extrabold tracking-tight">Outdoor Planner</h1>
-          <p className="text-sm text-slate-500 mt-1">Pubblicità e occupazione suolo pubblico, online.</p>
-        </div>
-        <div className="border border-slate-100 bg-white rounded-2xl overflow-hidden">
+    <div className="min-h-screen bg-[#1F3BB3] flex flex-col items-center justify-center px-6 py-10">
+      <img src="/logo-white.png" alt="Outdoor Planner" className="h-14 sm:h-16 mb-3" data-testid="auth-logo" />
+      <p className="text-sm text-blue-100 mb-7">Pubblicità e occupazione suolo pubblico, online.</p>
+      <div className="w-full max-w-md">
+        <div className="bg-white rounded-2xl overflow-hidden shadow-2xl shadow-black/20">
           <div className="grid grid-cols-2 border-b border-slate-100">
             <button data-testid="tab-login" onClick={() => setMode("login")}
-              className={`py-3 text-sm font-bold uppercase tracking-widest transition-colors ${mode === "login" ? "bg-[#1F3BB3] text-white" : "hover:bg-slate-50"}`}>
+              className={`py-3 text-sm font-bold uppercase tracking-widest transition-colors ${mode === "login" ? "bg-white text-[#1F3BB3] border-b-2 border-[#1F3BB3]" : "bg-slate-100 text-slate-400 hover:text-slate-600"}`}>
               Accedi
             </button>
             <button data-testid="tab-register" onClick={() => setMode("register")}
-              className={`py-3 text-sm font-bold uppercase tracking-widest transition-colors ${mode === "register" ? "bg-[#1F3BB3] text-white" : "hover:bg-slate-50"}`}>
+              className={`py-3 text-sm font-bold uppercase tracking-widest transition-colors ${mode === "register" ? "bg-white text-[#1F3BB3] border-b-2 border-[#1F3BB3]" : "bg-slate-100 text-slate-400 hover:text-slate-600"}`}>
               Registrati
             </button>
           </div>

@@ -114,6 +114,11 @@ Su richiesta utente (screenshot stile "Donezo") il design è passato da flat bru
 - Editor "Modifica dati integrazione" (IntegrazioneEditor.jsx): in INTEGRAZIONE_RICHIESTA l'utente corregge i dati del modulo e (per OOH) riassegna le creatività per impianto e carica nuovi soggetti; backend blocca modifiche creatività fuori da DA_COMPLETARE/INTEGRAZIONE_RICHIESTA
 - FIX CRITICO: reinvio integrazione di pratica OOH ora torna a IN_VERIFICA (prima IN_ISTRUTTORIA hardcoded, rendeva la pratica inapprovabile)
 
+## Implementato (Iterazione 15 — Login redesign + logo brand)
+- Schermata login: sfondo blu pieno #1F3BB3, card centrata, barra di navigazione rimossa, logo-white in alto; tab Accedi/Registrati ridisegnate
+- Loghi ufficiali caricati in /frontend/public: logo.png (sfondi chiari: sidebar backoffice/user, NavBar pubblica) e logo-white.png (sfondi scuri: pagina login)
+- Verificato con screenshot desktop (1920) e mobile (390, nessun overflow), login funzionante
+
 ## Backlog prioritizzato
 - P2: date picker anche per modifica pratiche in INTEGRAZIONE_RICHIESTA
 - P2: Stripe test mode reale al posto del mock; export report CSV/PDF
