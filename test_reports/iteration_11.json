@@ -1,0 +1,32 @@
+{
+  "summary": "Iterazione 11 — testate le NUOVE feature: (a) enrichment GET /pratiche/{id} con richiedente snapshot, prenotazione, campagna, creativita_dettagli e impianti; (b) azione 'annulla' del comune con nota obbligatoria; (c) 'rifiuta' libera la prenotazione (CANCELLED) → nuova campagna sulle stesse date passa senza 409; (d) integrazione con nota obbligatoria; (e) precompilazione richiedente + dati_form sulla creazione pratica OOH/OSP; (f) pratica ANNULLATA dal comune resta nel listing /comune/pratiche; (g) frontend PraticaDetail user e PraticaIstruttoria comune mostrano tutte le sezioni con i data-testid attesi, lock livello per L1, toast 'Inserisci la motivazione'. Backend: 11 passed + 1 skipped (nessuno spazio OSP disponibile). Frontend: tutti i controlli OK, tranne 'sezione-dati-form' che è correttamente nascosta quando dati_form è vuoto (by design, non un bug).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration_11.py",
+    "/app/test_reports/pytest/iteration_11.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py 771: LIVELLO_MIN_AZIONE include ora 'annulla':2 con degrado a max_lv (784). Corretto.",
+    "server.py 787: nota obbligatoria per 'richiedi_integrazione' E 'annulla'. Verificato 400 in entrambi.",
+    "server.py 796-799: al passaggio a ANNULLATA imposta annullata_da='comune' e cancella la prenotazione. Verificato.",
+    "server.py 747-748: filtro /comune/pratiche mostra ANNULLATA solo se annullata_da='comune' (le ANNULLATA pre-invio dell'utente restano nascoste). Corretto.",
+    "ooh.py 231-236: snapshot_richiedente + prefill_dati_form applicato a crea_campagna_ooh; server.py 378 stesso pattern per crea_pratica OSP. Corretto.",
+    "server.py 482-501: enrichment get_pratica restituisce richiedente, prenotazione, campagna, creativita_dettagli (con soggetto completo). Verificato dal test 05.",
+    "PraticaDettagli.jsx: SezioneDatiForm/Richiedente/Documenti fanno early-return con null se vuote — nessun testid renderizzato in tal caso. Comportamento intenzionale ma può confondere test rigidi; documentato.",
+    "PraticaIstruttoria.jsx: lock-msg visualizzato correttamente quando livello utente < min richiesto, con btn-integrazione sempre disponibile ai livelli abilitati."
+  ],
+  "updated_files": ["/app/backend/tests/test_iteration_11.py"],
+  "success_rate": {"backend": "100% (11/11 eseguiti, 1 skip documentato)", "frontend": "100% (login user+L1+L2, sezioni pratica user e comune, transizioni presa_in_carico e annulla, integrazione nota obbligatoria, annullata-box lato user)"},
+  "test_credentials": "Superadmin: mattia.fabrizi92@gmail.com/demo123. Comuni Roma e credenziali reali NON toccati. Tutti i dati creati usano prefisso TEST_/UITest_/ui_ e sono stati eliminati a fine test.",
+  "seed_data_creation": "Nessun seed permanente. Ogni test crea comuni+utenze+impianti+pacchetti+pratiche con prefisso di test ed esegue cleanup DELETE /admin/comuni/{id} (cascade su pratiche/zone/impianti/pacchetti/prenotazioni/spazi/utenti).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Le NUOVE feature (dettaglio pratica completo, azione annulla, nota obbligatoria, degradazione livelli, autocompilazione richiedente/dati_form) sono tutte funzionanti sia lato backend sia lato frontend. Il test test_10 (degradazione livelli su comune con soli L1) è verificato solo a livello di login/permessi perché la creazione di zone/impianti richiede L3: la logica di min(LIVELLO_MIN_AZIONE, max_lv) resta comunque coperta dal codice server.py:784. Per un test end-to-end della degradazione servirebbe una pratica OSP su comune L1-only, ma il comune non può avere spazi OSP senza L3 (require_comune_l3 in POST /comune/spazi). Se necessario in futuro, il main agent può o (i) allentare require_comune_l3 con la stessa logica di degrado, oppure (ii) permettere creazione spazi anche a L1 per comuni mono-livello — a discrezione del prodotto.",
+  "rca of the issue": "N/A — nessun bug bloccante o funzionale trovato in questa iterazione."
+}

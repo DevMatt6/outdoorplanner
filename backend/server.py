@@ -90,7 +90,9 @@ def require_role(*roles):
 async def require_comune_l3(user: dict = Depends(get_current_user)):
     if user["ruolo"] != "comune":
         raise HTTPException(status_code=403, detail="Permessi insufficienti")
-    if user.get("livello", 1) < 3:
+    comune_doc = await db.comuni.find_one({"id": user.get("comune_id")}, {"_id": 0, "livelli_attivi": 1})
+    max_lv = max((comune_doc or {}).get("livelli_attivi") or [1, 2, 3])
+    if user.get("livello", 1) < min(3, max_lv):
         raise HTTPException(status_code=403, detail="Operazione riservata al Responsabile (L3)")
     return user
 

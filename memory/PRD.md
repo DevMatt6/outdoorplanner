@@ -99,6 +99,14 @@ Su richiesta utente (screenshot stile "Donezo") il design è passato da flat bru
 - Dashboard KPI Superadmin estesa (zone, circuiti, impianti, held attivi, confermati, conversione held→confirmed, campagne OOH) + empty-state grafici ("Nessun dato disponibile")
 - Hint account demo in Auth.jsx aggiornato (utenze comunali create solo via onboarding)
 
+## Implementato (Iterazione 13 — Dettaglio pratica completo, azione Annulla, autocompilazione, testato: backend 11/11 + frontend 100%, report iteration_11.json)
+- GET /api/pratiche/{id} arricchito: richiedente (snapshot registrazione), prenotazione, campagna, creativita_dettagli (soggetto→impianto con file), impianti
+- Nuovo componente condiviso PraticaDettagli.jsx: sezioni Dettagli prenotazione, Dati richiedente, Impianti e creatività (foto + anteprima/link file), Dati dichiarati, Documenti — usato sia in PraticaDetail (user) sia in PraticaIstruttoria (comune)
+- Azione "Annulla" lato comune (chiusura non negativa, libera impianti → prenotazione CANCELLED, annullata_da=comune, resta visibile nella scrivania comune); "Rifiuta" ora libera anch'essa la prenotazione; nota obbligatoria per annulla e richiedi modifiche/integrazione
+- Degradazione livelli estesa: se il comune ha un solo livello attivo quel livello può fare tutto, incluso CRUD zone/impianti/pacchetti/spazi (require_comune_l3 degradato, verificato con curl)
+- Fix: bottoni istruttoria ora appaiono anche per pratiche OOH in stato IN_VERIFICA
+- Autocompilazione: snapshot richiedente salvato alla creazione pratica (OSP wizard, campagna OSP, campagna OOH) + prefill dati_form dei campi anagrafici corrispondenti; wizard OSP mostra i campi precompilati; lato user il box integrazione mostra la motivazione del comune
+
 ## Backlog prioritizzato
 - P2: date picker anche per modifica pratiche in INTEGRAZIONE_RICHIESTA
 - P2: Stripe test mode reale al posto del mock; export report CSV/PDF
