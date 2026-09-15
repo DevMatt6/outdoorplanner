@@ -119,6 +119,11 @@ Su richiesta utente (screenshot stile "Donezo") il design è passato da flat bru
 - Loghi ufficiali caricati in /frontend/public: logo.png (sfondi chiari: sidebar backoffice/user, NavBar pubblica) e logo-white.png (sfondi scuri: pagina login)
 - Verificato con screenshot desktop (1920) e mobile (390, nessun overflow), login funzionante
 
+## Implementato (Iterazione 16 — Reset dati da Superadmin)
+- POST /api/admin/reset-piattaforma (solo superadmin, conferma "RESET" obbligatoria): elimina tutte le collections business + tutti gli utenti tranne superadmin + file in /app/uploads
+- UI "Zona pericolosa" in fondo alla Dashboard KPI con dialog di conferma (bottone abilitato solo digitando RESET)
+- Testato: 400 con conferma errata, 401 senza auth, UI verificata con screenshot (reset reale NON eseguito per preservare i dati di Roma)
+
 ## Backlog prioritizzato
 - P2: date picker anche per modifica pratiche in INTEGRAZIONE_RICHIESTA
 - P2: Stripe test mode reale al posto del mock; export report CSV/PDF

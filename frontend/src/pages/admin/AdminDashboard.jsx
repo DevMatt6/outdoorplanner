@@ -2,13 +2,32 @@ import { useEffect, useState } from "react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { BackofficeLayout, ADMIN_LINKS } from "../../components/BackofficeLayout";
 import { STATO_COLORS, StatusBadge } from "../../components/StatusBadge";
-import { api, imgSrc } from "../../lib/api";
-import { Landmark, X } from "lucide-react";
+import { api, imgSrc, apiError } from "../../lib/api";
+import { Landmark, X, AlertTriangle } from "lucide-react";
+import { toast } from "sonner";
 
 export default function AdminDashboard() {
   const [kpi, setKpi] = useState(null);
   const [comuni, setComuni] = useState([]);
   const [dettaglio, setDettaglio] = useState(null);
+  const [showReset, setShowReset] = useState(false);
+  const [confermaReset, setConfermaReset] = useState("");
+  const [resetting, setResetting] = useState(false);
+
+  const eseguiReset = async () => {
+    setResetting(true);
+    try {
+      await api.post("/admin/reset-piattaforma", { conferma: confermaReset });
+      toast.success("Piattaforma azzerata: puoi ricominciare da capo");
+      setShowReset(false);
+      setConfermaReset("");
+      setDettaglio(null);
+      const [{ data: k }, { data: c }] = await Promise.all([api.get("/admin/kpi"), api.get("/admin/comuni")]);
+      setKpi(k);
+      setComuni(c);
+    } catch (e) { toast.error(apiError(e)); }
+    finally { setResetting(false); }
+  };
 
   useEffect(() => {
     api.get("/admin/kpi").then(({ data }) => setKpi(data));
@@ -184,6 +203,36 @@ export default function AdminDashboard() {
           </div>
         </div>
       )}
+
+      <div className="mt-10 border border-red-200 bg-red-50/60 rounded-2xl p-5" data-testid="danger-zone">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2 font-heading font-extrabold text-[#B91C1C]"><AlertTriangle size={17} /> Zona pericolosa</div>
+            <p className="text-sm text-slate-600 mt-1">Elimina TUTTI i dati (comuni, utenze, inserzionisti, pratiche, campagne, impianti, file). Resta solo il tuo account superadmin.</p>
+          </div>
+          <button data-testid="btn-reset-piattaforma" onClick={() => setShowReset(true)}
+            className="px-5 py-2.5 rounded-full font-bold text-sm bg-[#B91C1C] text-white hover:bg-red-800 transition-colors">
+            Reset piattaforma
+          </button>
+        </div>
+        {showReset && (
+          <div className="mt-4 bg-white border border-red-200 rounded-xl p-4" data-testid="reset-dialog">
+            <p className="text-sm font-semibold text-slate-800">Operazione irreversibile. Digita <span className="font-mono font-bold text-[#B91C1C]">RESET</span> per confermare:</p>
+            <div className="mt-3 flex flex-wrap gap-3">
+              <input data-testid="input-conferma-reset" value={confermaReset} onChange={(e) => setConfermaReset(e.target.value)}
+                placeholder="RESET" className="border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-mono outline-none focus:border-[#B91C1C] transition-colors" />
+              <button data-testid="btn-conferma-reset" onClick={eseguiReset} disabled={confermaReset !== "RESET" || resetting}
+                className="px-5 py-2.5 rounded-full font-bold text-sm bg-[#B91C1C] text-white hover:bg-red-800 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+                {resetting ? "Cancellazione..." : "Cancella tutto definitivamente"}
+              </button>
+              <button data-testid="btn-annulla-reset" onClick={() => { setShowReset(false); setConfermaReset(""); }}
+                className="px-5 py-2.5 rounded-full font-bold text-sm border border-slate-300 text-slate-600 hover:border-slate-900 hover:text-slate-900 transition-colors">
+                Annulla
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
     </BackofficeLayout>
   );
 }

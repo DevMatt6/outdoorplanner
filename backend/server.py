@@ -5,6 +5,7 @@ ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
 import os
+import shutil
 import uuid
 import logging
 import io
@@ -1082,6 +1083,29 @@ async def aggiorna_comune(comune_id: str, data: ComuneUpdateIn, user: dict = Dep
         if spazi_updates:
             await db.spazi.update_many({"comune_id": comune_id}, {"$set": spazi_updates})
     return await db.comuni.find_one({"id": comune_id}, {"_id": 0})
+
+class ResetIn(BaseModel):
+    conferma: str
+
+@api_router.post("/admin/reset-piattaforma")
+async def reset_piattaforma(data: ResetIn, user: dict = Depends(require_role("superadmin"))):
+    if data.conferma != "RESET":
+        raise HTTPException(status_code=400, detail="Digita RESET per confermare l'operazione")
+    collections = ["comuni", "zone", "impianti", "pacchetti", "spazi", "pratiche", "campagne",
+                   "prenotazioni", "soggetti", "creativita", "form_templates", "log_stato",
+                   "chat", "notifiche", "notifications", "occupazioni"]
+    dettaglio = {}
+    for coll in collections:
+        r = await db[coll].delete_many({})
+        dettaglio[coll] = r.deleted_count
+    r = await db.users.delete_many({"ruolo": {"$ne": "superadmin"}})
+    dettaglio["utenti"] = r.deleted_count
+    for child in UPLOAD_DIR.iterdir():
+        if child.is_dir():
+            shutil.rmtree(child, ignore_errors=True)
+        else:
+            child.unlink(missing_ok=True)
+    return {"ok": True, "dettaglio": dettaglio}
 
 @api_router.delete("/admin/comuni/{comune_id}")
 async def elimina_comune(comune_id: str, user: dict = Depends(require_role("superadmin"))):
