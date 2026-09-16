@@ -150,6 +150,11 @@ Su richiesta utente (screenshot stile "Donezo") il design è passato da flat bru
 - Riscritto /app/backend/seed_demo.py (ripetibile): 3 comuni ATTIVI (Roma, Napoli, Milano) con livelli [1,2,3]; 9 utenze comunali ({comune}.l1/l2/l3@demo.it, password demo123); 3 zone per comune; 3 circuiti per comune intitolati alla via (es. "Circuito Viale Europa") con 5 impianti ciascuno sulla stessa via; 1 area OSP e moduli OOH/OSP per comune; 0 pratiche
 - Verificato: login 4 utenze OK, GET /comuni ritorna i 3 comuni, circuiti con 5 impianti, UI zone comune OK
 
+## Implementato (Iterazione 21 — Planner: regioni a pulsanti + sotto-step per comune)
+- Step Comuni: tornate le pill delle regioni (rimossa mappa Italia interattiva)
+- Step Zone & Circuiti multi-comune: un comune per volta con sotto-step (badge "1. Roma ✓ / 2. Napoli"), bottone "Avanti: {prossimo comune}", validazione ≥1 circuito per comune, Indietro naviga i sotto-step
+- Verificato E2E con Playwright (2 comuni: Roma → Napoli)
+
 ## Backlog prioritizzato
 - P2: date picker anche per modifica pratiche in INTEGRAZIONE_RICHIESTA
 - P2: Stripe test mode reale al posto del mock; export report CSV/PDF

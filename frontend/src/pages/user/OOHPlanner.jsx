@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { MapContainer, TileLayer, Polygon, CircleMarker, Tooltip, GeoJSON } from "react-leaflet";
+import { MapContainer, TileLayer, Polygon, CircleMarker, Tooltip } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import { UserShell } from "../../components/BackofficeLayout";
 import { DateRangePicker, fmtDay } from "../../components/DateRangePicker";
@@ -10,8 +10,6 @@ import { Landmark, Check, ChevronDown, ChevronUp, MapPin, ImageOff } from "lucid
 
 const STEPS = ["Periodo", "Comuni", "Zone & Circuiti", "Riepilogo"];
 const FLAT_TILES = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
-const REGION_BASE = { fillColor: "#DCE4F7", fillOpacity: 1, color: "#93A6E8", weight: 1 };
-const REGION_ACTIVE = { fillColor: "#1F3BB3", fillOpacity: 1, color: "#2B4BDB", weight: 1.5 };
 
 const Thumb = ({ src, className }) => {
   if (!src) return <span className={`${className} bg-[#F0F4FF] flex items-center justify-center text-[#93A6E8] shrink-0`}><ImageOff size={13} /></span>;
@@ -25,9 +23,9 @@ export default function OOHPlanner() {
   const [nome, setNome] = useState("");
   const [range, setRange] = useState();
   const [comuni, setComuni] = useState([]);
-  const [geo, setGeo] = useState(null);
   const [regioneSel, setRegioneSel] = useState(null);
   const [comuniSel, setComuniSel] = useState([]);
+  const [comuneIdx, setComuneIdx] = useState(0);
   const [zone, setZone] = useState({});
   const [pacchetti, setPacchetti] = useState({});
   const [zonaSel, setZonaSel] = useState({});
@@ -43,7 +41,6 @@ export default function OOHPlanner() {
 
   useEffect(() => {
     api.get("/comuni").then(({ data }) => setComuni(data));
-    fetch("/geo/italy_regions.json").then((r) => r.json()).then(setGeo).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -86,6 +83,8 @@ export default function OOHPlanner() {
     return p.impianti.filter((i) => ids.includes(i.id)).reduce((a, i) => a + (i.prezzo || 0), 0);
   };
   const totale = pacchettiSel.reduce((a, p) => a + prezzoSel(p) * giorni, 0);
+  const regioni = useMemo(() => [...new Set(comuni.map((c) => c.regione))].sort(), [comuni]);
+  const circuitiDelComune = (cid) => pacchettiSel.filter((p) => p.comune_id === cid);
 
   const next = async () => {
     setError("");
@@ -95,11 +94,18 @@ export default function OOHPlanner() {
       setStep(1);
     } else if (step === 1) {
       if (comuniSel.length === 0) return setError("Seleziona almeno un Comune");
+      setComuneIdx(0);
       setStep(2);
     } else if (step === 2) {
-      if (selected.length === 0) return setError("Seleziona almeno un circuito");
-      if (pacchettiSel.some((p) => (impSel[p.id] || liberiIds(p)).length === 0)) return setError("Seleziona almeno un impianto per ogni circuito");
-      setStep(3);
+      const cid = comuniSel[comuneIdx];
+      if (circuitiDelComune(cid).length === 0) return setError(`Seleziona almeno un circuito per ${comuneNome(cid)} (oppure torna indietro e deseleziona il Comune)`);
+      if (circuitiDelComune(cid).some((p) => (impSel[p.id] || liberiIds(p)).length === 0)) return setError("Seleziona almeno un impianto per ogni circuito");
+      if (comuneIdx < comuniSel.length - 1) {
+        setComuneIdx(comuneIdx + 1);
+        setExpanded(null);
+      } else {
+        setStep(3);
+      }
     } else if (step === 3) {
       setBusy(true);
       try {
@@ -140,35 +146,15 @@ export default function OOHPlanner() {
 
           {step === 1 && (
             <div className="space-y-5">
-              <h2 className="font-heading font-extrabold text-xl">Scegli la regione sulla mappa, poi i Comuni attivi</h2>
-              <div className="relative border border-slate-100 rounded-2xl overflow-hidden aspect-[16/10] w-full" data-testid="ooh-mappa-italia">
-                <MapContainer key={`it-${regioneSel || "all"}`} center={[42.0, 12.5]} zoom={5.6} zoomSnap={0.2}
-                  style={{ height: "100%", width: "100%", background: "#F7F8F6" }} scrollWheelZoom={false} attributionControl={false}>
-                  {geo && <GeoJSON key={regioneSel || "none"} data={geo}
-                    style={(f) => (f.properties.reg_name === regioneSel ? REGION_ACTIVE : REGION_BASE)}
-                    onEachFeature={(feature, layer) => {
-                      const nome = feature.properties.reg_name;
-                      layer.on({
-                        mouseover: (e) => e.target.setStyle(REGION_ACTIVE),
-                        mouseout: (e) => { if (nome !== regioneSel) e.target.setStyle(REGION_BASE); },
-                        click: () => setRegioneSel(nome === regioneSel ? null : nome),
-                      });
-                      layer.bindTooltip(`${nome} · ${comuni.filter((c) => c.regione === nome).length} comuni attivi`, { sticky: true, direction: "top" });
-                    }} />}
-                  {regioneSel && comuni.filter((c) => c.regione === regioneSel).map((c) => (
-                    <CircleMarker key={c.id} center={[c.lat, c.lng]} radius={11}
-                      eventHandlers={{ click: () => toggleComune(c.id) }}
-                      pathOptions={{ color: "#FFFFFF", weight: 2, fillColor: comuniSel.includes(c.id) ? "#F59E0B" : "#1F3BB3", fillOpacity: 1 }}>
-                      <Tooltip permanent direction="right" offset={[10, 0]} opacity={1} interactive
-                        eventHandlers={{ click: () => toggleComune(c.id) }}>
-                        <span style={{ fontWeight: 800, fontSize: 12, cursor: "pointer" }}>{c.nome}{comuniSel.includes(c.id) ? " ✓" : ""}</span>
-                      </Tooltip>
-                    </CircleMarker>
-                  ))}
-                </MapContainer>
-                <div className="absolute bottom-3 left-3 z-[1000] bg-white/95 border border-slate-100 rounded-xl px-3.5 py-2 text-xs font-semibold text-slate-600">
-                  {regioneSel ? `${regioneSel}: clicca i Comuni per selezionarli` : "Clicca una regione per vedere i Comuni attivi"}
-                </div>
+              <h2 className="font-heading font-extrabold text-xl">Scegli prima la regione</h2>
+              <div className="flex flex-wrap gap-2" data-testid="ooh-regioni">
+                {regioni.map((r) => (
+                  <button key={r} type="button" data-testid={`ooh-regione-${r}`} onClick={() => setRegioneSel(regioneSel === r ? null : r)}
+                    className={`px-4 py-2 text-sm font-bold rounded-full border transition-colors ${regioneSel === r ? "bg-[#1F3BB3] text-white border-[#1F3BB3]" : "bg-white border-slate-200 hover:border-[#1F3BB3]"}`}>
+                    {r} · {comuni.filter((c) => c.regione === r).length}
+                  </button>
+                ))}
+                {regioni.length === 0 && <span className="text-sm text-slate-500">Nessun comune attivo al momento.</span>}
               </div>
               {regioneSel && (
                 <>
@@ -197,7 +183,17 @@ export default function OOHPlanner() {
 
           {step === 2 && (
             <div className="space-y-8">
-              {comuniSel.map((cid) => {
+              {comuniSel.length > 1 && (
+                <div className="flex flex-wrap items-center gap-2" data-testid="ooh-substeps">
+                  {comuniSel.map((cid, i) => (
+                    <span key={cid} className={`text-[11px] font-bold uppercase tracking-wider rounded-full px-3 py-1.5 transition-colors
+                      ${i === comuneIdx ? "bg-[#1F3BB3] text-white" : i < comuneIdx ? "bg-[#E8EFFF] text-[#1F3BB3]" : "bg-slate-100 text-slate-400"}`}>
+                      {i + 1}. {comuneNome(cid)}{circuitiDelComune(cid).length > 0 ? " ✓" : ""}
+                    </span>
+                  ))}
+                </div>
+              )}
+              {[comuniSel[comuneIdx]].filter(Boolean).map((cid) => {
                 const zs = zone[cid] || [];
                 const zsel = zonaSel[cid] || null;
                 const pacs = (pacchetti[cid] || []).filter((p) => !zsel || p.zona_id === zsel);
@@ -205,7 +201,10 @@ export default function OOHPlanner() {
                 const comune = comuni.find((c) => c.id === cid);
                 return (
                   <div key={cid} data-testid={`ooh-sezione-${cid}`}>
-                    <h2 className="font-heading font-extrabold text-xl">{comuneNome(cid)} — zone e circuiti</h2>
+                    <h2 className="font-heading font-extrabold text-xl">
+                      {comuniSel.length > 1 && <span className="text-slate-400">Comune {comuneIdx + 1} di {comuniSel.length} · </span>}
+                      {comuneNome(cid)} — zone e circuiti
+                    </h2>
                     <div className="mt-3 flex flex-wrap gap-2">
                       <button type="button" onClick={() => setZonaSel({ ...zonaSel, [cid]: null })}
                         className={`px-4 py-1.5 text-xs font-bold rounded-full border transition-colors ${!zsel ? "bg-[#1F3BB3] text-white border-[#1F3BB3]" : "bg-white border-slate-200 hover:border-[#1F3BB3]"}`}>
@@ -339,13 +338,18 @@ export default function OOHPlanner() {
           {error && <div data-testid="ooh-error" className="mt-4 border border-red-200 bg-red-50 rounded-xl text-[#B91C1C] text-sm px-4 py-3">{error}</div>}
 
           <div className="mt-8 flex justify-between">
-            <button onClick={() => setStep(Math.max(0, step - 1))} disabled={step === 0}
+            <button onClick={() => {
+              setError("");
+              if (step === 2 && comuneIdx > 0) { setComuneIdx(comuneIdx - 1); setExpanded(null); }
+              else setStep(Math.max(0, step - 1));
+            }} disabled={step === 0}
               className="px-6 py-2.5 font-bold border border-slate-200 rounded-full hover:border-[#1F3BB3] transition-colors disabled:opacity-40">
               Indietro
             </button>
             <button data-testid="ooh-next-button" onClick={next} disabled={busy}
               className="px-8 py-2.5 font-bold rounded-full bg-[#1F3BB3] text-white hover:bg-[#172E93] transition-colors disabled:opacity-50">
-              {busy ? "Attendi..." : step === 3 ? "Genera Campagna" : "Avanti"}
+              {busy ? "Attendi..." : step === 3 ? "Genera Campagna"
+                : step === 2 && comuneIdx < comuniSel.length - 1 ? `Avanti: ${comuneNome(comuniSel[comuneIdx + 1])}` : "Avanti"}
             </button>
           </div>
         </div>
