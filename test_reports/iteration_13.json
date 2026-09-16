@@ -1,0 +1,36 @@
+{
+  "summary": "Iteration 13: testati i 5 nuovi feature request (mappe uniformi/quadrate, regioni pill, impianti_sel per circuito, dati comuni multi-comune, integrazione strutturata). Backend: 13/13 test PASS (test_iteration_13.py) coprono P5 (impianti_sel subset + prezzo somma selezionati, secondo utente prenota impianto deselezionato, 409 su impianto occupato, default = solo liberi), P4 (multi-comune con shared_field id comune → PUT dati-form applica valori a tutte le pratiche), P3 (richiesta integrazione strutturata con lista {tipo,id,label,nota} salvata in pratica.integrazione_richieste; reinvio svuota lista e riporta stato IN_VERIFICA per OOH; comune approva OK). Verificato anche il fix critico di iterazione 12 (invia_pratica INTEGRAZIONE_RICHIESTA→IN_VERIFICA per OOH, server.py:448). Frontend smoke: superadmin login OK, /spazi carica con aspect-square wrapper e zero overflow orizzontale a 390px, planner OOH step 1 mostra correttamente le pill regioni (data-testid ooh-regioni + ooh-regione-{nome}) e cliccando Lazio si vede solo Roma nella griglia comuni (data-testid ooh-comuni-grid + ooh-comune-{id}). Nessun errore JS in console. Non ho fatto un E2E completo frontend perché il flow completo richiede la creazione di infrastruttura via UI (creazione comuni/impianti/pacchetti + upload creatività + checkout + integrazione) e i seed comuni TEST_ creati durante i test backend vengono eliminati alla fine dell'esecuzione dei test.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration_13.py",
+    "/app/test_reports/pytest/iteration_13.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "ooh.py:186-263 crea_campagna_ooh: impianti_sel gestita correttamente — se richiesti, verifica intersezione con busy → 409; altrimenti default = liberi. Prezzo pratica calcolato su selezionati (line 234-235). Ottimo.",
+    "ooh.py:157-182 pacchetti_pubblici espone impianti_liberi (int) e occupato per-impianto; disponibile=True se >=1 libero. Coerente con la nuova UI che permette di comporre il circuito.",
+    "server.py:448 invia_pratica ora usa 'IN_VERIFICA' if tipo=='OOH' else 'IN_ISTRUTTORIA' — fix di iterazione 12 correttamente applicato.",
+    "server.py:811-812 transizione: quando azione=richiedi_integrazione salva data.richieste in pratica.integrazione_richieste. server.py:452 invia_pratica azzera integrazione_richieste al reinvio. Coerente con P3.",
+    "CampagnaOOHDetail.jsx:78-83 campiComuni: calcola intersezione fra i template.campi delle pratiche editabili (solo se ce ne sono >=2). Card 'Dati comuni' compare solo quando ci sono almeno 2 pratiche con campi condivisi. Corretto.",
+    "OOHPlanner.jsx:52-77 toggleImpianto/prezzoSel: default=liberi, deseleziona uno → aggiorna prezzo sommando i selezionati. Corretto lato client.",
+    "PraticaIstruttoria.jsx:135-177 integrazione-panel: renderizza le sezioni solo se items.length>0 (filter). Attenzione: se il template ha campi=[] e documenti_richiesti=[] e impianti=[] il pannello appare vuoto senza fallback. In pratica per pratiche OOH gli impianti sono sempre presenti, quindi almeno la sezione 'Creatività / impianti' compare. Nice-to-have: mostrare messaggio se il template non ha nulla di richiedibile."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration_13.py"
+  ],
+  "success_rate": {
+    "backend": "100% (13/13)",
+    "frontend": "smoke OK (regioni pill, comune per regione, aspect-square map, no overflow mobile, no JS errors)"
+  },
+  "test_credentials": "Superadmin: mattia.fabrizi92@gmail.com/demo123. Utenti/comuni test creati con prefisso TEST_ ed eliminati a fine test via cascade DELETE /admin/comuni/{id}. Dati reali (Roma, Milano) NON toccati.",
+  "seed_data_creation": "Nessun seed permanente. Comuni TEST_Alfa_{TS}/TEST_Beta_{TS}, utenze L2/L3 e utenti smoke_it13* creati ed eliminati automaticamente.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Tutti i 5 punti dell'iterazione 13 sono coperti da test_iteration_13.py. La suite crea 2 comuni test in regioni diverse (Piemonte, Lombardia), ognuno con 3 impianti stessa tipologia e form template con un campo 'shared_field' comune. Copre: impianti_sel subset + prezzo somma + libero-per-altro-utente + 409 su occupato + default=liberi; multi-comune con applica dati_form; integrazione strutturata (campo+creativita con note) → reinvio → approvazione. Il flow E2E frontend è verificabile via UI (data-testid presenti). Non ho eseguito il full E2E UI del pannello integrazione lato comune (richiede setup complesso via UI del comune TEST_) — dati backend confermano il funzionamento completo.",
+  "rca of the issue": "Nessun bug trovato in questa iterazione. Il fix di iterazione 12 (server.py:448 differenzia IN_VERIFICA/IN_ISTRUTTORIA per tipo OOH/OSP) è correttamente in place e testato da test_12_comune_puo_approvare_dopo_reinvio."
+}

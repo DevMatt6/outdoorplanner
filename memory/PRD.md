@@ -124,6 +124,14 @@ Su richiesta utente (screenshot stile "Donezo") il design è passato da flat bru
 - UI "Zona pericolosa" in fondo alla Dashboard KPI con dialog di conferma (bottone abilitato solo digitando RESET)
 - Testato: 400 con conferma errata, 401 senza auth, UI verificata con screenshot (reset reale NON eseguito per preservare i dati di Roma)
 
+## Implementato (Iterazione 17 — 5 modifiche UX/logica, testato: backend 13/13 + frontend smoke, report iteration_13.json)
+- Mappe uniformi: tutte quadrate (aspect-square) e minimali (filtro flat-tiles più desaturato) in EsploraMappa, ItalyMap, OOHPlanner, ComuneZone, ComuneSpazi, SpazioDetail
+- Planner OOH step Comuni: prima si sceglie la regione (pill), poi appaiono solo i comuni attivi di quella regione (multi-selezione cross-regione supportata)
+- Integrazione strutturata: il comune seleziona campi modulo / documenti / creatività per impianto con nota per elemento (pratica.integrazione_richieste); l'utente vede la lista esatta e i campi evidenziati nell'editor; reinvio azzera le richieste
+- Campagna multi-comune: card "Dati comuni a tutti i Comuni" compila una sola volta i campi condivisi tra i moduli e li applica a tutte le pratiche
+- Composizione circuito: l'utente seleziona i singoli impianti (default: tutti i liberi, occupati disabilitati); prezzo = somma impianti scelti; backend prenota solo quelli (impianti_sel), 409 se impianto scelto occupato
+- NOTA: piattaforma resettata dall'utente e ripopolata (Roma, Milano, mario.rossi@gmail.com — password non note); creato utente test smoke.test@demo.it/demo123
+
 ## Backlog prioritizzato
 - P2: date picker anche per modifica pratiche in INTEGRAZIONE_RICHIESTA
 - P2: Stripe test mode reale al posto del mock; export report CSV/PDF
