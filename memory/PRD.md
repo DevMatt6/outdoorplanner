@@ -141,6 +141,11 @@ Su richiesta utente (screenshot stile "Donezo") il design è passato da flat bru
 - Fix anteprima foto impianti da URL esterno (componente Thumb con placeholder fallback)
 - Calendario periodo esteso a tutta la larghezza del contenitore
 
+## Implementato (Iterazione 19 — refinement)
+- Mappe con rapporto 16:10 (rettangolari, non troppo basse) al posto di 4:3
+- Chat flottante spostata in basso a DESTRA con badge rosso dei messaggi non letti (localStorage per lettura, poll 10s, azzerato all'apertura del popup)
+- Verificato con screenshot: FAB a destra, badge "2" visibile, sparisce all'apertura, ratio mappa 1.6
+
 ## Backlog prioritizzato
 - P2: date picker anche per modifica pratiche in INTEGRAZIONE_RICHIESTA
 - P2: Stripe test mode reale al posto del mock; export report CSV/PDF

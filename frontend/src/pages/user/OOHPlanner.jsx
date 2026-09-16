@@ -141,7 +141,7 @@ export default function OOHPlanner() {
           {step === 1 && (
             <div className="space-y-5">
               <h2 className="font-heading font-extrabold text-xl">Scegli la regione sulla mappa, poi i Comuni attivi</h2>
-              <div className="relative border border-slate-100 rounded-2xl overflow-hidden aspect-[4/3] w-full" data-testid="ooh-mappa-italia">
+              <div className="relative border border-slate-100 rounded-2xl overflow-hidden aspect-[16/10] w-full" data-testid="ooh-mappa-italia">
                 <MapContainer key={`it-${regioneSel || "all"}`} center={[42.0, 12.5]} zoom={5.6} zoomSnap={0.2}
                   style={{ height: "100%", width: "100%", background: "#F7F8F6" }} scrollWheelZoom={false} attributionControl={false}>
                   {geo && <GeoJSON key={regioneSel || "none"} data={geo}
@@ -223,7 +223,7 @@ export default function OOHPlanner() {
                         {zonaObj.quartiere} — vie principali: {zonaObj.vie.join(", ")}
                       </div>
                     )}
-                    <div className="mt-4 border border-slate-100 rounded-2xl overflow-hidden aspect-[4/3] w-full">
+                    <div className="mt-4 border border-slate-100 rounded-2xl overflow-hidden aspect-[16/10] w-full">
                       <MapContainer key={`${cid}-${zsel || "all"}`} center={[zonaObj ? zonaObj.polygon[0][0] + 0.008 : comune?.lat, zonaObj ? zonaObj.polygon[0][1] + 0.011 : comune?.lng]}
                         zoom={zsel ? 14 : 12} style={{ height: "100%", width: "100%" }} scrollWheelZoom={false} attributionControl={false}>
                         <TileLayer url={FLAT_TILES} className="flat-tiles" />

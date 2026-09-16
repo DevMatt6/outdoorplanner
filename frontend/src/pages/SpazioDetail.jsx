@@ -69,7 +69,7 @@ export default function SpazioDetail() {
               </button>
               {!user && <div className="text-xs text-slate-500 mt-2 text-center">Accedi o registrati per candidarti</div>}
             </div>
-            <div className="border border-slate-100 rounded-2xl overflow-hidden aspect-[4/3] w-full">
+            <div className="border border-slate-100 rounded-2xl overflow-hidden aspect-[16/10] w-full">
               <MapContainer center={[spazio.lat, spazio.lng]} zoom={14} style={{ height: "100%", width: "100%" }} scrollWheelZoom={false} attributionControl={false}>
                 <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" className="flat-tiles" />
                 <CircleMarker center={[spazio.lat, spazio.lng]} radius={10}

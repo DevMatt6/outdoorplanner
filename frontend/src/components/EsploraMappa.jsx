@@ -70,7 +70,7 @@ export const EsploraMappa = ({ comuni, spazi, regione, comune, zona, onRegione, 
     : (!showPins ? "Scegli una zona / quartiere" : "Passa sui pin per vedere la scheda dello spazio");
 
   return (
-    <div className="relative border border-slate-100 rounded-2xl overflow-hidden bg-white aspect-[4/3] w-full" data-testid="esplora-mappa">
+    <div className="relative border border-slate-100 rounded-2xl overflow-hidden bg-white aspect-[16/10] w-full" data-testid="esplora-mappa">
       {!comune ? (
         <MapContainer key={`italia-${regione || "all"}`} center={[42.0, 12.5]} zoom={5.6} zoomSnap={0.2}
           style={{ height: "100%", width: "100%", background: "#F7F8F6" }} scrollWheelZoom={false} attributionControl={false}>

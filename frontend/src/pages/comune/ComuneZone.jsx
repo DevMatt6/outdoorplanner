@@ -68,7 +68,7 @@ export default function ComuneZone() {
               <Eraser size={13} /> Cancella confine
             </button>
           </div>
-          <div className="mt-2 border border-slate-100 rounded-2xl overflow-hidden aspect-[4/3] w-full">
+          <div className="mt-2 border border-slate-100 rounded-2xl overflow-hidden aspect-[16/10] w-full">
             <MapContainer center={[profilo?.lat || 41.9, profilo?.lng || 12.5]} zoom={12} style={{ height: "100%", width: "100%" }} attributionControl={false}>
               <TileLayer url={FLAT_TILES} className="flat-tiles" />
               <ClickCapture onPoint={(pt) => setForm((f) => ({ ...f, polygon: [...(f.polygon || []), pt] }))} />
