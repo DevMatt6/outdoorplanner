@@ -132,6 +132,15 @@ Su richiesta utente (screenshot stile "Donezo") il design è passato da flat bru
 - Composizione circuito: l'utente seleziona i singoli impianti (default: tutti i liberi, occupati disabilitati); prezzo = somma impianti scelti; backend prenota solo quelli (impianti_sel), 409 se impianto scelto occupato
 - NOTA: piattaforma resettata dall'utente e ripopolata (Roma, Milano, mario.rossi@gmail.com — password non note); creato utente test smoke.test@demo.it/demo123
 
+## Implementato (Iterazione 18 — 8 modifiche UI/UX, testato frontend 100% P1-P8, report iteration_14.json)
+- Mappe rapporto 4:3 ovunque (non più quadrate)
+- Chat pratica come pulsante flottante circolare in basso a sinistra (ChatFloating) con popup, sia user che comune; chat inline rimossa
+- Gerarchia campagne→pratiche: menu "Le mie pratiche" rimosso; /campagne con sezione "Richieste singole OSP"; Scrivania comune raggruppa le pratiche per campagna (solo quelle del proprio comune)
+- Planner OOH step Comuni: selezione regione tramite mappa d'Italia GeoJSON + marker comuni cliccabili
+- Pin impianti BLU con tooltip dettagli (foto, codice, tipologia, via, formato, prezzo) e CLICCABILI per selezionare/deselezionare gli impianti del circuito
+- Fix anteprima foto impianti da URL esterno (componente Thumb con placeholder fallback)
+- Calendario periodo esteso a tutta la larghezza del contenitore
+
 ## Backlog prioritizzato
 - P2: date picker anche per modifica pratiche in INTEGRAZIONE_RICHIESTA
 - P2: Stripe test mode reale al posto del mock; export report CSV/PDF

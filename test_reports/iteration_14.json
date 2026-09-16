@@ -1,0 +1,34 @@
+{
+  "summary": "Iteration 14 frontend E2E test: verified all 8 UI changes (P1-P8). Setup: created TEST_ comune in Toscana with L3 user, zona, 3 impianti (1 with external foto_url sgcommunication.it, 2 without), 1 pacchetto/circuito. Logged in as smoke.test user + real Roma op1 + mario.rossi. All 8 requested changes PASS. Cleanup: TEST_ comune eliminato via cascade DELETE.\n\nRESULTS PER PUNTO:\n- P1 Mappe 4:3: ooh-mappa-italia ratio=1.333 (1214x910.5), esplora-mappa /spazi ratio=1.333. Codice conferma aspect-[4/3] in tutti i file mappa (EsploraMappa, ItalyMap, OOHPlanner step 1+2, ComuneZone, ComuneSpazi, SpazioDetail). PASS.\n- P2 Chat FAB: chat-fab presente in /pratiche/{id} (user mario.rossi) e /comune/pratiche/{id} (op1@comune.roma.it); nessuna chat inline (chat-input non renderizzato quando popup chiuso); popup si apre al click, invio messaggio funziona (msg visibile), toggle chiude. PASS lato user + comune.\n- P3 gerarchia campagne→pratiche: USER_LINKS = ['link-home','link-campagne-user','link-nuova-ooh','link-osp-user'] — nessun 'Le mie pratiche' menu link. Scrivania comune Roma raggruppata: 3 gruppi (Vendita Promozionale, Campagna Promo A-I 26/27, Campagna Breil 26/27); filtri coda-INVIATA/coda-tutte funzionano. Sezione pratiche-singole nella pagina /campagne è codificata (Campagne.jsx:67-91) ma non attivabile in test perché mario.rossi non ha pratiche OSP senza campagna. PASS.\n- P4 Mappa Italia planner step 2: ooh-mappa-italia render corretto, click su area Toscana attiva regione (heading 'Comuni attivi in Toscana'), grid ooh-comuni-grid appare con il TEST_ comune, click su ooh-comune-{id} card seleziona (badge ooh-comuni-selezionati compare). PASS.\n- P5 Pin BLU + tooltip: dopo selezione circuito, 3 pin blu (#1F3BB3) presenti sulla mappa; hover su pin mostra tooltip con codice/tipologia/via/formato/prezzo (verificato 'TEST-IMP-01 · Manifesto 200x140 · Via Roma 10 · 200x140 cm · 30 €/giorno · Selezionato ✓'). PASS.\n- P6 Thumb con fallback: impianto con foto_url esterna (sgcommunication.it) mostra <img>, gli altri 2 senza foto mostrano placeholder (span con icona ImageOff, nessuna icona broken). PASS.\n- P7 Calendario full width: date-range-picker/card ratio=0.95 (1214/1280 ≈ 95%); selezione range di 6 giorni cliccando i day button funziona (range-summary '2026-09-19 → 2026-09-24'). PASS.\n- P8 Click pin per deselezionare: click su pin blu tramite page.mouse.click(x,y) aggiorna counter da '3/3 impianti scelti' a '2/3 impianti scelti' e prezzo passa da 83€/g a 55€/g. PASS.\n\nRegression E2E OOH: creazione end-to-end con subset (2/3 impianti) completa con successo. Campagna creata /campagne/ooh/{id}, importo 330€ (55€/g × 6 giorni), 1 pratica generata con soli impianti scelti (IMP-01 + IMP-02). PASS.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/tests/setup_iter14.py",
+    "/tmp/iter14_ui_results.json"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "OOHPlanner.jsx:145-168 GeoJSON click per selezionare regione + CircleMarker su comuni funziona correttamente; il flow richiede però geo/italy_regions.json in /public. Verificato: cliccando la regione i marker dei comuni appaiono e sono cliccabili (event handler toggleComune).",
+    "OOHPlanner.jsx:237-250 CircleMarker impianti con pathOptions.fillColor dinamico (occupato=#94A3B8, selezionato=#1F3BB3, non-selezionato=#93A6E8) e onClick toggleImpianto funziona; tooltip mostra foto+codice+tipologia+indirizzo+formato+prezzo+stato. Nice implementation.",
+    "Thumb component (OOHPlanner.jsx:16-20) con onError che sostituisce l'<img> con un div placeholder previene icone broken quando la URL esterna fallisce. Attenzione: outerHTML replacement è imperativo, potrebbe causare warning React se l'immagine ri-renderizza — accettabile per il caso d'uso.",
+    "Scrivania.jsx:27-35 useMemo groupBy(campagna_id) è O(n) e crea gruppi con nome/tipo/pratiche; pratiche senza campagna_id vanno in '__singole__' → 'Richieste singole OSP'. Corretto.",
+    "ChatFloating.jsx: z-index 1300 supera sidebar (1200) e header (1100); posizione fixed bottom-6 left-6, popup bottom-24 left-6 con max-w-[calc(100vw-3rem)] per mobile. Design pulito.",
+    "USER_LINKS in BackofficeLayout.jsx:129-134 ora ha 4 voci senza 'Le mie pratiche'; /home è ancora presente. Coerente col requisito 'gerarchia campagne→pratiche'.",
+    "DateRangePicker.jsx:52 classNames className='w-full p-5' + parent flex-col-sm:flex-row garantisce full-width con 2 mesi affiancati su desktop. Ratio ~95% del container (padding esterno). Buono."
+  ],
+  "updated_files": [],
+  "success_rate": {
+    "backend": "N/A (skip backend)",
+    "frontend": "100% (P1-P8 tutti PASS + regressione E2E OK)"
+  },
+  "test_credentials": "Superadmin: mattia.fabrizi92@gmail.com/demo123; Inserzionista: smoke.test@demo.it/demo123; Mario Rossi: mario.rossi@gmail.com/demo123; Roma L2: op1@comune.roma.it/demo123",
+  "seed_data_creation": "Comune TEST_Iter14_{TS} in Toscana (FI) con L3 user (test_iter14_l3_*@demo.it), 1 zona 'Centro TEST', 3 impianti TEST-IMP-01/02/03 (IMP-01 con foto_url https://www.sgcommunication.it/wp-content/uploads/2016/03/maxi-cartelloni-stradali.jpg), 1 pacchetto 'Circuito TEST Centro'. Una campagna+pratica creata durante il flow E2E. Tutto eliminato via DELETE /admin/comuni/{id} a fine test (pratiche_eliminate=1, utenti_eliminati=1).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Iterazione 14: tutti i 7 nuovi punti + P8 (click pin) sono OK. Il click pin sulla mappa Leaflet è testabile via page.mouse.click(x,y) usando le coordinate del bounding rect del path.leaflet-interactive con fill=#1F3BB3. Per cliccare una regione GeoJSON dell'Italia usare mouse.click a (0.42-0.48, 0.38-0.46) del bounding box del contenitore ooh-mappa-italia (per Toscana). La sezione 'Richieste singole OSP' in Campagne.jsx è presente nel codice ma richiede una pratica OSP senza campagna_id per essere visibile (mario.rossi non ne ha). Comune Roma ha 3 gruppi di campagne raggruppate correttamente.",
+  "rca of the issue": "Nessun bug trovato."
+}
