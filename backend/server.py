@@ -170,6 +170,7 @@ class PraticaUpdate(BaseModel):
 class TransizioneIn(BaseModel):
     azione: str
     nota: str = ""
+    richieste: List[dict] = []
 
 class ChatIn(BaseModel):
     testo: str
@@ -448,7 +449,7 @@ async def invia_pratica(pratica_id: str, user: dict = Depends(require_role("user
         nota = "Integrazione fornita dal richiedente"
     else:
         raise HTTPException(status_code=400, detail="Transizione non consentita")
-    await db.pratiche.update_one({"id": pratica_id}, {"$set": {"stato": nuovo, "updated_at": now_iso()}})
+    await db.pratiche.update_one({"id": pratica_id}, {"$set": {"stato": nuovo, "updated_at": now_iso(), "integrazione_richieste": []}})
     await log_stato(pratica_id, pratica["stato"], nuovo, user, nota)
     operatori = await db.users.find({"ruolo": "comune", "comune_id": pratica["comune_id"]}, {"_id": 0}).to_list(20)
     for op in operatori:
@@ -499,8 +500,17 @@ async def get_pratica(pratica_id: str, user: dict = Depends(get_current_user)):
         sog_map = {s["id"]: s for s in soggetti}
     creativita_dettagli = [{"impianto_id": a["impianto_id"], "soggetto": sog_map.get(a["soggetto_id"])}
                            for a in pratica.get("creativita", [])]
+    tpl = None
+    if pratica.get("tipo") == "OOH":
+        pac = await db.pacchetti.find_one({"id": pratica.get("pacchetto_id")}, {"_id": 0})
+        if pac and pac.get("form_template_id"):
+            tpl = await db.form_templates.find_one({"id": pac["form_template_id"]}, {"_id": 0})
+        tpl = tpl or await db.form_templates.find_one({"comune_id": pratica["comune_id"], "tipo": "OOH"}, {"_id": 0})
+    else:
+        tpl = await db.form_templates.find_one({"comune_id": pratica["comune_id"], "tipo": "OSP"}, {"_id": 0})
+    tpl = tpl or await db.form_templates.find_one({"comune_id": pratica["comune_id"]}, {"_id": 0}) or {"campi": [], "documenti_richiesti": []}
     return {**pratica, "spazio": spazio, "comune": comune, "log_stato": logs,
-            "richiedente": richiedente, "prenotazione": prenotazione,
+            "richiedente": richiedente, "prenotazione": prenotazione, "template": tpl,
             "campagna": campagna, "creativita_dettagli": creativita_dettagli}
 
 # ---------- campagne (multi-spazio) ----------
@@ -798,6 +808,8 @@ async def transizione(pratica_id: str, data: TransizioneIn, user: dict = Depends
         updates["data_approvazione"] = now_iso()
     if nuovo == "ANNULLATA":
         updates["annullata_da"] = "comune"
+    if data.azione == "richiedi_integrazione":
+        updates["integrazione_richieste"] = data.richieste
     if nuovo in ("ANNULLATA", "RIFIUTATA") and pratica.get("prenotazione_id"):
         await db.prenotazioni.update_one({"id": pratica["prenotazione_id"]}, {"$set": {"stato": "CANCELLED"}})
     await db.pratiche.update_one({"id": pratica_id}, {"$set": updates})

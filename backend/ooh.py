@@ -4,7 +4,7 @@ import uuid
 import asyncio
 import logging
 from datetime import datetime, timezone, timedelta
-from typing import List, Optional
+from typing import Dict, List, Optional
 from fastapi import APIRouter, HTTPException, Depends, UploadFile, File
 from pydantic import BaseModel
 
@@ -74,6 +74,7 @@ class CampagnaOOHIn(BaseModel):
     data_inizio: str
     data_fine: str
     pacchetti_ids: List[str]
+    impianti_sel: Dict[str, List[str]] = {}
 
 
 class DatiFormIn(BaseModel):
@@ -166,13 +167,17 @@ def build(db, get_current_user, require_role, require_comune_l3, notifica, log_s
         result = []
         for p in pacchetti:
             impianti = await db.impianti.find({"id": {"$in": p["impianti_ids"]}}, {"_id": 0}).to_list(100)
-            disponibile = True
+            busy = set()
             if data_inizio and data_fine:
                 busy = await _impianti_bloccati(p["impianti_ids"], data_inizio, data_fine)
-                disponibile = len(busy) == 0
+            for i in impianti:
+                i["occupato"] = i["id"] in busy
+            liberi = [i for i in impianti if not i["occupato"]]
+            disponibile = len(liberi) > 0
             zona = await db.zone.find_one({"id": p["zona_id"]}, {"_id": 0, "nome": 1, "quartiere": 1})
             prezzo = round(sum(i.get("prezzo", 0) for i in impianti), 2)
             result.append({**p, "impianti": impianti, "disponibile": disponibile, "prezzo_giornaliero": prezzo,
+                           "impianti_liberi": len(liberi),
                            "zona_nome": zona["nome"] if zona else "", "n_impianti": len(impianti)})
         return result
 
@@ -187,10 +192,19 @@ def build(db, get_current_user, require_role, require_comune_l3, notifica, log_s
         pacchetti = await db.pacchetti.find({"id": {"$in": ids}, "attivo": True}, {"_id": 0}).to_list(50)
         if len(pacchetti) != len(ids):
             raise HTTPException(status_code=404, detail="Uno o più pacchetti non trovati")
+        sel_map = {}
         for p in pacchetti:
-            busy = await _impianti_bloccati(p["impianti_ids"], data.data_inizio, data.data_fine)
-            if busy:
-                raise HTTPException(status_code=409, detail=f"Il circuito '{p['nome']}' non è disponibile nel periodo selezionato")
+            richiesti = [i for i in (data.impianti_sel or {}).get(p["id"], []) if i in p["impianti_ids"]]
+            busy = await _impianti_bloccati(richiesti or p["impianti_ids"], data.data_inizio, data.data_fine)
+            if richiesti:
+                if busy & set(richiesti):
+                    raise HTTPException(status_code=409, detail=f"Alcuni impianti selezionati nel circuito '{p['nome']}' non sono più disponibili")
+                sel_map[p["id"]] = richiesti
+            else:
+                liberi = [i for i in p["impianti_ids"] if i not in busy]
+                if not liberi:
+                    raise HTTPException(status_code=409, detail=f"Il circuito '{p['nome']}' non è disponibile nel periodo selezionato")
+                sel_map[p["id"]] = liberi
         giorni = _giorni(data.data_inizio, data.data_fine)
         campagna_id = str(uuid.uuid4())
         hold_created = now_iso()
@@ -198,7 +212,7 @@ def build(db, get_current_user, require_role, require_comune_l3, notifica, log_s
         pratiche, prenotazioni = [], []
         for p in pacchetti:
             pren = {"id": str(uuid.uuid4()), "campagna_id": campagna_id, "pacchetto_id": p["id"],
-                    "comune_id": p["comune_id"], "impianti_ids": p["impianti_ids"],
+                    "comune_id": p["comune_id"], "impianti_ids": sel_map[p["id"]],
                     "data_inizio": data.data_inizio, "data_fine": data.data_fine,
                     "stato": "HELD", "hold_created_at": hold_created, "hold_expires_at": hold_expires,
                     "user_id": user["id"]}
@@ -217,7 +231,7 @@ def build(db, get_current_user, require_role, require_comune_l3, notifica, log_s
                 raise HTTPException(status_code=409, detail="Un altro utente ha appena prenotato uno dei circuiti selezionati")
         for p, pren in zip(pacchetti, prenotazioni):
             zona = await db.zone.find_one({"id": p["zona_id"]}, {"_id": 0})
-            impianti = await db.impianti.find({"id": {"$in": p["impianti_ids"]}}, {"_id": 0}).to_list(100)
+            impianti = await db.impianti.find({"id": {"$in": sel_map[p["id"]]}}, {"_id": 0}).to_list(100)
             prezzo_g = round(sum(i.get("prezzo", 0) for i in impianti), 2)
             pratica = {"id": str(uuid.uuid4()), "tipo": "OOH", "user_id": user["id"], "user_nome": user["nome"],
                        "comune_id": p["comune_id"], "campagna_id": campagna_id, "campagna_nome": data.nome,

@@ -38,6 +38,7 @@ export default function CampagnaOOHDetail() {
   const [soggetti, setSoggetti] = useState([]);
   const [numSoggetti, setNumSoggetti] = useState({});
   const [busy, setBusy] = useState(false);
+  const [sharedValues, setSharedValues] = useState({});
 
   const load = async () => {
     const { data } = await api.get(`/ooh/campagne/${id}`);
@@ -73,6 +74,33 @@ export default function CampagnaOOHDetail() {
 
   const formatiUtili = useMemo(() => formati, [formati]);
 
+  const editablePratiche = useMemo(() => (c?.pratiche || []).filter((p) => p.stato === "DA_COMPLETARE"), [c]);
+  const campiComuni = useMemo(() => {
+    if (editablePratiche.length < 2) return [];
+    const tpls = editablePratiche.map((p) => templates[p.id]).filter(Boolean);
+    if (tpls.length < editablePratiche.length) return [];
+    return (tpls[0].campi || []).filter((campo) => tpls.every((t) => (t.campi || []).some((x) => x.id === campo.id)));
+  }, [editablePratiche, templates]);
+  const sharedIds = useMemo(() => new Set(campiComuni.map((x) => x.id)), [campiComuni]);
+
+  useEffect(() => {
+    if (campiComuni.length === 0 || Object.keys(sharedValues).length > 0) return;
+    const base = formValues[editablePratiche[0]?.id] || {};
+    const init = {};
+    campiComuni.forEach((campo) => { if (base[campo.id] !== undefined) init[campo.id] = base[campo.id]; });
+    setSharedValues(init);
+  }, [campiComuni]);
+
+  const salvaCampiComuni = async () => {
+    try {
+      for (const p of editablePratiche) {
+        await api.put(`/ooh/pratiche/${p.id}/dati-form`, { dati_form: { ...(formValues[p.id] || {}), ...sharedValues } });
+      }
+      toast.success("Dati comuni applicati a tutte le pratiche");
+      load();
+    } catch (e) { toast.error(apiError(e)); }
+  };
+
   if (!c) return <UserShell><div className="text-slate-500">Caricamento...</div></UserShell>;
 
   const attiva = c.stato === "HOLD";
@@ -80,7 +108,7 @@ export default function CampagnaOOHDetail() {
 
   const salvaModulo = async (p) => {
     try {
-      await api.put(`/ooh/pratiche/${p.id}/dati-form`, { dati_form: formValues[p.id] || {} });
+      await api.put(`/ooh/pratiche/${p.id}/dati-form`, { dati_form: { ...(formValues[p.id] || {}), ...sharedValues } });
       toast.success(`Modulo salvato: ${p.pacchetto_nome}`);
       load();
     } catch (e) { toast.error(apiError(e)); }
@@ -247,10 +275,31 @@ export default function CampagnaOOHDetail() {
         )}
 
         <div className="mt-8 space-y-6">
+          {attiva && campiComuni.length > 0 && (
+            <div className="border border-[#1F3BB3]/30 bg-white rounded-2xl overflow-hidden" data-testid="campi-comuni-card">
+              <div className="px-6 py-4 bg-[#E8EFFF] border-b border-[#1F3BB3]/20">
+                <div className="font-heading font-extrabold text-lg text-[#1F3BB3]">Dati comuni a tutti i Comuni</div>
+                <div className="text-xs text-slate-600 mt-0.5">Questi campi sono richiesti da tutti i moduli: compilali una sola volta e verranno applicati a tutte le {editablePratiche.length} pratiche.</div>
+              </div>
+              <div className="p-6">
+                <div className="grid sm:grid-cols-2 gap-3">
+                  {campiComuni.filter((f) => isVisible(f, sharedValues)).map((f) => (
+                    <DynamicField key={f.id} campo={f} value={sharedValues[f.id]}
+                      onChange={(v) => setSharedValues({ ...sharedValues, [f.id]: v })} />
+                  ))}
+                </div>
+                <button data-testid="salva-campi-comuni" onClick={salvaCampiComuni}
+                  className="mt-4 bg-[#1F3BB3] text-white rounded-full px-6 py-2.5 text-sm font-bold hover:bg-[#172E93] transition-colors">
+                  Applica a tutte le pratiche
+                </button>
+              </div>
+            </div>
+          )}
           {c.pratiche.map((p) => {
             const tpl = templates[p.id] || { campi: [], documenti_richiesti: [] };
             const values = formValues[p.id] || {};
-            const visibili = (tpl.campi || []).filter((f) => isVisible(f, values));
+            const merged = { ...sharedValues, ...values };
+            const visibili = (tpl.campi || []).filter((f) => !sharedIds.has(f.id)).filter((f) => isVisible(f, merged));
             return (
               <div key={p.id} className="border border-slate-100 bg-white rounded-2xl overflow-hidden" data-testid={`ooh-pratica-${p.id}`}>
                 <div className="px-6 py-4 bg-[#F8F9FD] border-b border-slate-100 flex flex-wrap items-center justify-between gap-3">
@@ -276,6 +325,9 @@ export default function CampagnaOOHDetail() {
                           <DynamicField key={f.id} campo={f} value={values[f.id]}
                             onChange={(v) => setFormValues({ ...formValues, [p.id]: { ...values, [f.id]: v } })} />
                         ))}
+                        {visibili.length === 0 && campiComuni.length > 0 && (
+                          <div className="text-xs text-slate-500 border border-dashed border-slate-200 rounded-xl px-3 py-2">Tutti i campi di questo modulo sono coperti dai "Dati comuni" qui sopra.</div>
+                        )}
                       </div>
                       <button data-testid={`salva-modulo-${p.id}`} onClick={() => salvaModulo(p)}
                         className="mt-3 border border-slate-200 rounded-full px-5 py-2 text-sm font-bold hover:border-[#1F3BB3] hover:text-[#1F3BB3] transition-colors">

@@ -15,6 +15,8 @@ export default function PraticaIstruttoria() {
   const livello = user?.livello || 1;
   const [pratica, setPratica] = useState(null);
   const [nota, setNota] = useState("");
+  const [showIntegra, setShowIntegra] = useState(false);
+  const [richieste, setRichieste] = useState({});
 
   const load = () => api.get(`/pratiche/${id}`).then(({ data }) => setPratica(data));
   useEffect(() => { load(); }, [id]);
@@ -31,6 +33,26 @@ export default function PraticaIstruttoria() {
       await api.post(`/comune/pratiche/${pratica.id}/transizione`, { azione: az, nota });
       toast.success(label);
       setNota("");
+      load();
+    } catch (e) { toast.error(apiError(e)); }
+  };
+
+  const toggleRichiesta = (tipo, id, label) => {
+    const k = `${tipo}:${id}`;
+    setRichieste((r) => { const n = { ...r }; if (n[k]) delete n[k]; else n[k] = { tipo, id, label, nota: "" }; return n; });
+  };
+
+  const inviaRichiestaIntegrazione = async () => {
+    const lista = Object.values(richieste);
+    if (lista.length === 0 && !nota.trim()) return toast.error("Seleziona almeno un elemento da correggere o scrivi una nota");
+    try {
+      await api.post(`/comune/pratiche/${pratica.id}/transizione`, {
+        azione: "richiedi_integrazione",
+        nota: nota.trim() || "Correggi gli elementi indicati nella richiesta",
+        richieste: lista,
+      });
+      toast.success("Richiesta di modifiche/integrazione inviata");
+      setNota(""); setRichieste({}); setShowIntegra(false);
       load();
     } catch (e) { toast.error(apiError(e)); }
   };
@@ -94,14 +116,13 @@ export default function PraticaIstruttoria() {
                   <Lock size={14} /> Approvazione, rifiuto e annullamento riservati al livello L{Math.min(2, maxLv)}+
                 </span>
               )}
-              <button data-testid="btn-integrazione" onClick={() => azione("richiedi_integrazione", "Richiesta di modifiche/integrazione inviata", true)}
-                className="px-5 py-2.5 rounded-full font-bold text-sm bg-[#EF4444] text-white hover:bg-slate-900 transition-colors">
+              <button data-testid="btn-integrazione" onClick={() => setShowIntegra((v) => !v)}
+                className={`px-5 py-2.5 rounded-full font-bold text-sm transition-colors ${showIntegra ? "bg-slate-900 text-white" : "bg-[#EF4444] text-white hover:bg-slate-900"}`}>
                 Richiedi modifiche / integrazione
               </button>
             </>
           )}
-          {pratica.stato === "INTEGRAZIONE_RICHIESTA" && <span className="text-sm text-slate-500 py-2.5">In attesa di integrazione dal richiedente.</span>}
-          {pratica.stato === "APPROVATA" && (
+          {pratica.stato === "INTEGRAZIONE_RICHIESTA" && <span className="text-sm text-slate-500 py-2.5">In attesa di integrazione dal richiedente.</span>}          {pratica.stato === "APPROVATA" && (
             <button data-testid="btn-pdf-comune" onClick={scaricaPdf}
               className="inline-flex items-center gap-2 px-5 py-2.5 font-bold text-sm border border-emerald-200 text-[#1F3BB3] rounded-full bg-emerald-50 hover:bg-[#10B981] hover:text-slate-950 transition-colors">
               <Download size={15} /> PDF autorizzazione {pratica.numero_autorizzazione}
@@ -110,6 +131,50 @@ export default function PraticaIstruttoria() {
           {pratica.stato === "RIFIUTATA" && <span className="text-sm text-slate-500 py-2.5">Pratica chiusa con rifiuto.</span>}
           {pratica.stato === "ANNULLATA" && <span className="text-sm text-slate-500 py-2.5">Pratica annullata: gli impianti sono stati liberati.</span>}
         </div>
+
+        {showIntegra && inIstruttoria && (
+          <div className="mt-4 border border-amber-200 bg-amber-50/60 rounded-xl p-4" data-testid="integrazione-panel">
+            <div className="text-xs font-bold uppercase tracking-widest text-[#B45309] mb-3">Seleziona gli elementi da correggere o sostituire</div>
+            <div className="grid md:grid-cols-2 gap-4">
+              {[
+                ["campo", "Campi del modulo", (pratica.template?.campi || []).map((x) => ({ id: x.id, label: x.label || x.id }))],
+                ["documento", "Documenti", (pratica.template?.documenti_richiesti || []).map((x) => ({ id: x.id, label: x.label || x.id }))],
+                ["creativita", "Creatività / impianti", (pratica.impianti || []).map((x) => ({ id: x.id, label: `Creatività impianto ${x.codice}` }))],
+              ].filter(([, , items]) => items.length > 0).map(([tipo, titolo, items]) => (
+                <div key={tipo}>
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">{titolo}</div>
+                  <div className="space-y-1.5">
+                    {items.map((it) => {
+                      const k = `${tipo}:${it.id}`;
+                      const attiva = !!richieste[k];
+                      return (
+                        <div key={k} className={`border rounded-xl px-3 py-2 bg-white transition-colors ${attiva ? "border-[#B45309]" : "border-slate-200"}`}>
+                          <label className="flex items-center gap-2 text-sm cursor-pointer" data-testid={`richiesta-${tipo}-${it.id}`}>
+                            <input type="checkbox" checked={attiva} onChange={() => toggleRichiesta(tipo, it.id, it.label)} className="accent-[#B45309] w-4 h-4" />
+                            <span className="font-semibold">{it.label}</span>
+                          </label>
+                          {attiva && (
+                            <input data-testid={`nota-richiesta-${tipo}-${it.id}`} value={richieste[k].nota}
+                              onChange={(e) => setRichieste((r) => ({ ...r, [k]: { ...r[k], nota: e.target.value } }))}
+                              placeholder="Nota per il richiedente (es. file illeggibile, valore errato...)"
+                              className="mt-2 w-full border border-slate-200 rounded-lg px-3 py-1.5 text-xs outline-none focus:border-[#B45309] transition-colors" />
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              <button data-testid="btn-invia-integrazione" onClick={inviaRichiestaIntegrazione}
+                className="px-5 py-2.5 rounded-full font-bold text-sm bg-[#B45309] text-white hover:bg-slate-900 transition-colors">
+                Invia richiesta ({Object.keys(richieste).length} elementi)
+              </button>
+              <span className="text-xs text-slate-500">La nota generale scritta sopra verrà inclusa nella richiesta.</span>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="mt-6 grid lg:grid-cols-2 gap-6">

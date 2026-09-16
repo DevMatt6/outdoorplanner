@@ -127,8 +127,8 @@ export default function ComuneSpazi() {
           </div>
           <div>
             <div className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-2">Posizionamento — clicca sulla mappa</div>
-            <div className="border border-slate-100 rounded-2xl overflow-hidden">
-              <MapContainer center={[editing.lat || profilo?.lat || 41.9, editing.lng || profilo?.lng || 12.5]} zoom={12} style={{ height: 380 }}>
+            <div className="border border-slate-100 rounded-2xl overflow-hidden aspect-square w-full">
+              <MapContainer center={[editing.lat || profilo?.lat || 41.9, editing.lng || profilo?.lng || 12.5]} zoom={12} style={{ height: "100%", width: "100%" }} attributionControl={false}>
                 <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" className="flat-tiles" />
                 <ClickPicker onPick={(ll) => setEditing({ ...editing, lat: ll.lat, lng: ll.lng })} />
                 {editing.lat != null && <CircleMarker center={[editing.lat, editing.lng]} radius={10} pathOptions={{ color: "#2B4BDB", fillColor: "#1F3BB3", fillOpacity: 1 }} />}

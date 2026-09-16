@@ -53,6 +53,10 @@ export const IntegrazioneEditor = ({ pratica, reload }) => {
   const campi = (template?.campi || []).filter((c) => isVisible(c, values));
   const assegnataA = (impId) => (pratica.creativita || []).find((a) => a.impianto_id === impId)?.soggetto_id || "";
   const formati = [...new Set((pratica.impianti || []).map((i) => i.formato).filter(Boolean))];
+  const richieste = pratica.integrazione_richieste || [];
+  const campiRichiesti = new Set(richieste.filter((r) => r.tipo === "campo").map((r) => r.id));
+  const creativitaRichieste = new Set(richieste.filter((r) => r.tipo === "creativita").map((r) => r.id));
+  const notaPer = (tipo, id) => richieste.find((r) => r.tipo === tipo && r.id === id)?.nota;
 
   return (
     <div className="mt-5 space-y-5" data-testid="integrazione-editor">
@@ -61,7 +65,14 @@ export const IntegrazioneEditor = ({ pratica, reload }) => {
           <div className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-3">Correggi i dati del modulo</div>
           <div className="grid sm:grid-cols-2 gap-4">
             {campi.map((c) => (
-              <DynamicField key={c.id} campo={c} value={values[c.id]} onChange={(v) => setValues({ ...values, [c.id]: v })} />
+              <div key={c.id} className={campiRichiesti.has(c.id) ? "rounded-xl ring-2 ring-[#B45309]/60 p-2 bg-amber-50/50" : ""}>
+                <DynamicField campo={c} value={values[c.id]} onChange={(v) => setValues({ ...values, [c.id]: v })} />
+                {campiRichiesti.has(c.id) && (
+                  <div className="text-[11px] font-bold text-[#B45309] mt-1" data-testid={`richiesta-campo-${c.id}`}>
+                    Da correggere{notaPer("campo", c.id) ? `: "${notaPer("campo", c.id)}"` : ""}
+                  </div>
+                )}
+              </div>
             ))}
           </div>
           <button data-testid="salva-dati-integrazione" onClick={salvaDati}
@@ -77,10 +88,16 @@ export const IntegrazioneEditor = ({ pratica, reload }) => {
           <div className="space-y-3">
             {pratica.impianti.map((i) => {
               const compatibili = soggetti.filter((s) => s.formato === i.formato);
+              const daCorreggere = creativitaRichieste.has(i.id);
               return (
-                <div key={i.id} className="flex flex-wrap items-center gap-3 border border-[#E5E9F2] rounded-xl px-4 py-3">
+                <div key={i.id} className={`flex flex-wrap items-center gap-3 border rounded-xl px-4 py-3 ${daCorreggere ? "border-[#B45309] ring-2 ring-[#B45309]/40 bg-amber-50/50" : "border-[#E5E9F2]"}`}>
                   <div className="min-w-0 flex-1">
                     <div className="text-sm font-bold">{i.codice} <span className="font-normal text-slate-500">· {i.formato}</span></div>
+                    {daCorreggere && (
+                      <div className="text-[11px] font-bold text-[#B45309]" data-testid={`richiesta-creativita-${i.codice}`}>
+                        Da sostituire{notaPer("creativita", i.id) ? `: "${notaPer("creativita", i.id)}"` : ""}
+                      </div>
+                    )}
                   </div>
                   <select data-testid={`select-creativita-${i.codice}`} value={assegnataA(i.id)}
                     onChange={(e) => assegna(i.id, e.target.value)}

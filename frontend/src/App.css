@@ -3,5 +3,5 @@
 }
 
 .flat-tiles {
-  filter: grayscale(1) saturate(0.15) brightness(1.06) contrast(0.85);
+  filter: grayscale(1) saturate(0) brightness(1.12) contrast(0.72);
 }

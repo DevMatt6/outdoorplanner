@@ -70,10 +70,10 @@ export const EsploraMappa = ({ comuni, spazi, regione, comune, zona, onRegione, 
     : (!showPins ? "Scegli una zona / quartiere" : "Passa sui pin per vedere la scheda dello spazio");
 
   return (
-    <div className="relative border border-slate-100 rounded-2xl overflow-hidden bg-white" data-testid="esplora-mappa">
+    <div className="relative border border-slate-100 rounded-2xl overflow-hidden bg-white aspect-square w-full" data-testid="esplora-mappa">
       {!comune ? (
         <MapContainer key={`italia-${regione || "all"}`} center={[42.0, 12.5]} zoom={5.6} zoomSnap={0.2}
-          style={{ height, width: "100%", background: "#F7F8F6" }} scrollWheelZoom={false} attributionControl={false}>
+          style={{ height: "100%", width: "100%", background: "#F7F8F6" }} scrollWheelZoom={false} attributionControl={false}>
           {geo && <GeoJSON key={regione || "none"} data={geo}
             style={(f) => (f.properties.reg_name === regione ? ACTIVE_STYLE : BASE_STYLE)} onEachFeature={onEach} />}
           {comuniRegione.map((c) => (
@@ -90,7 +90,7 @@ export const EsploraMappa = ({ comuni, spazi, regione, comune, zona, onRegione, 
       ) : (
         <MapContainer key={`${comune}-${zona || "zone"}`}
           center={[comuneObj?.lat || 42, comuneObj?.lng || 12.5]} zoom={zona ? 13 : 12}
-          style={{ height, width: "100%" }} scrollWheelZoom={false} attributionControl={false}>
+          style={{ height: "100%", width: "100%" }} scrollWheelZoom={false} attributionControl={false}>
           <TileLayer url={FLAT_TILES} className="flat-tiles" />
           {!showPins && zone.map((z) => (
             <CircleMarker key={z.nome} center={[z.lat, z.lng]} radius={14}

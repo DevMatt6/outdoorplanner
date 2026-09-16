@@ -83,6 +83,19 @@ export default function PraticaDetail() {
           <div className="mt-6 border border-red-200 bg-red-50 rounded-2xl p-5" data-testid="integrazione-box">
             <div className="font-heading font-extrabold text-lg text-[#B91C1C]">Il Comune richiede modifiche / integrazioni</div>
             {motivoIntegrazione && <p className="text-sm text-slate-800 mt-1 font-semibold" data-testid="motivo-integrazione">Motivazione: "{motivoIntegrazione}"</p>}
+            {(pratica.integrazione_richieste || []).length > 0 && (
+              <div className="mt-3 space-y-1.5" data-testid="lista-richieste">
+                {pratica.integrazione_richieste.map((r, i) => (
+                  <div key={i} className="flex flex-wrap items-center gap-2 bg-white border border-red-200 rounded-xl px-3 py-2 text-sm">
+                    <span className="text-[10px] font-bold uppercase tracking-wider rounded-full bg-[#FEE2E2] text-[#B91C1C] px-2 py-0.5">
+                      {r.tipo === "campo" ? "Campo" : r.tipo === "documento" ? "Documento" : "Creatività"}
+                    </span>
+                    <span className="font-bold">{r.label}</span>
+                    {r.nota && <span className="text-slate-600 italic">— "{r.nota}"</span>}
+                  </div>
+                ))}
+              </div>
+            )}
             <p className="text-sm text-slate-700 mt-1">Correggi i dati del modulo o le creatività qui sotto, carica eventuali documenti richiesti e reinvia la pratica.</p>
             <IntegrazioneEditor pratica={pratica} reload={load} />
             <div className="mt-4 flex flex-wrap gap-3">

@@ -17,11 +17,13 @@ export default function OOHPlanner() {
   const [nome, setNome] = useState("");
   const [range, setRange] = useState();
   const [comuni, setComuni] = useState([]);
+  const [regioneSel, setRegioneSel] = useState(null);
   const [comuniSel, setComuniSel] = useState([]);
   const [zone, setZone] = useState({});
   const [pacchetti, setPacchetti] = useState({});
   const [zonaSel, setZonaSel] = useState({});
   const [selected, setSelected] = useState([]);
+  const [impSel, setImpSel] = useState({});
   const [expanded, setExpanded] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -47,11 +49,34 @@ export default function OOHPlanner() {
   }, [step, comuniSel, dal, al]);
 
   const toggleComune = (id) => setComuniSel((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
-  const togglePacchetto = (id) => setSelected((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
+  const liberiIds = (p) => p.impianti.filter((i) => !i.occupato).map((i) => i.id);
+  const togglePacchetto = (p) => {
+    if (selected.includes(p.id)) {
+      setSelected((s) => s.filter((x) => x !== p.id));
+      setImpSel((m) => { const n = { ...m }; delete n[p.id]; return n; });
+    } else {
+      setSelected((s) => [...s, p.id]);
+      setImpSel((m) => ({ ...m, [p.id]: liberiIds(p) }));
+    }
+  };
+  const toggleImpianto = (p, iid) => {
+    setSelected((s) => (s.includes(p.id) ? s : [...s, p.id]));
+    setImpSel((m) => {
+      const cur = m[p.id] ?? liberiIds(p);
+      const next = cur.includes(iid) ? cur.filter((x) => x !== iid) : [...cur, iid];
+      return { ...m, [p.id]: next };
+    });
+  };
 
   const tuttiPacchetti = useMemo(() => Object.values(pacchetti).flat(), [pacchetti]);
   const pacchettiSel = tuttiPacchetti.filter((p) => selected.includes(p.id));
-  const totale = pacchettiSel.reduce((a, p) => a + p.prezzo_giornaliero * giorni, 0);
+  const prezzoSel = (p) => {
+    const ids = impSel[p.id];
+    if (!ids) return p.prezzo_giornaliero;
+    return p.impianti.filter((i) => ids.includes(i.id)).reduce((a, i) => a + (i.prezzo || 0), 0);
+  };
+  const totale = pacchettiSel.reduce((a, p) => a + prezzoSel(p) * giorni, 0);
+  const regioni = useMemo(() => [...new Set(comuni.map((c) => c.regione))].sort(), [comuni]);
 
   const next = async () => {
     setError("");
@@ -64,11 +89,12 @@ export default function OOHPlanner() {
       setStep(2);
     } else if (step === 2) {
       if (selected.length === 0) return setError("Seleziona almeno un circuito");
+      if (pacchettiSel.some((p) => (impSel[p.id] || liberiIds(p)).length === 0)) return setError("Seleziona almeno un impianto per ogni circuito");
       setStep(3);
     } else if (step === 3) {
       setBusy(true);
       try {
-        const { data } = await api.post("/ooh/campagne", { nome, data_inizio: dal, data_fine: al, pacchetti_ids: selected });
+        const { data } = await api.post("/ooh/campagne", { nome, data_inizio: dal, data_fine: al, pacchetti_ids: selected, impianti_sel: impSel });
         toast.success(`Campagna generata: circuiti riservati per 24 ore`);
         navigate(`/campagne/ooh/${data.id}`);
       } catch (e) { setError(apiError(e)); } finally { setBusy(false); }
@@ -105,19 +131,38 @@ export default function OOHPlanner() {
 
           {step === 1 && (
             <div className="space-y-5">
-              <h2 className="font-heading font-extrabold text-xl">Seleziona i Comuni (anche più di uno)</h2>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4" data-testid="ooh-comuni-grid">
-                {comuni.map((c) => (
-                  <button key={c.id} type="button" data-testid={`ooh-comune-${c.id}`} onClick={() => toggleComune(c.id)}
-                    className={`border rounded-2xl p-6 text-left transition-colors relative ${comuniSel.includes(c.id) ? "border-[#1F3BB3] ring-2 ring-[#1F3BB3]/30 bg-[#F0F4FF]" : "border-slate-100 hover:border-[#1F3BB3]"}`}>
-                    {comuniSel.includes(c.id) && <span className="absolute top-3 right-3 w-6 h-6 rounded-full bg-[#1F3BB3] text-white flex items-center justify-center"><Check size={13} /></span>}
-                    {c.logo_url ? <img src={imgSrc(c.logo_url)} alt="" className="w-10 h-10 rounded-xl object-contain border border-slate-100 bg-white" />
-                      : <span className="w-10 h-10 rounded-xl bg-[#F0F4FF] flex items-center justify-center text-[#1F3BB3]"><Landmark size={18} /></span>}
-                    <div className="font-heading font-extrabold mt-3">{c.nome}</div>
-                    <div className="text-xs text-slate-500">{c.regione}</div>
+              <h2 className="font-heading font-extrabold text-xl">Scegli prima la regione</h2>
+              <div className="flex flex-wrap gap-2" data-testid="ooh-regioni">
+                {regioni.map((r) => (
+                  <button key={r} type="button" data-testid={`ooh-regione-${r}`} onClick={() => setRegioneSel(regioneSel === r ? null : r)}
+                    className={`px-4 py-2 text-sm font-bold rounded-full border transition-colors ${regioneSel === r ? "bg-[#1F3BB3] text-white border-[#1F3BB3]" : "bg-white border-slate-200 hover:border-[#1F3BB3]"}`}>
+                    {r} · {comuni.filter((c) => c.regione === r).length}
                   </button>
                 ))}
+                {regioni.length === 0 && <span className="text-sm text-slate-500">Nessun comune attivo al momento.</span>}
               </div>
+              {regioneSel && (
+                <>
+                  <h2 className="font-heading font-extrabold text-xl">Comuni attivi in {regioneSel} (anche più di uno)</h2>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-4" data-testid="ooh-comuni-grid">
+                    {comuni.filter((c) => c.regione === regioneSel).map((c) => (
+                      <button key={c.id} type="button" data-testid={`ooh-comune-${c.id}`} onClick={() => toggleComune(c.id)}
+                        className={`border rounded-2xl p-6 text-left transition-colors relative ${comuniSel.includes(c.id) ? "border-[#1F3BB3] ring-2 ring-[#1F3BB3]/30 bg-[#F0F4FF]" : "border-slate-100 hover:border-[#1F3BB3]"}`}>
+                        {comuniSel.includes(c.id) && <span className="absolute top-3 right-3 w-6 h-6 rounded-full bg-[#1F3BB3] text-white flex items-center justify-center"><Check size={13} /></span>}
+                        {c.logo_url ? <img src={imgSrc(c.logo_url)} alt="" className="w-10 h-10 rounded-xl object-contain border border-slate-100 bg-white" />
+                          : <span className="w-10 h-10 rounded-xl bg-[#F0F4FF] flex items-center justify-center text-[#1F3BB3]"><Landmark size={18} /></span>}
+                        <div className="font-heading font-extrabold mt-3">{c.nome}</div>
+                        <div className="text-xs text-slate-500">{c.regione}</div>
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+              {comuniSel.length > 0 && (
+                <div className="bg-[#F8F9FD] rounded-xl px-5 py-3 text-sm font-bold" data-testid="ooh-comuni-selezionati">
+                  {comuniSel.length} comuni selezionati: <span className="font-normal text-slate-600">{comuniSel.map((id) => comuneNome(id)).join(" · ")}</span>
+                </div>
+              )}
             </div>
           )}
 
@@ -149,9 +194,9 @@ export default function OOHPlanner() {
                         {zonaObj.quartiere} — vie principali: {zonaObj.vie.join(", ")}
                       </div>
                     )}
-                    <div className="mt-4 border border-slate-100 rounded-2xl overflow-hidden">
+                    <div className="mt-4 border border-slate-100 rounded-2xl overflow-hidden aspect-square w-full">
                       <MapContainer key={`${cid}-${zsel || "all"}`} center={[zonaObj ? zonaObj.polygon[0][0] + 0.008 : comune?.lat, zonaObj ? zonaObj.polygon[0][1] + 0.011 : comune?.lng]}
-                        zoom={zsel ? 14 : 12} style={{ height: 260, width: "100%" }} scrollWheelZoom={false} attributionControl={false}>
+                        zoom={zsel ? 14 : 12} style={{ height: "100%", width: "100%" }} scrollWheelZoom={false} attributionControl={false}>
                         <TileLayer url={FLAT_TILES} className="flat-tiles" />
                         {zs.map((z) => (
                           <Polygon key={z.id} positions={z.polygon}
@@ -160,10 +205,10 @@ export default function OOHPlanner() {
                             <Tooltip sticky>{z.nome} · {z.impianti_count} impianti</Tooltip>
                           </Polygon>
                         ))}
-                        {pacs.filter((p) => selected.includes(p.id) || expanded === p.id).flatMap((p) => p.impianti).map((i) => (
+                        {pacs.filter((p) => selected.includes(p.id) || expanded === p.id).flatMap((p) => p.impianti.map((i) => ({ ...i, _pid: p.id, _libSel: (impSel[p.id] || liberiIds(p)).includes(i.id) }))).map((i) => (
                           <CircleMarker key={i.id} center={[i.lat, i.lng]} radius={7}
-                            pathOptions={{ color: "#fff", weight: 1.5, fillColor: "#F59E0B", fillOpacity: 1 }}>
-                            <Tooltip direction="top">{i.codice} · {i.tipologia}</Tooltip>
+                            pathOptions={{ color: "#fff", weight: 1.5, fillColor: i.occupato ? "#94A3B8" : i._libSel ? "#F59E0B" : "#CBD5E1", fillOpacity: 1 }}>
+                            <Tooltip direction="top">{i.codice} · {i.tipologia}{i.occupato ? " · occupato" : i._libSel ? " · selezionato" : ""}</Tooltip>
                           </CircleMarker>
                         ))}
                       </MapContainer>
@@ -177,15 +222,18 @@ export default function OOHPlanner() {
                               <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#1F3BB3]">{p.zona_nome}</div>
                               <div className="font-heading font-extrabold text-lg">{p.nome}</div>
                             </div>
-                            {!p.disponibile && <span className="text-[10px] font-bold rounded-full bg-[#26292B] text-white px-2.5 py-1">Occupato</span>}
+                            {!p.disponibile ? <span className="text-[10px] font-bold rounded-full bg-[#26292B] text-white px-2.5 py-1">Occupato</span>
+                              : p.impianti_liberi < p.n_impianti ? <span className="text-[10px] font-bold rounded-full bg-[#FEF3C7] text-[#B45309] px-2.5 py-1">{p.impianti_liberi}/{p.n_impianti} liberi</span> : null}
                           </div>
                           <div className="text-xs text-slate-500 mt-1">{p.descrizione}</div>
                           <div className="mt-3 flex items-center justify-between">
-                            <span className="text-[11px] font-bold rounded-full bg-[#F8F9FD] px-2.5 py-1">{p.n_impianti} impianti · formati misti</span>
-                            <span className="font-heading font-extrabold">{p.prezzo_giornaliero} €<span className="text-xs font-normal text-slate-500">/g</span></span>
+                            <span className="text-[11px] font-bold rounded-full bg-[#F8F9FD] px-2.5 py-1">
+                              {selected.includes(p.id) ? `${(impSel[p.id] || []).length}/${p.n_impianti} impianti scelti` : `${p.n_impianti} impianti · formati misti`}
+                            </span>
+                            <span className="font-heading font-extrabold">{prezzoSel(p).toFixed(0)} €<span className="text-xs font-normal text-slate-500">/g</span></span>
                           </div>
                           <div className="mt-4 flex gap-2">
-                            <button type="button" data-testid={`ooh-toggle-${p.id}`} disabled={!p.disponibile} onClick={() => togglePacchetto(p.id)}
+                            <button type="button" data-testid={`ooh-toggle-${p.id}`} disabled={!p.disponibile} onClick={() => togglePacchetto(p)}
                               className={`flex-1 rounded-full py-2 text-sm font-bold transition-colors disabled:opacity-40 ${selected.includes(p.id) ? "bg-[#1F3BB3] text-white" : "border border-slate-200 hover:border-[#1F3BB3]"}`}>
                               {selected.includes(p.id) ? "Selezionato ✓" : "Seleziona"}
                             </button>
@@ -196,15 +244,24 @@ export default function OOHPlanner() {
                           </div>
                           {expanded === p.id && (
                             <div className="mt-3 space-y-1.5 max-h-56 overflow-auto">
-                              {p.impianti.map((i) => (
-                                <div key={i.id} className="flex items-center gap-2.5 text-xs bg-[#F8F9FD] border border-slate-100 rounded-xl px-2.5 py-1.5">
-                                  <img src={imgSrc(i.foto_url)} alt="" className="w-10 h-8 object-cover rounded-lg" />
-                                  <div className="flex-1 min-w-0">
-                                    <div className="font-bold">{i.codice} · {i.tipologia}</div>
-                                    <div className="text-slate-500 truncate flex items-center gap-1"><MapPin size={10} />{i.indirizzo} · {i.formato}</div>
-                                  </div>
-                                </div>
-                              ))}
+                              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 px-1">Componi il circuito: spunta gli impianti che preferisci</div>
+                              {p.impianti.map((i) => {
+                                const sel = (impSel[p.id] ?? liberiIds(p)).includes(i.id) && selected.includes(p.id);
+                                return (
+                                  <label key={i.id} data-testid={`ooh-imp-check-${i.id}`}
+                                    className={`flex items-center gap-2.5 text-xs border rounded-xl px-2.5 py-1.5 transition-colors ${i.occupato ? "bg-slate-50 border-slate-100 opacity-60" : sel ? "bg-[#F0F4FF] border-[#1F3BB3] cursor-pointer" : "bg-[#F8F9FD] border-slate-100 cursor-pointer hover:border-[#1F3BB3]"}`}>
+                                    <input type="checkbox" disabled={i.occupato} checked={sel}
+                                      onChange={() => toggleImpianto(p, i.id)}
+                                      className="accent-[#1F3BB3] w-4 h-4 shrink-0" />
+                                    <img src={imgSrc(i.foto_url)} alt="" className="w-10 h-8 object-cover rounded-lg" />
+                                    <div className="flex-1 min-w-0">
+                                      <div className="font-bold">{i.codice} · {i.tipologia}</div>
+                                      <div className="text-slate-500 truncate flex items-center gap-1"><MapPin size={10} />{i.indirizzo} · {i.formato}</div>
+                                    </div>
+                                    <span className="font-bold shrink-0">{i.occupato ? <span className="text-[10px] text-slate-500 uppercase">Occupato</span> : `${(i.prezzo || 0).toFixed(0)} €/g`}</span>
+                                  </label>
+                                );
+                              })}
                             </div>
                           )}
                         </div>
@@ -227,8 +284,8 @@ export default function OOHPlanner() {
               <div className="border border-slate-100 rounded-2xl overflow-hidden divide-y divide-slate-100">
                 {pacchettiSel.map((p) => (
                   <div key={p.id} className="px-5 py-3 flex flex-wrap justify-between gap-2 text-sm">
-                    <span><strong>{p.nome}</strong> · {comuneNome(p.comune_id)} / {p.zona_nome} · {p.n_impianti} impianti</span>
-                    <span className="font-mono">{(p.prezzo_giornaliero * giorni).toFixed(2)} €</span>
+                    <span><strong>{p.nome}</strong> · {comuneNome(p.comune_id)} / {p.zona_nome} · {(impSel[p.id] || liberiIds(p)).length} impianti selezionati</span>
+                    <span className="font-mono">{(prezzoSel(p) * giorni).toFixed(2)} €</span>
                   </div>
                 ))}
                 <div className="px-5 py-3 flex justify-between font-bold bg-[#F8F9FD]">
