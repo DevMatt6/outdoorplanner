@@ -128,7 +128,6 @@ export const ADMIN_LINKS = [
 
 export const USER_LINKS = [
   ["/home", "Panoramica", "link-home"],
-  ["/dashboard", "Le mie pratiche", "link-pratiche-user"],
   ["/campagne", "Le mie campagne", "link-campagne-user"],
   ["/campagne/ooh/nuova", "Nuova campagna OOH", "link-nuova-ooh"],
   ["/spazi", "OSP / Eventi", "link-osp-user"],

@@ -1,15 +1,23 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { MapContainer, TileLayer, Polygon, CircleMarker, Tooltip } from "react-leaflet";
+import { MapContainer, TileLayer, Polygon, CircleMarker, Tooltip, GeoJSON } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import { UserShell } from "../../components/BackofficeLayout";
 import { DateRangePicker, fmtDay } from "../../components/DateRangePicker";
 import { api, apiError, imgSrc } from "../../lib/api";
 import { toast } from "sonner";
-import { Landmark, Check, ChevronDown, ChevronUp, MapPin } from "lucide-react";
+import { Landmark, Check, ChevronDown, ChevronUp, MapPin, ImageOff } from "lucide-react";
 
 const STEPS = ["Periodo", "Comuni", "Zone & Circuiti", "Riepilogo"];
 const FLAT_TILES = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
+const REGION_BASE = { fillColor: "#DCE4F7", fillOpacity: 1, color: "#93A6E8", weight: 1 };
+const REGION_ACTIVE = { fillColor: "#1F3BB3", fillOpacity: 1, color: "#2B4BDB", weight: 1.5 };
+
+const Thumb = ({ src, className }) => {
+  if (!src) return <span className={`${className} bg-[#F0F4FF] flex items-center justify-center text-[#93A6E8] shrink-0`}><ImageOff size={13} /></span>;
+  return <img src={imgSrc(src)} alt="" className={`${className} shrink-0`}
+    onError={(e) => { e.currentTarget.outerHTML = '<span class="' + className + ' bg-[#F0F4FF] rounded-lg shrink-0"></span>'; }} />;
+};
 
 export default function OOHPlanner() {
   const navigate = useNavigate();
@@ -17,6 +25,7 @@ export default function OOHPlanner() {
   const [nome, setNome] = useState("");
   const [range, setRange] = useState();
   const [comuni, setComuni] = useState([]);
+  const [geo, setGeo] = useState(null);
   const [regioneSel, setRegioneSel] = useState(null);
   const [comuniSel, setComuniSel] = useState([]);
   const [zone, setZone] = useState({});
@@ -34,6 +43,7 @@ export default function OOHPlanner() {
 
   useEffect(() => {
     api.get("/comuni").then(({ data }) => setComuni(data));
+    fetch("/geo/italy_regions.json").then((r) => r.json()).then(setGeo).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -76,7 +86,6 @@ export default function OOHPlanner() {
     return p.impianti.filter((i) => ids.includes(i.id)).reduce((a, i) => a + (i.prezzo || 0), 0);
   };
   const totale = pacchettiSel.reduce((a, p) => a + prezzoSel(p) * giorni, 0);
-  const regioni = useMemo(() => [...new Set(comuni.map((c) => c.regione))].sort(), [comuni]);
 
   const next = async () => {
     setError("");
@@ -131,15 +140,35 @@ export default function OOHPlanner() {
 
           {step === 1 && (
             <div className="space-y-5">
-              <h2 className="font-heading font-extrabold text-xl">Scegli prima la regione</h2>
-              <div className="flex flex-wrap gap-2" data-testid="ooh-regioni">
-                {regioni.map((r) => (
-                  <button key={r} type="button" data-testid={`ooh-regione-${r}`} onClick={() => setRegioneSel(regioneSel === r ? null : r)}
-                    className={`px-4 py-2 text-sm font-bold rounded-full border transition-colors ${regioneSel === r ? "bg-[#1F3BB3] text-white border-[#1F3BB3]" : "bg-white border-slate-200 hover:border-[#1F3BB3]"}`}>
-                    {r} · {comuni.filter((c) => c.regione === r).length}
-                  </button>
-                ))}
-                {regioni.length === 0 && <span className="text-sm text-slate-500">Nessun comune attivo al momento.</span>}
+              <h2 className="font-heading font-extrabold text-xl">Scegli la regione sulla mappa, poi i Comuni attivi</h2>
+              <div className="relative border border-slate-100 rounded-2xl overflow-hidden aspect-[4/3] w-full" data-testid="ooh-mappa-italia">
+                <MapContainer key={`it-${regioneSel || "all"}`} center={[42.0, 12.5]} zoom={5.6} zoomSnap={0.2}
+                  style={{ height: "100%", width: "100%", background: "#F7F8F6" }} scrollWheelZoom={false} attributionControl={false}>
+                  {geo && <GeoJSON key={regioneSel || "none"} data={geo}
+                    style={(f) => (f.properties.reg_name === regioneSel ? REGION_ACTIVE : REGION_BASE)}
+                    onEachFeature={(feature, layer) => {
+                      const nome = feature.properties.reg_name;
+                      layer.on({
+                        mouseover: (e) => e.target.setStyle(REGION_ACTIVE),
+                        mouseout: (e) => { if (nome !== regioneSel) e.target.setStyle(REGION_BASE); },
+                        click: () => setRegioneSel(nome === regioneSel ? null : nome),
+                      });
+                      layer.bindTooltip(`${nome} · ${comuni.filter((c) => c.regione === nome).length} comuni attivi`, { sticky: true, direction: "top" });
+                    }} />}
+                  {regioneSel && comuni.filter((c) => c.regione === regioneSel).map((c) => (
+                    <CircleMarker key={c.id} center={[c.lat, c.lng]} radius={11}
+                      eventHandlers={{ click: () => toggleComune(c.id) }}
+                      pathOptions={{ color: "#FFFFFF", weight: 2, fillColor: comuniSel.includes(c.id) ? "#F59E0B" : "#1F3BB3", fillOpacity: 1 }}>
+                      <Tooltip permanent direction="right" offset={[10, 0]} opacity={1} interactive
+                        eventHandlers={{ click: () => toggleComune(c.id) }}>
+                        <span style={{ fontWeight: 800, fontSize: 12, cursor: "pointer" }}>{c.nome}{comuniSel.includes(c.id) ? " ✓" : ""}</span>
+                      </Tooltip>
+                    </CircleMarker>
+                  ))}
+                </MapContainer>
+                <div className="absolute bottom-3 left-3 z-[1000] bg-white/95 border border-slate-100 rounded-xl px-3.5 py-2 text-xs font-semibold text-slate-600">
+                  {regioneSel ? `${regioneSel}: clicca i Comuni per selezionarli` : "Clicca una regione per vedere i Comuni attivi"}
+                </div>
               </div>
               {regioneSel && (
                 <>
@@ -194,7 +223,7 @@ export default function OOHPlanner() {
                         {zonaObj.quartiere} — vie principali: {zonaObj.vie.join(", ")}
                       </div>
                     )}
-                    <div className="mt-4 border border-slate-100 rounded-2xl overflow-hidden aspect-square w-full">
+                    <div className="mt-4 border border-slate-100 rounded-2xl overflow-hidden aspect-[4/3] w-full">
                       <MapContainer key={`${cid}-${zsel || "all"}`} center={[zonaObj ? zonaObj.polygon[0][0] + 0.008 : comune?.lat, zonaObj ? zonaObj.polygon[0][1] + 0.011 : comune?.lng]}
                         zoom={zsel ? 14 : 12} style={{ height: "100%", width: "100%" }} scrollWheelZoom={false} attributionControl={false}>
                         <TileLayer url={FLAT_TILES} className="flat-tiles" />
@@ -205,10 +234,18 @@ export default function OOHPlanner() {
                             <Tooltip sticky>{z.nome} · {z.impianti_count} impianti</Tooltip>
                           </Polygon>
                         ))}
-                        {pacs.filter((p) => selected.includes(p.id) || expanded === p.id).flatMap((p) => p.impianti.map((i) => ({ ...i, _pid: p.id, _libSel: (impSel[p.id] || liberiIds(p)).includes(i.id) }))).map((i) => (
-                          <CircleMarker key={i.id} center={[i.lat, i.lng]} radius={7}
-                            pathOptions={{ color: "#fff", weight: 1.5, fillColor: i.occupato ? "#94A3B8" : i._libSel ? "#F59E0B" : "#CBD5E1", fillOpacity: 1 }}>
-                            <Tooltip direction="top">{i.codice} · {i.tipologia}{i.occupato ? " · occupato" : i._libSel ? " · selezionato" : ""}</Tooltip>
+                        {pacs.filter((p) => selected.includes(p.id) || expanded === p.id).flatMap((p) => p.impianti.map((i) => ({ ...i, _p: p, _libSel: (impSel[p.id] || liberiIds(p)).includes(i.id) && selected.includes(p.id) }))).map((i) => (
+                          <CircleMarker key={i.id} center={[i.lat, i.lng]} radius={8}
+                            eventHandlers={{ click: () => { if (!i.occupato) toggleImpianto(i._p, i.id); } }}
+                            pathOptions={{ color: "#fff", weight: 2, fillColor: i.occupato ? "#94A3B8" : i._libSel ? "#1F3BB3" : "#93A6E8", fillOpacity: 1 }}>
+                            <Tooltip direction="top" offset={[0, -8]} opacity={1}>
+                              <div style={{ width: 168 }}>
+                                {i.foto_url && <img src={imgSrc(i.foto_url)} alt="" style={{ width: 168, height: 110, objectFit: "cover", borderRadius: 8 }} />}
+                                <div style={{ fontWeight: 800, fontSize: 12, marginTop: 4 }}>{i.codice} · {i.tipologia}</div>
+                                <div style={{ fontSize: 10, color: "#475569" }}>{i.indirizzo || i.via}{i.formato ? ` · ${i.formato}` : ""}</div>
+                                <div style={{ fontSize: 10 }}><b>{(i.prezzo || 0).toFixed(0)} €/giorno</b> · {i.occupato ? "Occupato" : i._libSel ? "Selezionato ✓ (clicca per rimuovere)" : "Clicca per selezionare"}</div>
+                              </div>
+                            </Tooltip>
                           </CircleMarker>
                         ))}
                       </MapContainer>
@@ -253,7 +290,7 @@ export default function OOHPlanner() {
                                     <input type="checkbox" disabled={i.occupato} checked={sel}
                                       onChange={() => toggleImpianto(p, i.id)}
                                       className="accent-[#1F3BB3] w-4 h-4 shrink-0" />
-                                    <img src={imgSrc(i.foto_url)} alt="" className="w-10 h-8 object-cover rounded-lg" />
+                                    <Thumb src={i.foto_url} className="w-10 h-8 object-cover rounded-lg" />
                                     <div className="flex-1 min-w-0">
                                       <div className="font-bold">{i.codice} · {i.tipologia}</div>
                                       <div className="text-slate-500 truncate flex items-center gap-1"><MapPin size={10} />{i.indirizzo} · {i.formato}</div>

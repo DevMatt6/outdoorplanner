@@ -5,7 +5,7 @@ export const SpazioCard = ({ spazio: s, onClick, selected = false, selectable = 
   <div data-testid={`spazio-card-${s.id}`} onClick={onClick}
     className={`cursor-pointer bg-white border rounded-2xl overflow-hidden transition-colors group
       ${selected ? "border-[#1F3BB3] ring-2 ring-[#1F3BB3]/30" : "border-slate-100 hover:border-[#1F3BB3]"}`}>
-    <div className="relative aspect-[4/3] overflow-hidden bg-[#F8F9FD]">
+    <div className="relative aspect-square overflow-hidden bg-[#F8F9FD]">
       <img src={imgSrc(s.foto_url)} alt={s.nome} className="w-full h-full object-cover" />
       {s.disponibile === false && (
         <span className="absolute top-2 left-2 text-[10px] font-bold rounded-full bg-[#26292B] text-white px-2.5 py-1">Occupato</span>

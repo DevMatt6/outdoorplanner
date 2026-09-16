@@ -39,20 +39,20 @@ export default function Home() {
         </div>
 
         <div className="mt-6 grid sm:grid-cols-2 gap-4">
-          <Link to="/dashboard" data-testid="hub-link-pratiche"
-            className="bg-white border border-slate-100 rounded-2xl px-6 py-5 flex items-center gap-4 hover:border-[#1F3BB3] transition-colors">
-            <FolderOpen size={20} className="text-[#1F3BB3]" />
-            <div>
-              <div className="font-heading font-extrabold">Le mie pratiche</div>
-              <div className="text-xs text-slate-500">Campagne OOH e richieste OSP, identificate per tipologia</div>
-            </div>
-          </Link>
           <Link to="/campagne" data-testid="hub-link-campagne"
             className="bg-white border border-slate-100 rounded-2xl px-6 py-5 flex items-center gap-4 hover:border-[#1F3BB3] transition-colors">
             <LayoutDashboard size={20} className="text-[#1F3BB3]" />
             <div>
               <div className="font-heading font-extrabold">Le mie campagne</div>
-              <div className="text-xs text-slate-500">Prenotazioni, countdown 24h e stato di avanzamento</div>
+              <div className="text-xs text-slate-500">Tutte le campagne e le relative pratiche, countdown 24h e stato di avanzamento</div>
+            </div>
+          </Link>
+          <Link to="/spazi" data-testid="hub-link-osp"
+            className="bg-white border border-slate-100 rounded-2xl px-6 py-5 flex items-center gap-4 hover:border-[#1F3BB3] transition-colors">
+            <FolderOpen size={20} className="text-[#1F3BB3]" />
+            <div>
+              <div className="font-heading font-extrabold">OSP / Eventi</div>
+              <div className="text-xs text-slate-500">Spazi per eventi e occupazioni temporanee</div>
             </div>
           </Link>
         </div>

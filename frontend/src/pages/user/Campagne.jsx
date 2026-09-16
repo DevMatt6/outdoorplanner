@@ -7,9 +7,11 @@ import { Plus, ArrowRight, Megaphone } from "lucide-react";
 
 export default function Campagne() {
   const [campagne, setCampagne] = useState(null);
+  const [singole, setSingole] = useState([]);
 
   useEffect(() => {
     api.get("/campagne").then(({ data }) => setCampagne(data));
+    api.get("/pratiche").then(({ data }) => setSingole(data.filter((p) => !p.campagna_id)));
   }, []);
 
   return (
@@ -62,6 +64,31 @@ export default function Campagne() {
               </div>
             </Link>
           ))}
+          {singole.length > 0 && (
+            <div className="mt-8" data-testid="pratiche-singole">
+              <div className="text-xs font-bold uppercase tracking-[0.25em] text-slate-400 mb-3">Richieste singole OSP</div>
+              <div className="space-y-3">
+                {singole.map((p) => (
+                  <Link key={p.id} to={`/pratiche/${p.id}`} data-testid={`pratica-singola-${p.id}`}
+                    className="block bg-white border border-slate-100 rounded-2xl px-6 py-4 hover:border-[#1F3BB3] transition-colors">
+                    <div className="flex flex-wrap items-center gap-4 justify-between">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <div className="font-heading font-extrabold">{p.spazio_nome}</div>
+                          <TipoBadge tipo={p.tipo} />
+                        </div>
+                        <div className="text-xs text-slate-500 font-mono mt-0.5">{p.data_inizio} → {p.data_fine} · {p.importo.toFixed(2)} €</div>
+                      </div>
+                      <span className="text-[11px] font-bold rounded-full px-2.5 py-1"
+                        style={{ backgroundColor: STATO_COLORS[p.stato]?.bg, color: STATO_COLORS[p.stato]?.text }}>
+                        {STATO_COLORS[p.stato]?.label || p.stato}
+                      </span>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </UserShell>

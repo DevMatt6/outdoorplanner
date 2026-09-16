@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { UserShell } from "../../components/BackofficeLayout";
 import { StatusBadge, STATO_COLORS } from "../../components/StatusBadge";
-import { Chat } from "../../components/Chat";
+import { ChatFloating } from "../../components/ChatFloating";
 import { SezioneRichiedente, SezionePrenotazione, SezioneImpiantiCreativita, SezioneDatiForm, SezioneDocumenti } from "../../components/PraticaDettagli";
 import { IntegrazioneEditor } from "../../components/IntegrazioneEditor";
 import { api, apiError, API } from "../../lib/api";
@@ -118,12 +118,14 @@ export default function PraticaDetail() {
           </div>
         )}
 
-        <div className="mt-8 grid lg:grid-cols-2 gap-6">
+        <div className="mt-8 grid lg:grid-cols-2 gap-6 items-start">
           <div className="space-y-6">
             <SezionePrenotazione pratica={pratica} />
             <SezioneRichiedente richiedente={pratica.richiedente} />
-            <SezioneImpiantiCreativita pratica={pratica} />
             <SezioneDatiForm dati={pratica.dati_form} />
+          </div>
+          <div className="space-y-6">
+            <SezioneImpiantiCreativita pratica={pratica} />
             <SezioneDocumenti documenti={pratica.documenti} />
             <div className="border border-slate-100 bg-white rounded-2xl overflow-hidden">
               <div className="px-5 py-2.5 border-b border-slate-100 text-xs font-bold uppercase tracking-widest bg-[#F8F9FD]">Cronologia stati</div>
@@ -144,8 +146,8 @@ export default function PraticaDetail() {
               </div>
             </div>
           </div>
-          <Chat praticaId={pratica.id} />
         </div>
+        <ChatFloating praticaId={pratica.id} />
       </div>
     </UserShell>
   );

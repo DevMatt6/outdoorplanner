@@ -35,7 +35,7 @@ export const ItalyMap = () => {
   };
 
   return (
-    <div className="relative border border-slate-100 rounded-2xl overflow-hidden aspect-square w-full" data-testid="italy-map">
+    <div className="relative border border-slate-100 rounded-2xl overflow-hidden aspect-[4/3] w-full" data-testid="italy-map">
       <MapContainer center={[42.0, 12.5]} zoom={5.4} zoomSnap={0.2} style={{ height: "100%", width: "100%" }}
         scrollWheelZoom={false} zoomControl={true} attributionControl={false}>
         {geo && <GeoJSON data={geo} style={() => BASE_STYLE} onEachFeature={onEach} />}
