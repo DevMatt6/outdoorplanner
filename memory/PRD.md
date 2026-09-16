@@ -146,6 +146,10 @@ Su richiesta utente (screenshot stile "Donezo") il design è passato da flat bru
 - Chat flottante spostata in basso a DESTRA con badge rosso dei messaggi non letti (localStorage per lettura, poll 10s, azzerato all'apertura del popup)
 - Verificato con screenshot: FAB a destra, badge "2" visibile, sparisce all'apertura, ratio mappa 1.6
 
+## Implementato (Iterazione 20 — Seed dati demo post-reset)
+- Riscritto /app/backend/seed_demo.py (ripetibile): 3 comuni ATTIVI (Roma, Napoli, Milano) con livelli [1,2,3]; 9 utenze comunali ({comune}.l1/l2/l3@demo.it, password demo123); 3 zone per comune; 3 circuiti per comune intitolati alla via (es. "Circuito Viale Europa") con 5 impianti ciascuno sulla stessa via; 1 area OSP e moduli OOH/OSP per comune; 0 pratiche
+- Verificato: login 4 utenze OK, GET /comuni ritorna i 3 comuni, circuiti con 5 impianti, UI zone comune OK
+
 ## Backlog prioritizzato
 - P2: date picker anche per modifica pratiche in INTEGRAZIONE_RICHIESTA
 - P2: Stripe test mode reale al posto del mock; export report CSV/PDF

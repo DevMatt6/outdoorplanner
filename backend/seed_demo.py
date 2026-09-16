@@ -1,4 +1,6 @@
-"""Reset dati demo e seed Roma/Milano/Napoli: zone, vie, confini, impianti, circuiti, moduli, aree OSP. Ripetibile."""
+"""Seed demo: 3 comuni (Roma, Napoli, Milano), 3 operatori L1/L2/L3 ciascuno,
+3 zone per comune, 3 circuiti per comune intitolati alla via con >=4 impianti sulla stessa via.
+Nessuna pratica. Ripetibile."""
 import asyncio
 import os
 import random
@@ -9,73 +11,19 @@ from dotenv import load_dotenv
 from motor.motor_asyncio import AsyncIOMotorClient
 
 load_dotenv(Path(__file__).parent / ".env")
-random.seed(42)
+random.seed(7)
 
 IMG_BILLBOARD = "https://images.unsplash.com/photo-1699480114704-ac153307d2a0?crop=entropy&cs=srgb&fm=jpg&q=85"
 IMG_PIAZZA = "https://images.unsplash.com/photo-1777403705903-9704d002ca8a?crop=entropy&cs=srgb&fm=jpg&q=85"
-IMG_URBAN = "/api/uploads/spazi/mupi_urban.jpeg"
 IMG_LED = "https://images.unsplash.com/photo-1563089145-599997674d42?crop=entropy&cs=srgb&fm=jpg&q=85&w=1200"
 
-IMG_PER_TIPO = {
-    "Manifesto 200x140": IMG_BILLBOARD, "Manifesto 100x140": IMG_BILLBOARD, "Manifesto 70x100": IMG_URBAN,
-    "Maxi Ledwall Stradale": IMG_LED, "Mupi Digitale / Totem Smart": IMG_URBAN,
-    "Schermo su Edicola/Chiosco": IMG_URBAN, "Impianto Digitale Temporaneo – SCIA": IMG_LED,
-    "Poster Maxi 6x3": IMG_BILLBOARD, "Mega Poster Stradale >18mq": IMG_BILLBOARD,
-}
-FORMATO_PER_TIPO = {
-    "Manifesto 200x140": "200x140 cm", "Manifesto 100x140": "100x140 cm", "Manifesto 70x100": "70x100 cm",
-    "Maxi Ledwall Stradale": "Ledwall 6x3 m", "Mupi Digitale / Totem Smart": "Mupi 120x180 cm",
-    "Schermo su Edicola/Chiosco": 'Schermo 55"', "Impianto Digitale Temporaneo – SCIA": "Ledwall 4x3 m",
-    "Poster Maxi 6x3": "6x3 m", "Mega Poster Stradale >18mq": "12x6 m",
-}
-TIPI = list(IMG_PER_TIPO.keys())
-PREZZO_PER_TIPO = {
-    "Manifesto 200x140": 250, "Manifesto 100x140": 180, "Manifesto 70x100": 120,
-    "Maxi Ledwall Stradale": 600, "Mupi Digitale / Totem Smart": 320,
-    "Schermo su Edicola/Chiosco": 200, "Impianto Digitale Temporaneo – SCIA": 450,
-    "Poster Maxi 6x3": 400, "Mega Poster Stradale >18mq": 800,
-}
-
-now = lambda: datetime.now(timezone.utc).isoformat()
-
-DATASET = {
-    "Roma": {
-        "ref": ("comune.l3@demo.it", None),
-        "zone": {
-            "EUR": {"c": (41.8320, 12.4700), "q": "Municipio IX", "vie": ["Via dei Sommozzatori", "Viale Europa", "Via Cristoforo Colombo", "Viale America"]},
-            "Centro": {"c": (41.8990, 12.4790), "q": "Municipio I", "vie": ["Via del Corso", "Via Nazionale", "Via del Tritone"]},
-            "Ostiense": {"c": (41.8660, 12.4790), "q": "Municipio VIII", "vie": ["Via Ostiense", "Via del Porto Fluviale", "Circonvallazione Ostiense"]},
-            "Prati": {"c": (41.9080, 12.4620), "q": "Municipio I", "vie": ["Via Cola di Rienzo", "Viale Giulio Cesare", "Via Ottaviano"]},
-        },
-        "osp": [("Area Eventi Piazza San Giovanni", 41.8860, 12.5060, "Piazza di San Giovanni in Laterano", 300),
-                ("Area OSP Circo Massimo", 41.8860, 12.4850, "Via del Circo Massimo", 400)],
-    },
-    "Milano": {
-        "ref": ("comune.milano@demo.it", "Referente Milano"),
-        "zone": {
-            "Navigli": {"c": (45.4500, 9.1730), "q": "Municipio 6", "vie": ["Ripa di Porta Ticinese", "Corso San Gottardo", "Via Vigevano"]},
-            "Porta Nuova": {"c": (45.4820, 9.1900), "q": "Municipio 9", "vie": ["Corso Como", "Via Melchiorre Gioia", "Viale della Liberazione"]},
-            "CityLife": {"c": (45.4780, 9.1560), "q": "Municipio 8", "vie": ["Piazza Tre Torri", "Viale Scarampo", "Via Spinola"]},
-            "Centro": {"c": (45.4640, 9.1900), "q": "Municipio 1", "vie": ["Corso Vittorio Emanuele II", "Via Dante", "Corso Buenos Aires"]},
-        },
-        "osp": [("Area Eventi Darsena", 45.4520, 9.1770, "Piazza XXIV Maggio", 350)],
-    },
-    "Napoli": {
-        "ref": ("comune.napoli@demo.it", "Referente Napoli"),
-        "zone": {
-            "Centro": {"c": (40.8480, 14.2530), "q": "Municipalità 2", "vie": ["Via Toledo", "Corso Umberto I", "Spaccanapoli"]},
-            "Vomero": {"c": (40.8440, 14.2290), "q": "Municipalità 5", "vie": ["Via Scarlatti", "Via Luca Giordano", "Via Cilea"]},
-            "Chiaia": {"c": (40.8330, 14.2330), "q": "Municipalità 1", "vie": ["Riviera di Chiaia", "Via dei Mille", "Via Filangieri"]},
-            "Fuorigrotta": {"c": (40.8260, 14.2000), "q": "Municipalità 10", "vie": ["Viale Augusto", "Via Terracina", "Piazzale Tecchio"]},
-        },
-        "osp": [("Area Eventi Piazza del Plebiscito", 40.8360, 14.2480, "Piazza del Plebiscito", 380)],
-    },
-}
-
-COMUNI_BASE = {
-    "Milano": {"regione": "Lombardia", "provincia": "MI", "lat": 45.4642, "lng": 9.19},
-    "Napoli": {"regione": "Campania", "provincia": "NA", "lat": 40.8518, "lng": 14.2681},
-}
+TIPI = [
+    ("Manifesto 200x140", "200x140 cm", 250, IMG_BILLBOARD),
+    ("Poster Maxi 6x3", "6x3 m", 400, IMG_BILLBOARD),
+    ("Maxi Ledwall Stradale", "Ledwall 6x3 m", 600, IMG_LED),
+    ("Mupi Digitale / Totem Smart", "Mupi 120x180 cm", 320, IMG_LED),
+    ("Manifesto 100x140", "100x140 cm", 180, IMG_BILLBOARD),
+]
 
 MODULO_OOH = {
     "campi": [
@@ -96,18 +44,49 @@ MODULO_OSP = {
         {"id": "descrizione_evento", "label": "Descrizione dell'evento / manifestazione", "tipo": "textarea", "opzioni": [], "required": True, "condizione": None},
         {"id": "tipo_occupazione", "label": "Tipo di occupazione", "tipo": "select", "opzioni": ["Gazebo", "Palco", "Dehors", "Stand espositivo", "Altro"], "required": True, "condizione": None},
         {"id": "superficie_mq", "label": "Superficie occupata (mq)", "tipo": "number", "opzioni": [], "required": True, "condizione": None},
-        {"id": "numero_partecipanti", "label": "Numero partecipanti stimato", "tipo": "number", "opzioni": [], "required": False, "condizione": None},
         {"id": "impianto_elettrico", "label": "Prevede impianto elettrico", "tipo": "checkbox", "opzioni": [], "required": False, "condizione": None},
         {"id": "potenza_kw", "label": "Potenza richiesta (kW)", "tipo": "number", "opzioni": [], "required": False, "condizione": {"campo": "impianto_elettrico", "valore": True}},
-        {"id": "somministrazione", "label": "Somministrazione di alimenti e bevande", "tipo": "checkbox", "opzioni": [], "required": False, "condizione": None},
     ],
     "documenti_richiesti": [
         {"id": "planimetria", "label": "Planimetria dell'area", "required": True},
-        {"id": "relazione_tecnica", "label": "Relazione tecnica dell'allestimento", "required": False},
         {"id": "polizza_assicurativa", "label": "Polizza assicurativa RC", "required": True},
         {"id": "doc_identita", "label": "Documento d'identità", "required": True},
     ],
 }
+
+# per ogni comune: 3 zone, ciascuna con la via del circuito
+DATASET = {
+    "Roma": {
+        "regione": "Lazio", "provincia": "RM", "lat": 41.9028, "lng": 12.4964, "sigla": "RM",
+        "zone": [
+            {"nome": "EUR", "q": "Municipio IX", "c": (41.8320, 12.4700), "via": "Viale Europa"},
+            {"nome": "Centro", "q": "Municipio I", "c": (41.8990, 12.4790), "via": "Via del Corso"},
+            {"nome": "Ostiense", "q": "Municipio VIII", "c": (41.8660, 12.4790), "via": "Via Ostiense"},
+        ],
+        "osp": ("Area Eventi Circo Massimo", 41.8860, 12.4850, "Via del Circo Massimo", 400),
+    },
+    "Napoli": {
+        "regione": "Campania", "provincia": "NA", "lat": 40.8518, "lng": 14.2681, "sigla": "NA",
+        "zone": [
+            {"nome": "Centro", "q": "Municipalità 2", "c": (40.8480, 14.2530), "via": "Via Toledo"},
+            {"nome": "Vomero", "q": "Municipalità 5", "c": (40.8440, 14.2290), "via": "Via Scarlatti"},
+            {"nome": "Chiaia", "q": "Municipalità 1", "c": (40.8330, 14.2330), "via": "Riviera di Chiaia"},
+        ],
+        "osp": ("Area Eventi Piazza del Plebiscito", 40.8360, 14.2480, "Piazza del Plebiscito", 380),
+    },
+    "Milano": {
+        "regione": "Lombardia", "provincia": "MI", "lat": 45.4642, "lng": 9.19, "sigla": "MI",
+        "zone": [
+            {"nome": "Navigli", "q": "Municipio 6", "c": (45.4500, 9.1730), "via": "Corso San Gottardo"},
+            {"nome": "Porta Nuova", "q": "Municipio 9", "c": (45.4820, 9.1900), "via": "Corso Como"},
+            {"nome": "Centro", "q": "Municipio 1", "c": (45.4640, 9.1900), "via": "Corso Buenos Aires"},
+        ],
+        "osp": ("Area Eventi Darsena", 45.4520, 9.1770, "Piazza XXIV Maggio", 350),
+    },
+}
+
+LIVELLI = {1: "Operatore", 2: "Referente", 3: "Responsabile"}
+now = lambda: datetime.now(timezone.utc).isoformat()
 
 
 def rect_polygon(lat, lng, dlat=0.008, dlng=0.011):
@@ -119,101 +98,80 @@ async def main():
     hash_pw = lambda p: bcrypt.hashpw(p.encode(), bcrypt.gensalt()).decode()
     db = AsyncIOMotorClient(os.environ["MONGO_URL"])[os.environ["DB_NAME"]]
 
-    # 1. elimina comuni non demo (Bologna, Firenze, ecc.) e relativi dati/utenti
-    keep = ["Roma", "Milano", "Napoli"]
-    old = await db.comuni.find({"nome": {"$nin": keep}}, {"_id": 0, "id": 1, "nome": 1}).to_list(50)
-    for c in old:
-        pids = [p["id"] for p in await db.pratiche.find({"comune_id": c["id"]}, {"_id": 0, "id": 1}).to_list(5000)]
-        if pids:
-            await db.log_stato.delete_many({"pratica_id": {"$in": pids}})
-            await db.chat.delete_many({"pratica_id": {"$in": pids}})
-        await db.pratiche.delete_many({"comune_id": c["id"]})
-        await db.users.delete_many({"ruolo": "comune", "comune_id": c["id"]})
-        await db.comuni.delete_one({"id": c["id"]})
-        print(f"Eliminato comune {c['nome']}")
-
-    # 2. pulizia dati demo vecchia logica (mantiene utenti e comuni demo)
-    for coll in ["spazi", "pratiche", "campagne", "log_stato", "chat", "notifiche",
-                 "zone", "impianti", "pacchetti", "prenotazioni", "creativita", "form_templates"]:
+    # pulizia dati business (mantiene superadmin e inserzionisti)
+    for coll in ["comuni", "zone", "impianti", "pacchetti", "spazi", "form_templates",
+                 "pratiche", "campagne", "prenotazioni", "soggetti", "creativita",
+                 "log_stato", "chat", "notifiche"]:
         r = await db[coll].delete_many({})
-        print(f"Pulita collezione {coll}: {r.deleted_count}")
+        print(f"Pulita {coll}: {r.deleted_count}")
+    await db.users.delete_many({"ruolo": "comune"})
 
-    # 3. comuni demo (crea Milano/Napoli se mancanti) + stato onboarding ATTIVO
-    for nome, base in COMUNI_BASE.items():
-        if not await db.comuni.find_one({"nome": nome}):
-            await db.comuni.insert_one({"id": str(uuid.uuid4()), "nome": nome, **base, "logo_url": None,
-                                        "tariffe": [], "regole": "Regolamento comunale standard",
-                                        "attivo": True, "created_at": now()})
-            print(f"Creato comune {nome}")
-    await db.comuni.update_many({}, {"$set": {"stato_onboarding": "ATTIVO"}})
-    comuni = {c["nome"]: c for c in await db.comuni.find({}, {"_id": 0}).to_list(10)}
+    for nome, d in DATASET.items():
+        cid = str(uuid.uuid4())
+        await db.comuni.insert_one({
+            "id": cid, "nome": nome, "regione": d["regione"], "provincia": d["provincia"],
+            "lat": d["lat"], "lng": d["lng"], "logo_url": None, "tariffe": [],
+            "regole": "Regolamento comunale standard", "attivo": True,
+            "livelli_attivi": [1, 2, 3], "stato_onboarding": "ATTIVO", "created_at": now(),
+        })
 
-    # 4. referenti L3 Milano/Napoli
-    for nome, data in DATASET.items():
-        email, ref_nome = data["ref"]
-        if ref_nome and not await db.users.find_one({"email": email}):
-            await db.users.insert_one({"id": str(uuid.uuid4()), "email": email, "nome": ref_nome,
-                                       "ruolo": "comune", "comune_id": comuni[nome]["id"], "livello": 3,
-                                       "password_hash": hash_pw("demo123"), "created_at": now()})
-            print(f"Creato referente {email}")
-
-    # 5. zone, impianti, pacchetti, moduli, aree OSP
-    for nome, data in DATASET.items():
-        cid = comuni[nome]["id"]
-        sigla = {"Roma": "RM", "Milano": "MI", "Napoli": "NA"}[nome]
+        low = nome.lower()
+        for lv, ruolo in LIVELLI.items():
+            await db.users.insert_one({
+                "id": str(uuid.uuid4()), "email": f"{low}.l{lv}@demo.it",
+                "nome": f"{ruolo} {nome}", "ruolo": "comune", "comune_id": cid, "livello": lv,
+                "password_hash": hash_pw("demo123"), "created_at": now(),
+            })
+        print(f"{nome}: utenze {low}.l1@demo.it / {low}.l2@demo.it / {low}.l3@demo.it (demo123)")
 
         tpl_ooh = {"id": str(uuid.uuid4()), "comune_id": cid, "tipo": "OOH",
-                   "nome": f"Modulo Campagna OOH - {nome}", **MODULO_OOH, "updated_at": now()}
+                   "nome": f"Modulo Campagna OOH — {nome}", **MODULO_OOH, "updated_at": now()}
         tpl_osp = {"id": str(uuid.uuid4()), "comune_id": cid, "tipo": "OSP",
                    "nome": "Modulo OSP — Occupazione Suolo Pubblico", **MODULO_OSP, "updated_at": now()}
         await db.form_templates.insert_many([dict(tpl_ooh), dict(tpl_osp)])
 
-        for znome, zdata in data["zone"].items():
-            lat, lng = zdata["c"]
-            zona = {"id": str(uuid.uuid4()), "comune_id": cid, "nome": znome,
-                    "descrizione": f"Zona {znome} — {zdata['q']}", "quartiere": zdata["q"],
-                    "polygon": rect_polygon(lat, lng), "created_at": now()}
+        for z in d["zone"]:
+            lat, lng = z["c"]
+            zona = {"id": str(uuid.uuid4()), "comune_id": cid, "nome": z["nome"],
+                    "descrizione": f"Zona {z['nome']} — {z['q']}", "quartiere": z["q"],
+                    "polygon": rect_polygon(lat, lng), "vie": [z["via"]], "created_at": now()}
             await db.zone.insert_one(dict(zona))
-            if znome == "Centro":
-                data.setdefault("_zona_centro", zona["id"])
 
+            via = z["via"]
+            abbrev = "".join(w[0] for w in via.split()).upper()
             impianti = []
-            n_imp = 12
-            for i in range(n_imp):
-                tipo = TIPI[i % len(TIPI)]
-                via = zdata["vie"][i % len(zdata["vie"])]
-                moltiplicatore = {"Roma": 1.0, "Milano": 1.2, "Napoli": 0.8}[nome]
+            for i in range(5):
+                tipo, formato, prezzo, img = TIPI[i % len(TIPI)]
+                # impianti distribuiti lungo la via
                 imp = {"id": str(uuid.uuid4()), "comune_id": cid, "zona_id": zona["id"],
-                       "codice": f"{sigla}-{znome[:3].upper()}-{i+1:03d}", "via": via, "indirizzo": via,
-                       "lat": lat + random.uniform(-0.006, 0.006), "lng": lng + random.uniform(-0.009, 0.009),
-                       "tipologia": tipo, "categoria": "dooh" if "Led" in tipo or "Digital" in tipo or "Mupi" in tipo or "Schermo" in tipo else ("maxi" if "6x3" in tipo or "Mega" in tipo else "cartacee"),
-                       "formato": FORMATO_PER_TIPO[tipo], "dimensioni": FORMATO_PER_TIPO[tipo],
-                       "prezzo": round(PREZZO_PER_TIPO[tipo] * moltiplicatore, 2),
-                       "foto_url": IMG_PER_TIPO[tipo], "note": "", "attivo": True, "created_at": now()}
+                       "codice": f"{d['sigla']}-{abbrev}-{i+1:03d}",
+                       "via": via, "indirizzo": f"{via}, {10 + i * 22}",
+                       "lat": lat - 0.003 + i * 0.0015, "lng": lng - 0.004 + i * 0.002,
+                       "tipologia": tipo, "formato": formato, "dimensioni": formato,
+                       "categoria": "dooh" if "Led" in tipo or "Mupi" in tipo else ("maxi" if "6x3" in tipo else "cartacee"),
+                       "prezzo": float(prezzo), "foto_url": img, "note": "", "attivo": True, "created_at": now()}
                 impianti.append(imp)
             await db.impianti.insert_many([dict(i) for i in impianti])
 
-            for size in (5, 8, 12):
-                subset = [i["id"] for i in impianti[:size]]
-                await db.pacchetti.insert_one({
-                    "id": str(uuid.uuid4()), "comune_id": cid, "zona_id": zona["id"],
-                    "nome": f"Circuito {znome} {size}",
-                    "descrizione": f"{size} impianti a formati misti nella zona {znome} di {nome}",
-                    "impianti_ids": subset,
-                    "form_template_id": tpl_ooh["id"], "attivo": True, "created_at": now()})
-            print(f"{nome}/{znome}: {n_imp} impianti (con prezzo), 3 circuiti (prezzo auto)")
+            await db.pacchetti.insert_one({
+                "id": str(uuid.uuid4()), "comune_id": cid, "zona_id": zona["id"],
+                "nome": f"Circuito {via}",
+                "descrizione": f"{len(impianti)} impianti lungo {via} ({z['nome']}, {nome})",
+                "impianti_ids": [i["id"] for i in impianti],
+                "form_template_id": tpl_ooh["id"], "attivo": True, "created_at": now()})
+            print(f"  {nome}/{z['nome']}: zona + Circuito {via} con {len(impianti)} impianti")
 
-        for (snome, slat, slng, sind, canone) in data["osp"]:
-            zona_centro = data.get("_zona_centro")
-            await db.spazi.insert_one({
-                "id": str(uuid.uuid4()), "comune_id": cid, "citta": nome, "regione": comuni[nome]["regione"],
-                "nome": snome, "tipologia": "Progetto Speciale", "formato": "Area su misura",
-                "zona": "Centro", "zona_id": zona_centro,
-                "indirizzo": sind, "lat": slat, "lng": slng, "canone_giornaliero": canone,
-                "dimensioni": "Area su misura", "descrizione": "Area comunale per eventi, occupazioni temporanee e progetti speciali.",
-                "disponibile": True, "foto_url": IMG_PIAZZA, "form_template_id": tpl_osp["id"], "created_at": now()})
-        print(f"{nome}: {len(data['osp'])} aree OSP")
+        snome, slat, slng, sind, canone = d["osp"]
+        await db.spazi.insert_one({
+            "id": str(uuid.uuid4()), "comune_id": cid, "citta": nome, "regione": d["regione"],
+            "nome": snome, "tipologia": "Progetto Speciale", "formato": "Area su misura",
+            "zona": d["zone"][0]["nome"], "zona_id": None, "indirizzo": sind,
+            "lat": slat, "lng": slng, "canone_giornaliero": canone,
+            "dimensioni": "Area su misura",
+            "descrizione": "Area comunale per eventi, occupazioni temporanee e progetti speciali.",
+            "disponibile": True, "foto_url": IMG_PIAZZA, "form_template_id": tpl_osp["id"], "created_at": now()})
+        print(f"  {nome}: 1 area OSP ({snome})")
 
-    print("Seed demo completato.")
+    print("Seed demo completato: 3 comuni, 9 utenze comunali, 9 zone, 9 circuiti, 45 impianti, 0 pratiche.")
 
 asyncio.run(main())
