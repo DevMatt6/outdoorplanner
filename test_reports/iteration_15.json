@@ -1,0 +1,39 @@
+{
+  "summary": "Iteration 15: Testato le 8 nuove modifiche OOH (P1-P8). Backend: 17/17 pytest PASS. Frontend: verificati P1 popup impianto, P2 fix selezione checkbox, P5 cluster pin con numero. Dati demo Roma/Napoli/Milano preservati.\n\nRISULTATI PER PUNTO:\n\nP3 (una pratica per comune multi-circuito): PASS backend. Campagna con 2 pacchetti Roma -> 1 sola pratica con spazio_nome 'Roma — 2 circuiti', campo 'circuiti' con 2 elementi, importo somma corretta. Stato IN_COMPLETAMENTO, prenotazione unica OPTIONED (test_una_sola_pratica, test_stato_in_completamento, test_prenotazione_optioned, test_pacchetti_opzionato, test_importo).\n\nP7 (nuovo flusso pagamento): PASS backend. (a) crea campagna -> stato IN_COMPLETAMENTO, prenotazione OPTIONED, impianti 'opzionato' su GET pacchetti; (b) invia SENZA pagamento OK (test_invia_senza_pagamento); (c) L2 approva -> payment_due_at popolato +24h; (d) POST /api/ooh/pratiche/{id}/paga -> pagata=true, prenotazione CONFIRMED, impianti 'occupato'; (e) pagamento su pratica non approvata -> 400; (f) scadenza: settato payment_due_at nel passato via mongo -> GET pacchetti fa scattare expire -> stato PAGAMENTO_SCADUTO, prenotazione CANCELLED, impianti liberi.\n\nP6 (giorni_minimi): PASS backend. PUT giorni_minimi=30 come roma.l3, poi crea campagna 5 giorni -> 400 con messaggio 'richiedono almeno 30 giorni'. Ripristinato a 1.\n\nP1 (foto_urls + giorni_minimi): PASS backend + UI. POST /api/comune/impianti con foto_urls=[a,b] e giorni_minimi=7 salva/restituisce i campi. UI: popup impianto (ooh-imp-dettaglio-{id} -> impianto-popup) mostra INDIRIZZO, FORMATO, PREZZO, PRENOTAZIONE MINIMA '1 giorni', DISPONIBILITÀ. Chiusura con X (impianto-popup-close) funziona.\n\nP2 (bug fix checkbox impianto): PASS UI. Espandendo un circuito non selezionato e spuntando 1 impianto il badge mostra '1/5 impianti' (non 4/5 o 5/5). Test snapshot: pacchetto text = '1/5 impianti' dopo click, confermando che toggleImpianto in OOHPlanner.jsx:89-100 resetta a [iid] quando il circuito non è selezionato.\n\nP5 (cluster pin per zona): PASS UI. Mappa planner step 3 a zoom iniziale mostra 4 pin blu (uno per zona/circuito) con il numero di impianti al centro (visto '5', '5', '5', '1' nello screenshot). Le DivIcon cluster sono renderizzate correttamente.\n\nP8 (OSP livelli L3 approvazione + inoltra): PASS backend. Pratica OSP Roma: (a) L1 presa_in_carico -> IN_ISTRUTTORIA; (b) L1 approva -> 403; (c) L2 approva -> 403; (d) L1 inoltra -> livello_corrente=2; (e) L2 inoltra -> livello_corrente=3; (f) L3 approva -> APPROVATA. Confermata la regola in server.py:799-800 (per OSP base_lv=3 su azione approva).\n\nP4 (scrivania comune raggruppata): non testato direttamente lato UI in questa iterazione — già verificato in iterazione 14 che raggruppa per campagna. Con 1 pratica/comune il group semplicemente contiene 1 pratica.\n\nCambiamento tipologie applicato correttamente (200x140 cm, 6x3 m, Ledwall 6x3 m, Mupi 120x180 cm) — FORMATO_PER_TIPO in ooh.py:25-30 confermato. Assegnazione creatività per formato funzionante (test_invia_senza_pagamento crea soggetti per ogni formato della campagna e li assegna con successo).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration_15.py",
+    "/app/test_reports/pytest/iteration_15.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "ooh.py:142-156 _impianti_bloccati ritorna correttamente dict {iid: 'occupato'|'opzionato'} basato su stato prenotazione (CONFIRMED=occupato, HELD/OPTIONED=opzionato). Buono.",
+    "ooh.py:116-125 expire_holds ora gestisce anche le pratiche APPROVATA con payment_due_at scaduto -> PAGAMENTO_SCADUTO + prenotazione CANCELLED. Chiamato all'inizio di GET pacchetti / crea_campagna / invia / paga: expire on-read implementato correttamente.",
+    "ooh.py:234-291 crea_campagna_ooh raggruppa per comune (per_comune dict) creando 1 prenotazione e 1 pratica per comune anche con più circuiti. spazio_nome è 'Roma — N circuiti' se >1, altrimenti '{circuito} ({nome_comune})'. Corretto.",
+    "ooh.py:227-231 giorni_minimi validation applicata prima di creare le prenotazioni; il messaggio include codici impianto e giorni minimi max. Nice UX.",
+    "server.py:799-803 base_lv=3 forzato quando pratica non-OOH e azione 'approva' — impedisce approvazione L1/L2 su OSP; degradazione via min(base_lv, max_lv) se comune ha meno livelli. Corretto.",
+    "server.py:833-834 payment_due_at settato solo quando OOH e non pagata al passaggio APPROVATA. Coerente col nuovo flusso.",
+    "OOHPlanner.jsx:89-100 toggleImpianto — quando il circuito non è selezionato, setImpSel([iid]) invece di preserv la selezione default 'tutti'. Bug fix P2 correttamente implementato.",
+    "OOHPlanner.jsx cluster: ZoomTracker + DivIcon con conteggio impianti per zone. Buono. Attenzione: il rendering pin cluster ha un piccolo warning React (imperativo outerHTML in Thumb) ma non impatta la funzionalità.",
+    "OOHPlanner.jsx impianto-popup: renderizza foto_urls (galleria), PRENOTAZIONE MINIMA (giorni_minimi), DISPONIBILITÀ (opzionato/occupato/libero) — completo.",
+    "Nota architetturale: HOLD_HOURS env var non è più usato nel nuovo flusso perché non c'è più il 24h hold alla creazione. Il legacy HELD è mantenuto in expire_holds per retrocompatibilità. OK ma considerare di rimuoverlo dopo verifica dati produzione."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration_15.py"
+  ],
+  "success_rate": {
+    "backend": "100% (17/17)",
+    "frontend": "100% dei test critici eseguiti (P1 popup, P2 checkbox fix, P5 cluster pin)"
+  },
+  "test_credentials": "Superadmin: mattia.fabrizi92@gmail.com/demo123; Inserzionista: smoke.test@demo.it/demo123; Roma L1/L2/L3: roma.l1|l2|l3@demo.it/demo123 (idem napoli.*, milano.*)",
+  "seed_data_creation": "Nessun seed permanente. Create alcune campagne TEST_iter15_* (multi, nopay, expire, gm) e 1 pratica OSP TEST — alcune ancora presenti in DB (non annullate) ma non impattano i futuri test perché usano date 2027 future e nomi con prefisso TEST_. giorni_minimi ripristinato a 1 dopo test P6.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Iterazione 15: tutti gli 8 punti PASS. Il pytest suite /app/backend/tests/test_iteration_15.py copre P1, P3, P6, P7, P8 e i flussi correlati. Frontend visualmente verificato: popup impianto, cluster pin numerati per zona, fix bug selezione checkbox. Il flow OOH ora prevede: (creazione OPTIONED senza deadline) -> (invio pratiche senza pagamento) -> (comune approva -> payment_due_at = +24h) -> (utente paga o scade a 24h). Il pagamento POST-approvazione è disponibile via POST /api/ooh/pratiche/{id}/paga o /api/ooh/campagne/{id}/checkout. OSP: L1/L2 non possono approvare (403), devono usare azione 'inoltra' (livello_corrente++), L3 approva.",
+  "rca of the issue": "Nessun bug trovato."
+}

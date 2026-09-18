@@ -155,6 +155,15 @@ Su richiesta utente (screenshot stile "Donezo") il design è passato da flat bru
 - Step Zone & Circuiti multi-comune: un comune per volta con sotto-step (badge "1. Roma ✓ / 2. Napoli"), bottone "Avanti: {prossimo comune}", validazione ≥1 circuito per comune, Indietro naviga i sotto-step
 - Verificato E2E con Playwright (2 comuni: Roma → Napoli)
 
+## Implementato (Iterazione 22 — 8 modifiche flusso OOH/OSP, testato: 17/17 backend + frontend 100%, report iteration_15.json)
+- Popup dettaglio impianto nel planner (più immagini via foto_urls, prezzo, minimo gg, disponibilità); fix tooltip pin che sbordava; form impianti comune con giorni_minimi e foto multiple
+- FIX bug selezione impianti: spuntando un impianto di un circuito non selezionato si seleziona solo quello
+- UNA pratica per comune (multi-circuito accorpato: campo circuiti[], spazio_nome "Roma — 2 circuiti"); scrivania comune raggruppata per campagna
+- Cluster pin per zona con conteggio impianti a zoom < 13, pin singoli a zoom >= 13
+- giorni_minimi per impianto validati alla creazione campagna (400 se periodo troppo corto)
+- NUOVO flusso pagamento OOH: creazione → impianti OPZIONATI (nessun timer/pagamento); invio senza pagamento; APPROVAZIONE comune → payment_due_at +24h con countdown e "Paga ora"; pagamento → CONFIRMED/"Occupato"; scadenza → PAGAMENTO_SCADUTO e impianti liberati. OSP invariato (pagamento pre-invio)
+- OSP livelli a scalare: azione "inoltra" (livello_corrente L1→L2→L3), approvazione OSP solo L3 (degradazione se comune mono-livello); OOH invariato (L2)
+
 ## Backlog prioritizzato
 - P2: date picker anche per modifica pratiche in INTEGRAZIONE_RICHIESTA
 - P2: Stripe test mode reale al posto del mock; export report CSV/PDF
