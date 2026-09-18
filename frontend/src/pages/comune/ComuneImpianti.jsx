@@ -4,7 +4,7 @@ import { api, apiError, imgSrc } from "../../lib/api";
 import { toast } from "sonner";
 import { Plus, Trash2, Pencil } from "lucide-react";
 
-const EMPTY = { codice: "", zona_id: "", via: "", lat: "", lng: "", tipologia: "", prezzo: "", foto_url: "", note: "", attivo: true };
+const EMPTY = { codice: "", zona_id: "", via: "", lat: "", lng: "", tipologia: "", prezzo: "", foto_url: "", foto_urls_txt: "", giorni_minimi: "1", note: "", attivo: true };
 
 const FORMATO_HINT = {
   "Manifesto 200x140": "200x140 cm", "Manifesto 100x140": "100x140 cm", "Manifesto 70x100": "70x100 cm",
@@ -29,7 +29,7 @@ export default function ComuneImpianti() {
 
   const submit = async (e) => {
     e.preventDefault();
-    const payload = { codice: form.codice, zona_id: form.zona_id, via: form.via, lat: parseFloat(form.lat), lng: parseFloat(form.lng), tipologia: form.tipologia, prezzo: parseFloat(form.prezzo), foto_url: form.foto_url, note: form.note || "", attivo: form.attivo !== false };
+    const payload = { codice: form.codice, zona_id: form.zona_id, via: form.via, lat: parseFloat(form.lat), lng: parseFloat(form.lng), tipologia: form.tipologia, prezzo: parseFloat(form.prezzo), foto_url: form.foto_url, foto_urls: (form.foto_urls_txt || "").split("\n").map((s) => s.trim()).filter(Boolean), giorni_minimi: Math.max(1, parseInt(form.giorni_minimi) || 1), note: form.note || "", attivo: form.attivo !== false };
     try {
       if (form.id) await api.put(`/comune/impianti/${form.id}`, payload);
       else await api.post("/comune/impianti", payload);
@@ -85,6 +85,8 @@ export default function ComuneImpianti() {
             <input className={input} type="number" step="any" placeholder="Latitudine" required value={form.lat} onChange={(e) => setForm({ ...form, lat: e.target.value })} />
             <input className={input} type="number" step="any" placeholder="Longitudine" required value={form.lng} onChange={(e) => setForm({ ...form, lng: e.target.value })} />
             <input className={input} placeholder="URL foto" value={form.foto_url} onChange={(e) => setForm({ ...form, foto_url: e.target.value })} />
+            <input data-testid="impianto-giorni-minimi" className={input} type="number" min="1" placeholder="Prenotazione minima (giorni)" value={form.giorni_minimi} onChange={(e) => setForm({ ...form, giorni_minimi: e.target.value })} />
+            <textarea data-testid="impianto-foto-urls" className={`${input} sm:col-span-2`} rows={2} placeholder="Altre foto: un URL per riga" value={form.foto_urls_txt} onChange={(e) => setForm({ ...form, foto_urls_txt: e.target.value })} />
           </div>
           {form.tipologia && <div className="mt-3 text-xs text-slate-500">Formato derivato dalla tipologia: <strong>{FORMATO_HINT[form.tipologia] || "—"}</strong></div>}
           <div className="mt-4 flex gap-3">

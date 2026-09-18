@@ -8,6 +8,7 @@ export const STATO_COLORS = {
   APPROVATA: { bg: "#E8EFFF", text: "#1F3BB3", dot: "#1F3BB3", label: "Approvata" },
   RIFIUTATA: { bg: "#26292B", text: "#FFFFFF", dot: "#26292B", label: "Rifiutata" },
   PRENOTAZIONE_SCADUTA: { bg: "#FEE2E2", text: "#B91C1C", dot: "#EF4444", label: "Prenotazione scaduta" },
+  PAGAMENTO_SCADUTO: { bg: "#FEE2E2", text: "#B91C1C", dot: "#EF4444", label: "Pagamento scaduto" },
   ANNULLATA: { bg: "#E9EAE7", text: "#6B7280", dot: "#9CA3AF", label: "Annullata" },
 };
 

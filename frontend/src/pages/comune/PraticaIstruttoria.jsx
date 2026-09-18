@@ -96,26 +96,49 @@ export default function PraticaIstruttoria() {
           )}
           {inIstruttoria && (
             <>
-              {can(2) ? (
-                <>
-                  <button data-testid="btn-approva" onClick={() => azione("approva", "Pratica approvata")}
-                    className="px-5 py-2.5 rounded-full font-bold text-sm bg-[#1F3BB3] text-white hover:bg-[#172E93] transition-colors">
-                    Approva
-                  </button>
-                  <button data-testid="btn-rifiuta" onClick={() => azione("rifiuta", "Pratica rifiutata")}
-                    className="px-5 py-2.5 rounded-full font-bold text-sm bg-[#26292B] text-white hover:bg-[#EF4444] transition-colors">
-                    Rifiuta
-                  </button>
-                  <button data-testid="btn-annulla" onClick={() => azione("annulla", "Pratica annullata", true)}
-                    className="px-5 py-2.5 rounded-full font-bold text-sm border-2 border-slate-300 text-slate-600 hover:border-slate-900 hover:text-slate-900 transition-colors">
-                    Annulla pratica
-                  </button>
-                </>
-              ) : (
-                <span data-testid="livello-lock-msg" className="inline-flex items-center gap-1.5 text-sm text-slate-500 border border-dashed border-slate-300 rounded-xl px-4 py-2.5">
-                  <Lock size={14} /> Approvazione, rifiuto e annullamento riservati al livello L{Math.min(2, maxLv)}+
-                </span>
-              )}
+              {(() => {
+                const isOSP = pratica.tipo !== "OOH";
+                const reqApprova = isOSP ? Math.min(3, maxLv) : Math.min(2, maxLv);
+                const livCorrente = pratica.livello_corrente || 1;
+                const nextLv = Math.min(livCorrente + 1, maxLv, 3);
+                return (
+                  <>
+                    {isOSP && (
+                      <span data-testid="fase-approvativa" className="inline-flex items-center text-sm font-bold text-[#1F3BB3] bg-[#E8EFFF] rounded-full px-4 py-2.5">
+                        Fase approvativa: L{livCorrente}
+                      </span>
+                    )}
+                    {isOSP && livCorrente < reqApprova && livello >= Math.min(livCorrente, maxLv) && (
+                      <button data-testid="btn-inoltra" onClick={() => azione("inoltra", `Pratica inoltrata al livello L${nextLv}`)}
+                        className="px-5 py-2.5 rounded-full font-bold text-sm bg-[#1F3BB3] text-white hover:bg-[#172E93] transition-colors">
+                        Documenti verificati: inoltra a L{nextLv}
+                      </button>
+                    )}
+                    {livello >= reqApprova ? (
+                      <button data-testid="btn-approva" onClick={() => azione("approva", "Pratica approvata")}
+                        className="px-5 py-2.5 rounded-full font-bold text-sm bg-[#2F8F5B] text-white hover:bg-[#1F5B33] transition-colors">
+                        Approva
+                      </button>
+                    ) : (
+                      <span data-testid="livello-lock-msg" className="inline-flex items-center gap-1.5 text-sm text-slate-500 border border-dashed border-slate-300 rounded-xl px-4 py-2.5">
+                        <Lock size={14} /> Approvazione riservata al livello L{reqApprova}{isOSP ? " (OSP)" : "+"}
+                      </span>
+                    )}
+                    {can(2) && (
+                      <>
+                        <button data-testid="btn-rifiuta" onClick={() => azione("rifiuta", "Pratica rifiutata")}
+                          className="px-5 py-2.5 rounded-full font-bold text-sm bg-[#26292B] text-white hover:bg-[#EF4444] transition-colors">
+                          Rifiuta
+                        </button>
+                        <button data-testid="btn-annulla" onClick={() => azione("annulla", "Pratica annullata", true)}
+                          className="px-5 py-2.5 rounded-full font-bold text-sm border-2 border-slate-300 text-slate-600 hover:border-slate-900 hover:text-slate-900 transition-colors">
+                          Annulla pratica
+                        </button>
+                      </>
+                    )}
+                  </>
+                );
+              })()}
               <button data-testid="btn-integrazione" onClick={() => setShowIntegra((v) => !v)}
                 className={`px-5 py-2.5 rounded-full font-bold text-sm transition-colors ${showIntegra ? "bg-slate-900 text-white" : "bg-[#EF4444] text-white hover:bg-slate-900"}`}>
                 Richiedi modifiche / integrazione

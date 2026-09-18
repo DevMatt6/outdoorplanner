@@ -103,7 +103,7 @@ export default function CampagnaOOHDetail() {
 
   if (!c) return <UserShell><div className="text-slate-500">Caricamento...</div></UserShell>;
 
-  const attiva = c.stato === "HOLD";
+  const attiva = c.stato === "HOLD" || c.stato === "IN_COMPLETAMENTO";
   const editable = (p) => p.stato === "DA_COMPLETARE";
 
   const salvaModulo = async (p) => {
@@ -186,8 +186,8 @@ export default function CampagnaOOHDetail() {
     } catch (e) { toast.error(apiError(e)); }
   };
 
-  const tuttePagate = c.pratiche.every((p) => p.checklist.pagamento_ok);
-  const tuttoCompleto = c.pratiche.every((p) => Object.values(p.checklist).every(Boolean));
+  const daPagare = c.pratiche.filter((p) => p.stato === "APPROVATA" && !p.pagata);
+  const tuttoCompleto = c.pratiche.filter(editable).every((p) => Object.values(p.checklist).every(Boolean));
 
   return (
     <UserShell>
@@ -200,17 +200,27 @@ export default function CampagnaOOHDetail() {
             <h1 className="text-3xl font-heading font-extrabold tracking-tight">{c.nome}</h1>
             <div className="text-sm text-slate-600 font-mono mt-1">{c.data_inizio} → {c.data_fine} · {c.importo_totale.toFixed(2)} € · Campagna OOH</div>
           </div>
-          <span className={`text-xs font-bold rounded-full px-4 py-1.5 ${c.stato === "CONFERMATA" ? "bg-[#E8EFFF] text-[#1F3BB3]" : c.stato === "HOLD" ? "bg-[#FEF3C7] text-[#B45309]" : "bg-[#FEE2E2] text-[#B91C1C]"}`}>
-            {c.stato === "HOLD" ? "Prenotazione attiva" : c.stato === "CONFERMATA" ? "Confermata" : c.stato}
+          <span className={`text-xs font-bold rounded-full px-4 py-1.5 ${["CONFERMATA", "INVIATA"].includes(c.stato) ? "bg-[#E8EFFF] text-[#1F3BB3]" : attiva ? "bg-[#FEF3C7] text-[#B45309]" : "bg-[#FEE2E2] text-[#B91C1C]"}`}>
+            {attiva ? "Impianti opzionati" : c.stato === "INVIATA" ? "Inviata ai Comuni" : c.stato === "CONFERMATA" ? "Confermata" : c.stato}
           </span>
         </div>
 
         {attiva && (
           <div className="mt-6 border border-amber-200 bg-amber-50 rounded-2xl px-6 py-4 flex flex-wrap items-center gap-3" data-testid="hold-banner">
             <Clock size={20} className="text-[#B45309]" />
-            <span className="text-sm font-semibold text-amber-900">Spazi riservati ancora per</span>
-            <Countdown scadenza={c.hold_expires_at} />
-            <span className="text-xs text-amber-700">Completa moduli, documenti, creatività e pagamento entro la scadenza, poi invia ai Comuni.</span>
+            <span className="text-sm font-semibold text-amber-900">Impianti opzionati per la tua campagna.</span>
+            <span className="text-xs text-amber-700">Completa moduli, documenti e creatività, poi invia ai Comuni. Il pagamento sarà richiesto solo dopo l'approvazione (24 ore di tempo).</span>
+          </div>
+        )}
+        {daPagare.length > 0 && (
+          <div className="mt-6 border border-emerald-200 bg-emerald-50 rounded-2xl px-6 py-4 flex flex-wrap items-center gap-3" data-testid="payment-banner">
+            <CreditCard size={20} className="text-[#1F5B33]" />
+            <span className="text-sm font-semibold">{daPagare.length} pratiche approvate in attesa di pagamento — tempo rimanente:</span>
+            <Countdown scadenza={daPagare[0].payment_due_at} />
+            <button data-testid="ooh-checkout-button" onClick={checkout} disabled={busy}
+              className="inline-flex items-center gap-2 bg-[#1F3BB3] text-white rounded-full px-6 py-2.5 font-bold text-sm hover:bg-[#172E93] transition-colors disabled:opacity-50">
+              <CreditCard size={15} /> Paga ora {daPagare.reduce((a, p) => a + p.importo, 0).toFixed(2)} € (mock)
+            </button>
           </div>
         )}
 
@@ -311,7 +321,6 @@ export default function CampagnaOOHDetail() {
                     <CheckChip ok={p.checklist.moduli_ok} label="Moduli" />
                     <CheckChip ok={p.checklist.documenti_ok} label="Documenti" />
                     <CheckChip ok={p.checklist.creativita_ok} label="Creatività" />
-                    <CheckChip ok={p.checklist.pagamento_ok} label="Pagamento" />
                     <StatusBadge stato={p.stato} />
                   </div>
                 </div>
@@ -394,19 +403,12 @@ export default function CampagnaOOHDetail() {
               className="border border-slate-200 rounded-full px-6 py-3 font-bold hover:border-[#EF4444] hover:text-[#EF4444] transition-colors">
               Annulla campagna
             </button>
-            {!tuttePagate && (
-              <button data-testid="ooh-checkout-button" onClick={checkout} disabled={busy}
-                className="inline-flex items-center gap-2 bg-[#1F3BB3] text-white rounded-full px-7 py-3 font-bold hover:bg-[#172E93] transition-colors disabled:opacity-50">
-                <CreditCard size={17} /> Paga {c.importo_totale.toFixed(2)} € (mock)
-              </button>
-            )}
-            {tuttePagate && (
-              <button data-testid="ooh-invia-button" onClick={invia} disabled={busy || !tuttoCompleto}
-                className="inline-flex items-center gap-2 bg-[#1F3BB3] text-white rounded-full px-7 py-3 font-bold hover:bg-[#172E93] transition-colors disabled:opacity-50"
-                title={tuttoCompleto ? "" : "Completa moduli, documenti e creatività"}>
-                <Send size={17} /> Invia ai Comuni e conferma
-              </button>
-            )}
+            {!tuttoCompleto && <span className="text-xs text-slate-500 self-center">Completa moduli, documenti e creatività per inviare</span>}
+            <button data-testid="ooh-invia-button" onClick={invia} disabled={busy || !tuttoCompleto}
+              className="inline-flex items-center gap-2 bg-[#1F3BB3] text-white rounded-full px-7 py-3 font-bold hover:bg-[#172E93] transition-colors disabled:opacity-50"
+              title={tuttoCompleto ? "" : "Completa moduli, documenti e creatività"}>
+              <Send size={17} /> Invia ai Comuni
+            </button>
           </div>
         )}
       </div>

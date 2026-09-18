@@ -1,15 +1,33 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { MapContainer, TileLayer, Polygon, CircleMarker, Tooltip } from "react-leaflet";
+import { MapContainer, TileLayer, Polygon, CircleMarker, Tooltip, Marker, useMapEvents } from "react-leaflet";
+import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { UserShell } from "../../components/BackofficeLayout";
 import { DateRangePicker, fmtDay } from "../../components/DateRangePicker";
 import { api, apiError, imgSrc } from "../../lib/api";
 import { toast } from "sonner";
-import { Landmark, Check, ChevronDown, ChevronUp, MapPin, ImageOff } from "lucide-react";
+import { Landmark, Check, ChevronDown, ChevronUp, MapPin, ImageOff, Info, X } from "lucide-react";
 
 const STEPS = ["Periodo", "Comuni", "Zone & Circuiti", "Riepilogo"];
 const FLAT_TILES = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
+
+const ZoomTracker = ({ onZoom }) => {
+  useMapEvents({ zoomend: (e) => onZoom(e.target.getZoom()) });
+  return null;
+};
+
+const centroide = (poly) => {
+  const lat = poly.reduce((a, p) => a + p[0], 0) / poly.length;
+  const lng = poly.reduce((a, p) => a + p[1], 0) / poly.length;
+  return [lat, lng];
+};
+
+const clusterIcon = (n) => L.divIcon({
+  className: "",
+  html: `<div style="width:38px;height:38px;border-radius:50%;background:#1F3BB3;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;border:3px solid #fff;box-shadow:0 2px 8px rgba(31,59,179,.45)">${n}</div>`,
+  iconSize: [38, 38], iconAnchor: [19, 19],
+});
 
 const Thumb = ({ src, className }) => {
   if (!src) return <span className={`${className} bg-[#F0F4FF] flex items-center justify-center text-[#93A6E8] shrink-0`}><ImageOff size={13} /></span>;
@@ -34,6 +52,8 @@ export default function OOHPlanner() {
   const [expanded, setExpanded] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [mapZoom, setMapZoom] = useState(12);
+  const [dettaglio, setDettaglio] = useState(null);
 
   const dal = fmtDay(range?.from);
   const al = fmtDay(range?.to);
@@ -67,7 +87,11 @@ export default function OOHPlanner() {
     }
   };
   const toggleImpianto = (p, iid) => {
-    setSelected((s) => (s.includes(p.id) ? s : [...s, p.id]));
+    if (!selected.includes(p.id)) {
+      setSelected((s) => [...s, p.id]);
+      setImpSel((m) => ({ ...m, [p.id]: [iid] }));
+      return;
+    }
     setImpSel((m) => {
       const cur = m[p.id] ?? liberiIds(p);
       const next = cur.includes(iid) ? cur.filter((x) => x !== iid) : [...cur, iid];
@@ -226,6 +250,7 @@ export default function OOHPlanner() {
                       <MapContainer key={`${cid}-${zsel || "all"}`} center={[zonaObj ? zonaObj.polygon[0][0] + 0.008 : comune?.lat, zonaObj ? zonaObj.polygon[0][1] + 0.011 : comune?.lng]}
                         zoom={zsel ? 14 : 12} style={{ height: "100%", width: "100%" }} scrollWheelZoom={false} attributionControl={false}>
                         <TileLayer url={FLAT_TILES} className="flat-tiles" />
+                        <ZoomTracker onZoom={setMapZoom} />
                         {zs.map((z) => (
                           <Polygon key={z.id} positions={z.polygon}
                             eventHandlers={{ click: () => setZonaSel({ ...zonaSel, [cid]: z.id }) }}
@@ -233,16 +258,24 @@ export default function OOHPlanner() {
                             <Tooltip sticky>{z.nome} · {z.impianti_count} impianti</Tooltip>
                           </Polygon>
                         ))}
-                        {pacs.filter((p) => selected.includes(p.id) || expanded === p.id).flatMap((p) => p.impianti.map((i) => ({ ...i, _p: p, _libSel: (impSel[p.id] || liberiIds(p)).includes(i.id) && selected.includes(p.id) }))).map((i) => (
+                        {mapZoom < 13 && zs.map((z) => (
+                          z.impianti_count > 0 && (
+                            <Marker key={`cl-${z.id}`} position={centroide(z.polygon)} icon={clusterIcon(z.impianti_count)}
+                              eventHandlers={{ click: () => setZonaSel({ ...zonaSel, [cid]: z.id }) }}>
+                              <Tooltip direction="top" offset={[0, -14]}>{z.nome}: {z.impianti_count} impianti — clicca o zooma per vederli</Tooltip>
+                            </Marker>
+                          )
+                        ))}
+                        {mapZoom >= 13 && pacs.filter((p) => selected.includes(p.id) || expanded === p.id).flatMap((p) => p.impianti.map((i) => ({ ...i, _p: p, _libSel: (impSel[p.id] || liberiIds(p)).includes(i.id) && selected.includes(p.id) }))).map((i) => (
                           <CircleMarker key={i.id} center={[i.lat, i.lng]} radius={8}
                             eventHandlers={{ click: () => { if (!i.occupato) toggleImpianto(i._p, i.id); } }}
                             pathOptions={{ color: "#fff", weight: 2, fillColor: i.occupato ? "#94A3B8" : i._libSel ? "#1F3BB3" : "#93A6E8", fillOpacity: 1 }}>
                             <Tooltip direction="top" offset={[0, -8]} opacity={1}>
-                              <div style={{ width: 168 }}>
-                                {i.foto_url && <img src={imgSrc(i.foto_url)} alt="" style={{ width: 168, height: 110, objectFit: "cover", borderRadius: 8 }} />}
-                                <div style={{ fontWeight: 800, fontSize: 12, marginTop: 4 }}>{i.codice} · {i.tipologia}</div>
-                                <div style={{ fontSize: 10, color: "#475569" }}>{i.indirizzo || i.via}{i.formato ? ` · ${i.formato}` : ""}</div>
-                                <div style={{ fontSize: 10 }}><b>{(i.prezzo || 0).toFixed(0)} €/giorno</b> · {i.occupato ? "Occupato" : i._libSel ? "Selezionato ✓ (clicca per rimuovere)" : "Clicca per selezionare"}</div>
+                              <div style={{ width: 150, overflow: "hidden" }}>
+                                {i.foto_url && <img src={imgSrc(i.foto_url)} alt="" style={{ width: "100%", height: 90, objectFit: "cover", borderRadius: 8 }} />}
+                                <div style={{ fontWeight: 800, fontSize: 12, marginTop: 4, whiteSpace: "normal" }}>{i.codice} · {i.tipologia}</div>
+                                <div style={{ fontSize: 10, color: "#475569", whiteSpace: "normal" }}>{i.indirizzo || i.via}{i.formato ? ` · ${i.formato}` : ""}</div>
+                                <div style={{ fontSize: 10, whiteSpace: "normal" }}><b>{(i.prezzo || 0).toFixed(0)} €/giorno</b>{(i.giorni_minimi || 1) > 1 ? ` · min ${i.giorni_minimi} gg` : ""} · {i.stato_disponibilita === "occupato" ? "Occupato" : i.stato_disponibilita === "opzionato" ? "Opzionato" : i._libSel ? "Selezionato ✓" : "Clicca per selezionare"}</div>
                               </div>
                             </Tooltip>
                           </CircleMarker>
@@ -292,9 +325,14 @@ export default function OOHPlanner() {
                                     <Thumb src={i.foto_url} className="w-10 h-8 object-cover rounded-lg" />
                                     <div className="flex-1 min-w-0">
                                       <div className="font-bold">{i.codice} · {i.tipologia}</div>
-                                      <div className="text-slate-500 truncate flex items-center gap-1"><MapPin size={10} />{i.indirizzo} · {i.formato}</div>
+                                      <div className="text-slate-500 truncate flex items-center gap-1"><MapPin size={10} />{i.indirizzo} · {i.formato}{(i.giorni_minimi || 1) > 1 ? ` · min ${i.giorni_minimi} gg` : ""}</div>
                                     </div>
-                                    <span className="font-bold shrink-0">{i.occupato ? <span className="text-[10px] text-slate-500 uppercase">Occupato</span> : `${(i.prezzo || 0).toFixed(0)} €/g`}</span>
+                                    <button type="button" data-testid={`ooh-imp-dettaglio-${i.id}`}
+                                      onClick={(e) => { e.preventDefault(); setDettaglio(i); }}
+                                      className="shrink-0 text-[#1F3BB3] hover:text-[#172E93] transition-colors" title="Dettaglio impianto">
+                                      <Info size={15} />
+                                    </button>
+                                    <span className="font-bold shrink-0">{i.occupato ? <span className="text-[10px] text-slate-500 uppercase">{i.stato_disponibilita === "occupato" ? "Occupato" : "Opzionato"}</span> : `${(i.prezzo || 0).toFixed(0)} €/g`}</span>
                                   </label>
                                 );
                               })}
@@ -336,6 +374,42 @@ export default function OOHPlanner() {
           )}
 
           {error && <div data-testid="ooh-error" className="mt-4 border border-red-200 bg-red-50 rounded-xl text-[#B91C1C] text-sm px-4 py-3">{error}</div>}
+
+          {dettaglio && (
+            <div className="fixed inset-0 z-[1400] bg-black/50 flex items-center justify-center p-4" onClick={() => setDettaglio(null)}>
+              <div className="bg-white rounded-2xl w-full max-w-lg max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()} data-testid="impianto-popup">
+                <div className="px-5 py-3 border-b border-slate-100 flex items-center justify-between sticky top-0 bg-white">
+                  <div className="font-heading font-extrabold">{dettaglio.codice} · {dettaglio.tipologia}</div>
+                  <button data-testid="impianto-popup-close" onClick={() => setDettaglio(null)} className="text-slate-400 hover:text-slate-900"><X size={18} /></button>
+                </div>
+                <div className="p-5">
+                  <div className="grid grid-cols-2 gap-2">
+                    {[dettaglio.foto_url, ...(dettaglio.foto_urls || [])].filter(Boolean).map((u, idx) => (
+                      <a key={idx} href={imgSrc(u)} target="_blank" rel="noreferrer" className={idx === 0 ? "col-span-2" : ""}>
+                        <img src={imgSrc(u)} alt="" className={`w-full object-cover rounded-xl border border-slate-100 ${idx === 0 ? "h-52" : "h-28"}`}
+                          onError={(e) => { e.currentTarget.style.display = "none"; }} />
+                      </a>
+                    ))}
+                    {![dettaglio.foto_url, ...(dettaglio.foto_urls || [])].filter(Boolean).length && (
+                      <div className="col-span-2 h-32 bg-[#F0F4FF] rounded-xl flex items-center justify-center text-[#93A6E8]"><ImageOff size={22} /></div>
+                    )}
+                  </div>
+                  <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+                    {[["Indirizzo", dettaglio.indirizzo || dettaglio.via], ["Formato", dettaglio.formato],
+                      ["Prezzo", `${(dettaglio.prezzo || 0).toFixed(2)} €/giorno`],
+                      ["Prenotazione minima", `${dettaglio.giorni_minimi || 1} giorni`],
+                      ["Disponibilità", dettaglio.stato_disponibilita === "occupato" ? "Occupato" : dettaglio.stato_disponibilita === "opzionato" ? "Opzionato" : "Libero"],
+                      dettaglio.note && ["Note", dettaglio.note]].filter(Boolean).map(([k, v]) => (
+                      <div key={k}>
+                        <div className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">{k}</div>
+                        <div className="font-semibold">{v}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="mt-8 flex justify-between">
             <button onClick={() => {

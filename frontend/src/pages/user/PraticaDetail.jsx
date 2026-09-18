@@ -7,7 +7,7 @@ import { SezioneRichiedente, SezionePrenotazione, SezioneImpiantiCreativita, Sez
 import { IntegrazioneEditor } from "../../components/IntegrazioneEditor";
 import { api, apiError, API } from "../../lib/api";
 import { toast } from "sonner";
-import { ArrowLeft, Download, Upload, Send } from "lucide-react";
+import { ArrowLeft, Download, Upload, Send, CreditCard } from "lucide-react";
 
 export default function PraticaDetail() {
   const { id } = useParams();
@@ -34,6 +34,14 @@ export default function PraticaDetail() {
     try {
       await api.post(`/pratiche/${pratica.id}/invia`);
       toast.success(pratica.tipo === "OOH" ? "Integrazione inviata, pratica di nuovo in verifica" : "Integrazione inviata, pratica di nuovo in istruttoria");
+      load();
+    } catch (err) { toast.error(apiError(err)); }
+  };
+
+  const pagaOra = async () => {
+    try {
+      await api.post(`/ooh/pratiche/${pratica.id}/paga`);
+      toast.success("Pagamento registrato: impianti confermati");
       load();
     } catch (err) { toast.error(apiError(err)); }
   };
@@ -71,11 +79,24 @@ export default function PraticaDetail() {
             <div>
               <div className="font-heading font-extrabold text-lg">Autorizzazione {pratica.numero_autorizzazione}</div>
               <div className="text-sm text-slate-600">Rilasciata dal Comune di {pratica.comune?.nome}</div>
+              {!pratica.pagata && pratica.payment_due_at && (
+                <div className="text-sm font-bold text-[#B45309] mt-1" data-testid="payment-deadline">
+                  Paga entro il {new Date(pratica.payment_due_at).toLocaleString("it-IT")} o la prenotazione decade e gli impianti tornano disponibili.
+                </div>
+              )}
             </div>
-            <button data-testid="download-pdf-button" onClick={scaricaPdf}
-              className="inline-flex items-center gap-2 bg-[#1F3BB3] text-white rounded-full px-6 py-3 font-bold hover:bg-[#1F3BB3] hover:text-white transition-colors">
-              <Download size={17} /> Scarica PDF
-            </button>
+            <div className="flex flex-wrap gap-3">
+              {!pratica.pagata && pratica.tipo === "OOH" && (
+                <button data-testid="paga-ora-button" onClick={pagaOra}
+                  className="inline-flex items-center gap-2 bg-[#B45309] text-white rounded-full px-6 py-3 font-bold hover:bg-slate-900 transition-colors">
+                  <CreditCard size={17} /> Paga ora {pratica.importo.toFixed(2)} € (mock)
+                </button>
+              )}
+              <button data-testid="download-pdf-button" onClick={scaricaPdf}
+                className="inline-flex items-center gap-2 bg-[#1F3BB3] text-white rounded-full px-6 py-3 font-bold hover:bg-[#172E93] transition-colors">
+                <Download size={17} /> Scarica PDF
+              </button>
+            </div>
           </div>
         )}
 

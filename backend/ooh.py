@@ -56,6 +56,8 @@ class ImpiantoIn(BaseModel):
     tipologia: str
     prezzo: float
     foto_url: str = ""
+    foto_urls: List[str] = []
+    giorni_minimi: int = 1
     note: str = ""
     attivo: bool = True
 
@@ -111,7 +113,16 @@ def build(db, get_current_user, require_role, require_comune_l3, notifica, log_s
                     await db.campagne.update_one({"id": camp["id"]}, {"$set": {"stato": "SCADUTA"}})
                 await notifica(camp["user_id"], "Prenotazione scaduta",
                                f"Il blocco di 24 ore per la campagna '{camp['nome']}' è scaduto: gli impianti sono stati liberati.")
-        return len(expired)
+        # scadenza pagamento post-approvazione: 24h dall'approvazione
+        da_pagare = await db.pratiche.find({"stato": "APPROVATA", "pagata": False,
+                                            "payment_due_at": {"$lt": now}}, {"_id": 0}).to_list(200)
+        for p in da_pagare:
+            await db.pratiche.update_one({"id": p["id"]}, {"$set": {"stato": "PAGAMENTO_SCADUTO", "updated_at": now}})
+            if p.get("prenotazione_id"):
+                await db.prenotazioni.update_one({"id": p["prenotazione_id"]}, {"$set": {"stato": "CANCELLED"}})
+            await notifica(p["user_id"], "Pagamento scaduto",
+                           f"Non hai pagato entro 24 ore: la prenotazione '{p['spazio_nome']}' è decaduta e gli impianti sono stati liberati.")
+        return len(expired) + len(da_pagare)
 
     # ---------- disponibilità ----------
 
@@ -128,15 +139,20 @@ def build(db, get_current_user, require_role, require_comune_l3, notifica, log_s
         impianti = await db.impianti.find({"id": {"$in": p.get("impianti_ids", [])}}, {"_id": 0, "prezzo": 1}).to_list(200)
         return round(sum(i.get("prezzo", 0) for i in impianti), 2)
 
-    async def _impianti_bloccati(impianti_ids: List[str], inizio: str, fine: str) -> set:
+    async def _impianti_bloccati(impianti_ids: List[str], inizio: str, fine: str) -> dict:
+        """ritorna {impianto_id: 'occupato'|'opzionato'}"""
         now = now_iso()
         rows = await db.prenotazioni.find(
-            {"stato": {"$in": ["HELD", "CONFIRMED"]}, "impianti_ids": {"$in": impianti_ids},
+            {"stato": {"$in": ["HELD", "OPTIONED", "CONFIRMED"]}, "impianti_ids": {"$in": impianti_ids},
              "data_inizio": {"$lte": fine}, "data_fine": {"$gte": inizio}}, {"_id": 0}).to_list(500)
-        busy = set()
+        busy = {}
         for r in rows:
-            if r["stato"] == "CONFIRMED" or r.get("hold_expires_at", "") > now:
-                busy.update(set(r["impianti_ids"]) & set(impianti_ids))
+            if r["stato"] == "HELD" and r.get("hold_expires_at", "") <= now:
+                continue
+            label = "occupato" if r["stato"] == "CONFIRMED" else "opzionato"
+            for iid in set(r["impianti_ids"]) & set(impianti_ids):
+                if busy.get(iid) != "occupato":
+                    busy[iid] = label
         return busy
 
     # ---------- public ----------
@@ -171,6 +187,7 @@ def build(db, get_current_user, require_role, require_comune_l3, notifica, log_s
             if data_inizio and data_fine:
                 busy = await _impianti_bloccati(p["impianti_ids"], data_inizio, data_fine)
             for i in impianti:
+                i["stato_disponibilita"] = busy.get(i["id"], "libero")
                 i["occupato"] = i["id"] in busy
             liberi = [i for i in impianti if not i["occupato"]]
             disponibile = len(liberi) > 0
@@ -197,7 +214,7 @@ def build(db, get_current_user, require_role, require_comune_l3, notifica, log_s
             richiesti = [i for i in (data.impianti_sel or {}).get(p["id"], []) if i in p["impianti_ids"]]
             busy = await _impianti_bloccati(richiesti or p["impianti_ids"], data.data_inizio, data.data_fine)
             if richiesti:
-                if busy & set(richiesti):
+                if set(busy) & set(richiesti):
                     raise HTTPException(status_code=409, detail=f"Alcuni impianti selezionati nel circuito '{p['nome']}' non sono più disponibili")
                 sel_map[p["id"]] = richiesti
             else:
@@ -206,40 +223,61 @@ def build(db, get_current_user, require_role, require_comune_l3, notifica, log_s
                     raise HTTPException(status_code=409, detail=f"Il circuito '{p['nome']}' non è disponibile nel periodo selezionato")
                 sel_map[p["id"]] = liberi
         giorni = _giorni(data.data_inizio, data.data_fine)
+        tutti_sel_ids = [i for ids_ in sel_map.values() for i in ids_]
+        min_docs = await db.impianti.find({"id": {"$in": tutti_sel_ids}}, {"_id": 0, "codice": 1, "giorni_minimi": 1}).to_list(300)
+        violati = [d for d in min_docs if giorni < (d.get("giorni_minimi") or 1)]
+        if violati:
+            mx = max((d.get("giorni_minimi") or 1) for d in violati)
+            raise HTTPException(status_code=400, detail=f"Periodo troppo breve: gli impianti {', '.join(d['codice'] for d in violati[:4])} richiedono almeno {mx} giorni di prenotazione")
         campagna_id = str(uuid.uuid4())
         hold_created = now_iso()
-        hold_expires = (datetime.now(timezone.utc) + timedelta(hours=HOLD_HOURS)).isoformat()
-        pratiche, prenotazioni = [], []
+        # raggruppa i circuiti per comune: una pratica e una prenotazione per comune
+        per_comune: dict = {}
         for p in pacchetti:
-            pren = {"id": str(uuid.uuid4()), "campagna_id": campagna_id, "pacchetto_id": p["id"],
-                    "comune_id": p["comune_id"], "impianti_ids": sel_map[p["id"]],
+            per_comune.setdefault(p["comune_id"], []).append(p)
+        pratiche, prenotazioni = [], []
+        for cid, pacs in per_comune.items():
+            impianti_ids = [i for p in pacs for i in sel_map[p["id"]]]
+            pren = {"id": str(uuid.uuid4()), "campagna_id": campagna_id,
+                    "pacchetto_id": pacs[0]["id"], "pacchetti_ids": [p["id"] for p in pacs],
+                    "comune_id": cid, "impianti_ids": impianti_ids,
                     "data_inizio": data.data_inizio, "data_fine": data.data_fine,
-                    "stato": "HELD", "hold_created_at": hold_created, "hold_expires_at": hold_expires,
+                    "stato": "OPTIONED", "hold_created_at": hold_created,
                     "user_id": user["id"]}
             await db.prenotazioni.insert_one({**pren})
-            prenotazioni.append(pren)
-        # verifica atomica post-insert: se un'altra prenotazione precedente confligge, rollback
-        for pren in prenotazioni:
+            prenotazioni.append((cid, pacs, pren))
+        # verifica atomica post-insert
+        for cid, pacs, pren in prenotazioni:
             conflitti = await db.prenotazioni.find(
                 {"id": {"$ne": pren["id"]}, "campagna_id": {"$ne": campagna_id},
-                 "stato": {"$in": ["HELD", "CONFIRMED"]}, "impianti_ids": {"$in": pren["impianti_ids"]},
+                 "stato": {"$in": ["HELD", "OPTIONED", "CONFIRMED"]}, "impianti_ids": {"$in": pren["impianti_ids"]},
                  "data_inizio": {"$lte": pren["data_fine"]}, "data_fine": {"$gte": pren["data_inizio"]},
                  "hold_created_at": {"$lt": hold_created}}, {"_id": 0}).to_list(10)
-            conflitti = [c for c in conflitti if c["stato"] == "CONFIRMED" or c.get("hold_expires_at", "") > now_iso()]
+            conflitti = [c for c in conflitti if c["stato"] != "HELD" or c.get("hold_expires_at", "") > now_iso()]
             if conflitti:
                 await db.prenotazioni.delete_many({"campagna_id": campagna_id})
-                raise HTTPException(status_code=409, detail="Un altro utente ha appena prenotato uno dei circuiti selezionati")
-        for p, pren in zip(pacchetti, prenotazioni):
-            zona = await db.zone.find_one({"id": p["zona_id"]}, {"_id": 0})
-            impianti = await db.impianti.find({"id": {"$in": sel_map[p["id"]]}}, {"_id": 0}).to_list(100)
+                raise HTTPException(status_code=409, detail="Un altro utente ha appena prenotato uno degli impianti selezionati")
+        for cid, pacs, pren in prenotazioni:
+            comune = await db.comuni.find_one({"id": cid}, {"_id": 0, "nome": 1})
+            circuiti = []
+            for p in pacs:
+                zona = await db.zone.find_one({"id": p["zona_id"]}, {"_id": 0, "nome": 1})
+                circuiti.append({"id": p["id"], "nome": p["nome"], "zona_nome": zona["nome"] if zona else "",
+                                 "impianti_ids": sel_map[p["id"]]})
+            impianti = await db.impianti.find({"id": {"$in": pren["impianti_ids"]}}, {"_id": 0}).to_list(200)
+            circuito_di = {i: c["nome"] for c in circuiti for i in c["impianti_ids"]}
             prezzo_g = round(sum(i.get("prezzo", 0) for i in impianti), 2)
+            nome_comune = comune["nome"] if comune else ""
             pratica = {"id": str(uuid.uuid4()), "tipo": "OOH", "user_id": user["id"], "user_nome": user["nome"],
-                       "comune_id": p["comune_id"], "campagna_id": campagna_id, "campagna_nome": data.nome,
-                       "zona_id": p["zona_id"], "zona_nome": zona["nome"] if zona else "",
-                       "pacchetto_id": p["id"], "pacchetto_nome": p["nome"],
-                       "spazio_id": p["id"], "spazio_nome": f"{p['nome']} ({zona['nome'] if zona else ''})",
+                       "comune_id": cid, "campagna_id": campagna_id, "campagna_nome": data.nome,
+                       "zona_id": pacs[0]["zona_id"], "zona_nome": ", ".join(sorted({c["zona_nome"] for c in circuiti})),
+                       "pacchetto_id": pacs[0]["id"], "pacchetto_nome": " + ".join(c["nome"] for c in circuiti),
+                       "circuiti": circuiti,
+                       "spazio_id": pacs[0]["id"],
+                       "spazio_nome": f"{nome_comune} — {len(circuiti)} circuiti" if len(circuiti) > 1 else f"{circuiti[0]['nome']} ({nome_comune})",
                        "impianti": [{"id": i["id"], "codice": i["codice"], "via": i.get("via", ""),
                                      "tipologia": i["tipologia"], "formato": i.get("formato", ""),
+                                     "circuito_nome": circuito_di.get(i["id"], ""),
                                      "foto_url": i.get("foto_url", ""), "lat": i["lat"], "lng": i["lng"]} for i in impianti],
                        "stato": "DA_COMPLETARE", "dati_form": {}, "documenti": [], "creativita": [],
                        "richiedente": snapshot_richiedente(user),
@@ -256,10 +294,10 @@ def build(db, get_current_user, require_role, require_comune_l3, notifica, log_s
                     "data_inizio": data.data_inizio, "data_fine": data.data_fine,
                     "pacchetti_ids": ids, "pratica_ids": [p["id"] for p in pratiche],
                     "importo_totale": round(sum(p["importo"] for p in pratiche), 2),
-                    "stato": "HOLD", "hold_expires_at": hold_expires, "created_at": now_iso()}
+                    "stato": "IN_COMPLETAMENTO", "created_at": now_iso()}
         await db.campagne.insert_one({**campagna})
-        await notifica(user["id"], "Circuiti riservati per 24 ore",
-                       f"Campagna '{data.nome}': {len(pacchetti)} circuiti bloccati fino al completamento (scadenza {hold_expires[:16].replace('T', ' ')} UTC)")
+        await notifica(user["id"], "Impianti opzionati",
+                       f"Campagna '{data.nome}': gli impianti selezionati sono stati opzionati. Completa e invia le pratiche ai Comuni; il pagamento sarà richiesto dopo l'approvazione.")
         return {**campagna, "pratiche": pratiche}
 
     async def _checklist(pratica: dict) -> dict:
@@ -272,7 +310,7 @@ def build(db, get_current_user, require_role, require_comune_l3, notifica, log_s
         assegnate = {a["impianto_id"] for a in pratica.get("creativita", [])}
         creativita_ok = all(i["id"] in assegnate for i in pratica.get("impianti", []))
         return {"moduli_ok": moduli_ok, "documenti_ok": documenti_ok,
-                "creativita_ok": creativita_ok, "pagamento_ok": bool(pratica.get("pagata"))}
+                "creativita_ok": creativita_ok}
 
     async def _template_pratica(pratica: dict) -> dict:
         tpl = None
@@ -326,14 +364,35 @@ def build(db, get_current_user, require_role, require_comune_l3, notifica, log_s
         c = await db.campagne.find_one({"id": campagna_id, "user_id": user["id"]}, {"_id": 0})
         if not c:
             raise HTTPException(status_code=404, detail="Campagna non trovata")
-        if c.get("stato") == "SCADUTA":
-            raise HTTPException(status_code=400, detail="La prenotazione è scaduta: gli impianti sono stati liberati")
+        da_pagare = await db.pratiche.find({"campagna_id": campagna_id, "stato": "APPROVATA", "pagata": False}, {"_id": 0}).to_list(50)
+        if not da_pagare:
+            raise HTTPException(status_code=400, detail="Nessuna pratica approvata in attesa di pagamento")
         tx = f"MOCK-{uuid.uuid4().hex[:10].upper()}"
-        await db.pratiche.update_many({"campagna_id": campagna_id, "pagata": False}, {"$set": {
+        for p in da_pagare:
+            await db.pratiche.update_one({"id": p["id"]}, {"$set": {
+                "pagata": True, "pagamento": {"metodo": "carta_mock", "transazione_id": tx, "data": now_iso()},
+                "updated_at": now_iso()}})
+            if p.get("prenotazione_id"):
+                await db.prenotazioni.update_one({"id": p["prenotazione_id"]}, {"$set": {"stato": "CONFIRMED", "confirmed_at": now_iso()}})
+        await notifica(user["id"], "Pagamento registrato", f"Pagamento della campagna '{c['nome']}' completato ({tx}): impianti confermati")
+        return {"ok": True, "transazione_id": tx, "pagate": len(da_pagare)}
+
+    @router.post("/ooh/pratiche/{pratica_id}/paga")
+    async def paga_pratica_ooh(pratica_id: str, user: dict = Depends(require_role("user"))):
+        await expire_holds()
+        p = await db.pratiche.find_one({"id": pratica_id, "user_id": user["id"]}, {"_id": 0})
+        if not p:
+            raise HTTPException(status_code=404, detail="Pratica non trovata")
+        if p["stato"] != "APPROVATA" or p.get("pagata"):
+            raise HTTPException(status_code=400, detail="Il pagamento è disponibile solo dopo l'approvazione del Comune")
+        tx = f"MOCK-{uuid.uuid4().hex[:10].upper()}"
+        await db.pratiche.update_one({"id": pratica_id}, {"$set": {
             "pagata": True, "pagamento": {"metodo": "carta_mock", "transazione_id": tx, "data": now_iso()},
             "updated_at": now_iso()}})
-        await notifica(user["id"], "Pagamento registrato", f"Pagamento della campagna '{c['nome']}' completato ({tx})")
-        return {"ok": True, "transazione_id": tx, "importo_totale": c["importo_totale"]}
+        if p.get("prenotazione_id"):
+            await db.prenotazioni.update_one({"id": p["prenotazione_id"]}, {"$set": {"stato": "CONFIRMED", "confirmed_at": now_iso()}})
+        await notifica(user["id"], "Pagamento registrato", f"Pagamento di '{p['spazio_nome']}' completato ({tx}): impianti confermati")
+        return {"ok": True, "transazione_id": tx}
 
     @router.post("/ooh/campagne/{campagna_id}/invia")
     async def invia_ooh(campagna_id: str, user: dict = Depends(require_role("user"))):
@@ -350,17 +409,16 @@ def build(db, get_current_user, require_role, require_comune_l3, notifica, log_s
             ck = await _checklist(p)
             if not all(ck.values()):
                 mancano = [{"moduli_ok": "moduli", "documenti_ok": "documentazione",
-                            "creativita_ok": "creatività", "pagamento_ok": "pagamento"}[k] for k, v in ck.items() if not v]
+                            "creativita_ok": "creatività"}[k] for k, v in ck.items() if not v]
                 raise HTTPException(status_code=400, detail=f"'{p['pacchetto_nome']}': completa {', '.join(mancano)}")
         for p in pratiche:
             await db.pratiche.update_one({"id": p["id"]}, {"$set": {"stato": "INVIATA", "updated_at": now_iso()}})
-            await db.prenotazioni.update_one({"id": p["prenotazione_id"]}, {"$set": {"stato": "CONFIRMED", "confirmed_at": now_iso()}})
             await log_stato(p["id"], "DA_COMPLETARE", "INVIATA", user, f"Inviata dalla campagna OOH '{c['nome']}'")
             operatori = await db.users.find({"ruolo": "comune", "comune_id": p["comune_id"]}, {"_id": 0}).to_list(20)
             for op in operatori:
                 await notifica(op["id"], "Nuova pratica Campagna OOH", f"Pratica '{p['spazio_nome']}' → INVIATA", p["id"])
-        await db.campagne.update_one({"id": campagna_id}, {"$set": {"stato": "CONFERMATA"}})
-        await notifica(user["id"], "Campagna confermata", f"Le pratiche della campagna '{c['nome']}' sono state inviate ai Comuni: prenotazione confermata.")
+        await db.campagne.update_one({"id": campagna_id}, {"$set": {"stato": "INVIATA"}})
+        await notifica(user["id"], "Campagna inviata", f"Le pratiche della campagna '{c['nome']}' sono state inviate ai Comuni: il pagamento sarà richiesto dopo l'approvazione (24 ore di tempo).")
         return {"ok": True, "inviate": len(pratiche)}
 
     @router.post("/ooh/campagne/{campagna_id}/annulla")
@@ -368,9 +426,9 @@ def build(db, get_current_user, require_role, require_comune_l3, notifica, log_s
         c = await db.campagne.find_one({"id": campagna_id, "user_id": user["id"]}, {"_id": 0})
         if not c:
             raise HTTPException(status_code=404, detail="Campagna non trovata")
-        if c.get("stato") != "HOLD":
-            raise HTTPException(status_code=400, detail="Solo le campagne in prenotazione possono essere annullate")
-        await db.prenotazioni.update_many({"campagna_id": campagna_id, "stato": "HELD"}, {"$set": {"stato": "CANCELLED"}})
+        if c.get("stato") not in ("HOLD", "IN_COMPLETAMENTO"):
+            raise HTTPException(status_code=400, detail="Solo le campagne in completamento possono essere annullate")
+        await db.prenotazioni.update_many({"campagna_id": campagna_id, "stato": {"$in": ["HELD", "OPTIONED"]}}, {"$set": {"stato": "CANCELLED"}})
         await db.pratiche.update_many({"campagna_id": campagna_id, "stato": "DA_COMPLETARE"},
                                       {"$set": {"stato": "ANNULLATA", "updated_at": now_iso()}})
         await db.campagne.update_one({"id": campagna_id}, {"$set": {"stato": "ANNULLATA"}})

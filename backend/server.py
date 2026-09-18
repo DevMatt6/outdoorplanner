@@ -771,6 +771,7 @@ TRANSIZIONI_COMUNE = {
     "approva": {"da": ["IN_ISTRUTTORIA"], "a": "APPROVATA"},
     "rifiuta": {"da": ["IN_ISTRUTTORIA"], "a": "RIFIUTATA"},
     "annulla": {"da": ["IN_ISTRUTTORIA"], "a": "ANNULLATA"},
+    "inoltra": {"da": ["IN_ISTRUTTORIA"], "a": "IN_ISTRUTTORIA"},
 }
 
 TRANSIZIONI_OOH = {
@@ -781,7 +782,7 @@ TRANSIZIONI_OOH = {
     "annulla": {"da": ["IN_VERIFICA"], "a": "ANNULLATA"},
 }
 
-LIVELLO_MIN_AZIONE = {"presa_in_carico": 1, "richiedi_integrazione": 1, "approva": 2, "rifiuta": 2, "annulla": 2}
+LIVELLO_MIN_AZIONE = {"presa_in_carico": 1, "richiedi_integrazione": 1, "approva": 2, "rifiuta": 2, "annulla": 2, "inoltra": 1}
 
 @api_router.post("/comune/pratiche/{pratica_id}/transizione")
 async def transizione(pratica_id: str, data: TransizioneIn, user: dict = Depends(require_role("comune"))):
@@ -794,18 +795,43 @@ async def transizione(pratica_id: str, data: TransizioneIn, user: dict = Depends
     comune_doc = await db.comuni.find_one({"id": user["comune_id"]}, {"_id": 0, "livelli_attivi": 1})
     livelli_attivi = (comune_doc or {}).get("livelli_attivi") or [1, 2, 3]
     max_lv = max(livelli_attivi)
-    min_richiesto = min(LIVELLO_MIN_AZIONE[data.azione], max_lv)
+    base_lv = LIVELLO_MIN_AZIONE[data.azione]
+    if pratica.get("tipo") != "OOH" and data.azione == "approva":
+        base_lv = 3
+    min_richiesto = min(base_lv, max_lv)
     if user.get("livello", 1) < min_richiesto:
         raise HTTPException(status_code=403, detail=f"Azione riservata al livello L{min_richiesto} o superiore")
+    if data.azione == "inoltra":
+        if pratica.get("tipo") == "OOH":
+            raise HTTPException(status_code=400, detail="L'inoltro tra livelli riguarda solo le pratiche OSP")
+        if pratica["stato"] != "IN_ISTRUTTORIA":
+            raise HTTPException(status_code=400, detail="La pratica deve essere in istruttoria")
+        corrente = pratica.get("livello_corrente", 1)
+        if user.get("livello", 1) < min(corrente, max_lv):
+            raise HTTPException(status_code=403, detail=f"La pratica è in carico al livello L{corrente}")
+        prossimo = min(corrente + 1, max_lv, 3)
+        if prossimo == corrente:
+            raise HTTPException(status_code=400, detail="Non c'è un livello superiore a cui inoltrare")
+        await db.pratiche.update_one({"id": pratica_id}, {"$set": {"livello_corrente": prossimo, "updated_at": now_iso()}})
+        await log_stato(pratica_id, pratica["stato"], pratica["stato"], user,
+                        data.nota or f"Documentazione verificata: inoltrata al livello L{prossimo} per approvazione")
+        destinatari = await db.users.find({"ruolo": "comune", "comune_id": user["comune_id"], "livello": {"$gte": prossimo}}, {"_id": 0}).to_list(20)
+        for d in destinatari:
+            await notifica(d["id"], "Pratica OSP da approvare", f"'{pratica['spazio_nome']}' inoltrata al livello L{prossimo}", pratica_id)
+        return {"ok": True, "stato": pratica["stato"], "livello_corrente": prossimo}
     if data.azione in ("richiedi_integrazione", "annulla") and not (data.nota or "").strip():
         raise HTTPException(status_code=400, detail="La motivazione è obbligatoria per questa azione")
     if pratica["stato"] not in regola["da"]:
         raise HTTPException(status_code=400, detail=f"Transizione non consentita da {pratica['stato']}")
     nuovo = regola["a"]
     updates = {"stato": nuovo, "updated_at": now_iso()}
+    if data.azione == "presa_in_carico":
+        updates["livello_corrente"] = 1
     if nuovo == "APPROVATA":
         updates["numero_autorizzazione"] = f"AUT-{datetime.now().year}-{uuid.uuid4().hex[:6].upper()}"
         updates["data_approvazione"] = now_iso()
+        if pratica.get("tipo") == "OOH" and not pratica.get("pagata"):
+            updates["payment_due_at"] = (datetime.now(timezone.utc) + timedelta(hours=24)).isoformat()
     if nuovo == "ANNULLATA":
         updates["annullata_da"] = "comune"
     if data.azione == "richiedi_integrazione":
