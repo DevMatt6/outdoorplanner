@@ -31,6 +31,8 @@ async def main():
         brief={'obiettivo':'awareness','budget':10000000,'comuni_ids':cities}
         dates={'data_inizio':'2027-04-01','data_fine':'2027-04-30'}
         async with httpx.AsyncClient(transport=httpx.ASGITransport(app=server.app),base_url='http://test') as api:
+            public_packages=await api.get('/api/ooh/pacchetti')
+            assert public_packages.status_code==200 and len(public_packages.json())==60
             p=(await api.post('/api/planning/recommend',json={'tipo':'OSP','brief':brief,**dates})).json()
             assert len(p['items'])==108,p
             created=await api.post('/api/campagne',json={'nome':'Large OSP test','spazi_ids':[i['id'] for i in p['items']],'brief':brief,**dates})

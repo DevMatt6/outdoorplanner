@@ -185,7 +185,7 @@ def build(db, get_current_user, require_role, require_comune_l3, notifica, log_s
         result = []
         for p in pacchetti:
             impianti = await db.impianti.find({"id": {"$in": p["impianti_ids"]}}, {"_id": 0}).to_list(100)
-            busy = set()
+            busy = {}
             if data_inizio and data_fine:
                 busy = await _impianti_bloccati(p["impianti_ids"], data_inizio, data_fine)
             for i in impianti:
