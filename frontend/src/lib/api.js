@@ -1,7 +1,7 @@
 import axios from "axios";
 
-export const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
-export const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+export const BACKEND_URL = (process.env.REACT_APP_BACKEND_URL || "").replace(/\/$/, "");
+export const API = `${BACKEND_URL}/api`;
 
 export const imgSrc = (url) => (url?.startsWith("/api/") ? `${BACKEND_URL}${url}` : url);
 

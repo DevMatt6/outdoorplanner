@@ -9,11 +9,11 @@ import pytest
 import requests
 from datetime import datetime, timedelta
 
-BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://advert-hub-47.preview.emergentagent.com").rstrip("/")
+BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "http://localhost:8000").rstrip("/")
 API = f"{BASE_URL}/api"
 
 # fallback: if frontend env not set at runtime, read file
-if BASE_URL == "https://advert-hub-47.preview.emergentagent.com" and not os.environ.get("REACT_APP_BACKEND_URL"):
+if BASE_URL == "http://localhost:8000" and not os.environ.get("REACT_APP_BACKEND_URL"):
     try:
         with open("/app/frontend/.env") as f:
             for line in f:

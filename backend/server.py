@@ -26,8 +26,9 @@ mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
-UPLOAD_DIR = Path('/app/uploads')
-UPLOAD_DIR.mkdir(exist_ok=True)
+DEFAULT_UPLOAD_DIR = '/tmp/outdoorplanner/uploads' if os.environ.get('VERCEL') else str(ROOT_DIR.parent / 'uploads')
+UPLOAD_DIR = Path(os.environ.get('UPLOAD_DIR', DEFAULT_UPLOAD_DIR))
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 app = FastAPI()
 api_router = APIRouter(prefix="/api")
@@ -1195,6 +1196,11 @@ async def startup():
     await seed_all(db, hash_password)
     await ensure_livelli(db, hash_password)
     await ensure_catalogo(db)
+
+    # Serverless instances do not provide a persistent background worker.
+    # OOH routes also expire reservations when handling requests.
+    if os.environ.get('VERCEL'):
+        return
 
     import asyncio
     async def _expire_loop():

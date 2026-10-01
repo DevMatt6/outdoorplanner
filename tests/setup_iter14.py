@@ -1,7 +1,7 @@
 """Setup TEST_ infrastructure for iteration 14 UI tests."""
 import os, requests, time, json, sys
 
-BASE = os.environ.get("REACT_APP_BACKEND_URL", "https://advert-hub-47.preview.emergentagent.com").rstrip("/")
+BASE = os.environ.get("REACT_APP_BACKEND_URL", "http://localhost:8000").rstrip("/")
 API = f"{BASE}/api"
 TS = int(time.time())
 

@@ -29,7 +29,7 @@
     "server.py 1023: PATCH stato_onboarding valida contro enum STATI_ONBOARDING (verificato test_09).",
     "server.py 960: onboard_comune accetta livelli_attivi=[] (fallback a [1]) e utenze=[]: OK il fallback livelli ma manca guard su utenze vuote (vedi action items).",
     "server.py 1064: DELETE comune fa cascade pulita su pratiche/spazi/utenti/zone/impianti/pacchetti — buono.",
-    "AdminComuni.jsx 148: <option>{`L${l}`}</option> — il valore è inserito come JS expression; il tooling dev-mode di Emergent produce warning di hydration (<span> nel <option>) ma non c'è bug reale nel sorgente."
+    "AdminComuni.jsx 148: <option>{`L${l}`}</option> — il valore è inserito come JS expression; il precedente tooling dev-mode produce warning di hydration (<span> nel <option>) ma non c'è bug reale nel sorgente."
   ],
   "updated_files": [
     "/app/backend/tests/test_onboarding_flow.py (nuovo file)"
