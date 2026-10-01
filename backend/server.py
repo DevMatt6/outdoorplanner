@@ -19,6 +19,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel
+from campaign_planning import CatalogPlanning, CampaignBrief, build_planning, check_selection, period_days, period_cost
 from reportlab.pdfgen import canvas as pdf_canvas
 from reportlab.lib.pagesizes import A4
 
@@ -128,7 +129,7 @@ class LoginIn(BaseModel):
     email: str
     password: str
 
-class SpazioIn(BaseModel):
+class SpazioIn(CatalogPlanning):
     nome: str
     zona: str = ""
     zona_id: Optional[str] = None
@@ -183,6 +184,7 @@ class CampagnaIn(BaseModel):
     data_inizio: str
     data_fine: str
     spazi_ids: List[str]
+    brief: Optional[CampaignBrief] = None
 
 class CampagnaFormIn(BaseModel):
     pratica_ids: List[str]
@@ -530,7 +532,10 @@ async def crea_campagna(data: CampagnaIn, user: dict = Depends(require_role("use
             non_disp.append(s["nome"])
     if non_disp:
         raise HTTPException(status_code=409, detail=f"Spazi non disponibili nel periodo: {', '.join(non_disp)}")
-    giorni = _giorni(data.data_inizio, data.data_fine)
+    giorni = period_days(data.data_inizio, data.data_fine)
+    if any(not s.get("disponibile", True) for s in spazi):
+        raise HTTPException(409, "Uno spazio è disattivato")
+    check_selection(data.brief, spazi, "OSP", giorni)
     campagna_id = str(uuid.uuid4())
     pratiche = []
     for s in spazi:
@@ -543,13 +548,14 @@ async def crea_campagna(data: CampagnaIn, user: dict = Depends(require_role("use
                    "stato": "BOZZA", "dati_form": {**prefill_dati_form(tpl.get("campi", []), user),
                                                    "descrizione_contenuto": f"Campagna '{data.nome}'"},
                    "documenti": [], "data_inizio": data.data_inizio, "data_fine": data.data_fine,
-                   "importo": round(giorni * s["canone_giornaliero"], 2), "pagata": False,
+                   "importo": period_cost(s["canone_giornaliero"], giorni) / 100, "pagata": False,
                    "created_at": now_iso(), "updated_at": now_iso()}
         await db.pratiche.insert_one({**pratica})
         await log_stato(pratica["id"], None, "BOZZA", user, f"Pratica creata dalla campagna '{data.nome}'")
         pratiche.append(pratica)
     campagna = {"id": campagna_id, "user_id": user["id"], "nome": data.nome,
                 "data_inizio": data.data_inizio, "data_fine": data.data_fine,
+                "brief": data.brief.model_dump() if data.brief else None,
                 "spazi_ids": ids, "pratica_ids": [p["id"] for p in pratiche],
                 "importo_totale": round(sum(p["importo"] for p in pratiche), 2),
                 "created_at": now_iso()}
@@ -1167,9 +1173,10 @@ async def elimina_comune(comune_id: str, user: dict = Depends(require_role("supe
 # ---------- app setup ----------
 
 from ooh import build as build_ooh, snapshot_richiedente, prefill_dati_form
-ooh_router, expire_holds = build_ooh(db, get_current_user, require_role, require_comune_l3,
+ooh_router, expire_holds, available_ooh = build_ooh(db, get_current_user, require_role, require_comune_l3,
                                      notifica, log_stato, now_iso, UPLOAD_DIR, upload_storage.save)
 api_router.include_router(ooh_router)
+api_router.include_router(build_planning(require_role, spazi_disponibili, available_ooh))
 
 @api_router.get("/uploads/{path:path}")
 async def download_upload(path: str):

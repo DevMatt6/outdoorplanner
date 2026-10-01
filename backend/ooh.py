@@ -7,6 +7,7 @@ from datetime import datetime, timezone, timedelta
 from typing import Dict, List, Optional
 from fastapi import APIRouter, HTTPException, Depends, UploadFile, File
 from pydantic import BaseModel
+from campaign_planning import CatalogPlanning, CampaignBrief, check_selection, period_days, period_cost
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +48,7 @@ class ZonaIn(BaseModel):
     polygon: List[List[float]] = []
 
 
-class ImpiantoIn(BaseModel):
+class ImpiantoIn(CatalogPlanning):
     codice: str
     zona_id: str
     via: str = ""
@@ -77,6 +78,7 @@ class CampagnaOOHIn(BaseModel):
     data_fine: str
     pacchetti_ids: List[str]
     impianti_sel: Dict[str, List[str]] = {}
+    brief: Optional[CampaignBrief] = None
 
 
 class DatiFormIn(BaseModel):
@@ -211,7 +213,10 @@ def build(db, get_current_user, require_role, require_comune_l3, notifica, log_s
             raise HTTPException(status_code=404, detail="Uno o più pacchetti non trovati")
         sel_map = {}
         for p in pacchetti:
-            richiesti = [i for i in (data.impianti_sel or {}).get(p["id"], []) if i in p["impianti_ids"]]
+            provided = (data.impianti_sel or {}).get(p["id"])
+            if provided is not None and (not provided or not set(provided) <= set(p["impianti_ids"])):
+                raise HTTPException(400, "Selezione impianti vuota o non appartenente al circuito")
+            richiesti = list(dict.fromkeys(provided or []))
             busy = await _impianti_bloccati(richiesti or p["impianti_ids"], data.data_inizio, data.data_fine)
             if richiesti:
                 if set(busy) & set(richiesti):
@@ -222,8 +227,14 @@ def build(db, get_current_user, require_role, require_comune_l3, notifica, log_s
                 if not liberi:
                     raise HTTPException(status_code=409, detail=f"Il circuito '{p['nome']}' non è disponibile nel periodo selezionato")
                 sel_map[p["id"]] = liberi
-        giorni = _giorni(data.data_inizio, data.data_fine)
+        giorni = period_days(data.data_inizio, data.data_fine)
         tutti_sel_ids = [i for ids_ in sel_map.values() for i in ids_]
+        if len(set(tutti_sel_ids)) != len(tutti_sel_ids):
+            raise HTTPException(400, "Lo stesso impianto non può essere selezionato in più circuiti")
+        selected_items = await db.impianti.find({"id": {"$in": tutti_sel_ids}, "attivo": True}, {"_id": 0}).to_list(1000)
+        if len(selected_items) != len(tutti_sel_ids):
+            raise HTTPException(409, "Uno degli impianti non è più attivo")
+        check_selection(data.brief, selected_items, "OOH", giorni)
         min_docs = await db.impianti.find({"id": {"$in": tutti_sel_ids}}, {"_id": 0, "codice": 1, "giorni_minimi": 1}).to_list(300)
         violati = [d for d in min_docs if giorni < (d.get("giorni_minimi") or 1)]
         if violati:
@@ -266,7 +277,6 @@ def build(db, get_current_user, require_role, require_comune_l3, notifica, log_s
                                  "impianti_ids": sel_map[p["id"]]})
             impianti = await db.impianti.find({"id": {"$in": pren["impianti_ids"]}}, {"_id": 0}).to_list(200)
             circuito_di = {i: c["nome"] for c in circuiti for i in c["impianti_ids"]}
-            prezzo_g = round(sum(i.get("prezzo", 0) for i in impianti), 2)
             nome_comune = comune["nome"] if comune else ""
             pratica = {"id": str(uuid.uuid4()), "tipo": "OOH", "user_id": user["id"], "user_nome": user["nome"],
                        "comune_id": cid, "campagna_id": campagna_id, "campagna_nome": data.nome,
@@ -282,7 +292,7 @@ def build(db, get_current_user, require_role, require_comune_l3, notifica, log_s
                        "stato": "DA_COMPLETARE", "dati_form": {}, "documenti": [], "creativita": [],
                        "richiedente": snapshot_richiedente(user),
                        "data_inizio": data.data_inizio, "data_fine": data.data_fine,
-                       "importo": round(giorni * prezzo_g, 2), "pagata": False,
+                       "importo": sum(period_cost(i.get("prezzo", 0), giorni) for i in impianti) / 100, "pagata": False,
                        "prenotazione_id": pren["id"], "created_at": now_iso(), "updated_at": now_iso()}
             tpl = await _template_pratica(pratica)
             pratica["dati_form"] = prefill_dati_form(tpl.get("campi", []), user)
@@ -292,6 +302,7 @@ def build(db, get_current_user, require_role, require_comune_l3, notifica, log_s
             pratiche.append(pratica)
         campagna = {"id": campagna_id, "tipo": "OOH", "user_id": user["id"], "nome": data.nome,
                     "data_inizio": data.data_inizio, "data_fine": data.data_fine,
+                    "brief": data.brief.model_dump() if data.brief else None,
                     "pacchetti_ids": ids, "pratica_ids": [p["id"] for p in pratiche],
                     "importo_totale": round(sum(p["importo"] for p in pratiche), 2),
                     "stato": "IN_COMPLETAMENTO", "created_at": now_iso()}
@@ -634,4 +645,4 @@ def build(db, get_current_user, require_role, require_comune_l3, notifica, log_s
                 "prenotazioni": {"HELD": held, "CONFIRMED": confirmed, "EXPIRED": expired},
                 "conversione": round(confirmed / (confirmed + expired) * 100, 1) if (confirmed + expired) else 0}
 
-    return router, expire_holds
+    return router, expire_holds, pacchetti_pubblici

@@ -1,3 +1,4 @@
+import { CampaignBrief, BudgetSummary, RecommendationPanel, initialBrief, briefPayload, briefError, catalogCompatible } from "../../components/CampaignBrief";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "leaflet/dist/leaflet.css";
@@ -11,11 +12,17 @@ import { TIPOLOGIE, FORMATI } from "../../lib/catalogo";
 import { toast } from "sonner";
 import { CreditCard, Send, Upload, Landmark, ArrowLeft } from "lucide-react";
 
-const STEPS = ["Periodo", "Spazi", "Moduli", "Riepilogo"];
+const STEPS = [[0,"Obiettivo e budget"],[1,"Periodo"],[2,"Comuni"],[3,"Proposta"],[4,"Spazi"],[5,"Moduli"],[6,"Riepilogo"]];
 
 export default function CampagnaPlanner() {
   const navigate = useNavigate();
   const [step, setStep] = useState(0);
+  const [brief, setBrief] = useState(initialBrief);
+  const [proposal, setProposal] = useState(null);
+  const [excluded, setExcluded] = useState([]);
+  const [proposalBusy, setProposalBusy] = useState(false);
+  const [proposalError, setProposalError] = useState("");
+  const [comuniSel, setComuniSel] = useState([]);
   const [nome, setNome] = useState("");
   const [range, setRange] = useState();
   const [filtri, setFiltri] = useState({ tipologia: "", formato: "" });
@@ -42,7 +49,7 @@ export default function CampagnaPlanner() {
   }, []);
 
   useEffect(() => {
-    if (step !== 1 || !dal || !al) return;
+    if ((step !== 4 && step !== 3) || !dal || !al) return;
     api.get("/spazi/disponibili", { params: { data_inizio: dal, data_fine: al } }).then(({ data }) => setDisponibili(data));
   }, [step, dal, al]);
 
@@ -50,8 +57,9 @@ export default function CampagnaPlanner() {
     setSelected((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
 
   const filtrati = useMemo(() => disponibili.filter((s) =>
+    comuniSel.includes(s.comune_id) && catalogCompatible(s, brief, "OSP", giorni) &&
     (!filtri.tipologia || s.tipologia === filtri.tipologia) && (!filtri.formato || s.formato === filtri.formato)
-  ), [disponibili, filtri]);
+  ), [disponibili, filtri, comuniSel, brief, giorni]);
 
   const countPerComune = useMemo(() => {
     const m = {};
@@ -60,6 +68,7 @@ export default function CampagnaPlanner() {
   }, [filtrati]);
 
   const comuniGrid = (regioneSel ? comuniList.filter((c) => c.regione === regioneSel) : comuniList)
+    .filter(c => comuniSel.includes(c.id))
     .slice()
     .sort((a, b) => (countPerComune[b.nome] || 0) - (countPerComune[a.nome] || 0));
 
@@ -68,6 +77,9 @@ export default function CampagnaPlanner() {
 
   const spaziSelezionati = disponibili.filter((s) => selected.includes(s.id));
   const totale = spaziSelezionati.reduce((a, s) => a + s.canone_giornaliero * giorni, 0);
+  const perCity = {};
+  spaziSelezionati.forEach(s => { const name = comuniList.find(c => c.id === s.comune_id)?.nome || s.citta; perCity[name] = (perCity[name] || 0) + s.canone_giornaliero * giorni; });
+
 
   const onRegione = (r) => { setRegioneSel(r || ""); setComuneSel(""); setZonaSel(""); };
   const onComune = (nomeC) => {
@@ -78,19 +90,47 @@ export default function CampagnaPlanner() {
 
   const comuneNomeById = (cid) => comuniList.find((c) => c.id === cid)?.nome || "—";
 
+  const calculate = async (omit = []) => {
+    setProposalBusy(true); setProposalError(""); setProposal(null);
+    try {
+      const { data } = await api.post("/planning/recommend", { tipo: "OSP", brief: briefPayload(brief, comuniSel), data_inizio: dal, data_fine: al, esclusi: omit });
+      const names = Object.fromEntries(comuniList.map(c => [c.id, c.nome]));
+      data.avvisi = data.avvisi.map(w => Object.entries(names).reduce((text, [id, name]) => text.replaceAll(id, name), w));
+      setProposal(data);
+    } catch (e) { setProposalError(apiError(e)); } finally { setProposalBusy(false); }
+  };
+  const applyProposal = () => {
+    if (!proposal?.fattibile) return;
+      setSelected(proposal.items.map(i => i.id));
+    setStep(4);
+  };
+  const excludeSuggestion = (id) => { const omit = [...excluded, id]; setExcluded(omit); calculate(omit); };
   const next = async () => {
     setError("");
     if (step === 0) {
-      if (!nome.trim()) return setError("Dai un nome alla campagna");
-      if (!dal || !al) return setError("Seleziona il periodo sul calendario");
+      const invalid = briefError(brief);
+      if (invalid) return setError(invalid);
       setStep(1);
     } else if (step === 1) {
+      if (!nome.trim()) return setError("Dai un nome alla campagna");
+      if (!dal || !al) return setError("Seleziona il periodo sul calendario");
+      if (al < dal) return setError("Periodo non valido");
+      setSelected([]); setProposal(null); setExcluded([]);
+      setStep(2);
+    } else if (step === 2) {
+      if (!comuniSel.length) return setError("Seleziona almeno un Comune");
+      setSelected([]); setExcluded([]); setStep(3); calculate([]);
+    } else if (step === 3) {
+      setStep(4);
+    } else if (step === 4) {
+      if (totale > Number(brief.budget) + 0.001) return setError("La selezione supera il budget massimo");
+      if (brief.distribuzione === "tutti" && comuniSel.some(id => !spaziSelezionati.some(s => s.comune_id === id))) return setError("Seleziona almeno uno spazio per ciascun comune");
       if (selected.length === 0) return setError("Seleziona almeno uno spazio");
       setBusy(true);
       try {
         const { data } = campagna
           ? { data: campagna }
-          : await api.post("/campagne", { nome, data_inizio: dal, data_fine: al, spazi_ids: selected });
+          : await api.post("/campagne", { nome, data_inizio: dal, data_fine: al, spazi_ids: selected, brief: briefPayload(brief, comuniSel) });
         setCampagna(data);
         const tpls = {};
         for (const p of data.pratiche) {
@@ -99,9 +139,9 @@ export default function CampagnaPlanner() {
         }
         setTemplates(tpls);
         if (!campagna) toast.success(`Campagna creata: ${data.pratiche.length} pratiche generate`);
-        setStep(2);
+        setStep(5);
       } catch (e) { setError(apiError(e)); } finally { setBusy(false); }
-    } else if (step === 2) {
+    } else if (step === 5) {
       for (const p of campagna.pratiche) {
         const tpl = templates[p.id];
         const values = formValues[p.id] || {};
@@ -118,7 +158,7 @@ export default function CampagnaPlanner() {
             pratica_ids: [p.id], dati_form: formValues[p.id] || {},
           });
         }
-        setStep(3);
+        setStep(6);
       } catch (e) { setError(apiError(e)); } finally { setBusy(false); }
     }
   };
@@ -162,17 +202,20 @@ export default function CampagnaPlanner() {
         <div className="text-xs font-bold uppercase tracking-[0.25em] text-slate-400">Campaign Planner</div>
         <h1 className="text-3xl font-heading font-extrabold tracking-tight mt-1">Nuova campagna multi-spazio</h1>
 
-        <div className="mt-8 grid grid-cols-4 bg-white border border-slate-100 rounded-2xl overflow-hidden" data-testid="planner-steps">
-          {STEPS.map((s, i) => (
+        <div className="mt-8 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 bg-white border border-slate-100 rounded-2xl overflow-hidden" data-testid="planner-steps">
+          {STEPS.map(([stage, s], i) => (
             <div key={s} className={`py-3 px-2 text-center text-[11px] font-bold uppercase tracking-wider transition-colors
-              ${i === step ? "bg-[#1F3BB3] text-white" : i < step ? "bg-[#2B4BDB] text-white" : "text-slate-400"}`}>
+              ${stage === step ? "bg-[#1F3BB3] text-white" : stage < step ? "bg-[#2B4BDB] text-white" : "text-slate-400"}`}>
               {i + 1}. {s}
             </div>
           ))}
         </div>
 
         <div className="mt-6 bg-white border border-slate-100 rounded-2xl p-8">
-          {step === 0 && (
+          {step === 3 && <RecommendationPanel proposal={proposal} busy={proposalBusy} error={proposalError} onCalculate={() => { setExcluded([]); calculate([]); }} onApply={applyProposal} onExclude={excludeSuggestion} cityName={comuneNomeById} />}
+          {step >= 4 && <div className="mb-5"><BudgetSummary brief={brief} total={totale} perCity={perCity} /></div>}
+          {step === 0 && <CampaignBrief value={brief} onChange={setBrief} tipo="OSP" />}
+          {step === 1 && (
             <div className="space-y-5">
               <h2 className="font-heading font-extrabold text-xl">Nome e periodo</h2>
               <input data-testid="campagna-nome-input" className={`${input} w-full max-w-md px-4 py-3`} placeholder="Nome campagna (es. Lancio primavera 2027)"
@@ -181,7 +224,8 @@ export default function CampagnaPlanner() {
             </div>
           )}
 
-          {step === 1 && (
+          {step === 2 && <div className="space-y-4"><h2 className="font-extrabold text-xl">Seleziona i comuni</h2><div className="grid sm:grid-cols-3 gap-3">{comuniList.map(c => <label key={c.id} className="border rounded-xl p-4"><input type="checkbox" className="accent-[#1F3BB3] mr-2" checked={comuniSel.includes(c.id)} onChange={() => setComuniSel(ids => ids.includes(c.id) ? ids.filter(x => x !== c.id) : [...ids, c.id])} />{c.nome} · {c.regione}</label>)}</div></div>}
+          {step === 4 && (
             <div className="space-y-5">
               <div className="flex flex-wrap items-center gap-3">
                 <h2 className="font-heading font-extrabold text-xl flex-1">Spazi disponibili {dal} → {al}</h2>
@@ -252,7 +296,7 @@ export default function CampagnaPlanner() {
             </div>
           )}
 
-          {step === 2 && campagna && (
+          {step === 5 && campagna && (
             <div className="space-y-6">
               <div>
                 <h2 className="font-heading font-extrabold text-xl">Moduli per spazio</h2>
@@ -296,7 +340,7 @@ export default function CampagnaPlanner() {
             </div>
           )}
 
-          {step === 3 && campagna && (
+          {step === 6 && campagna && (
             <div className="space-y-5">
               <h2 className="font-heading font-extrabold text-xl">Riepilogo campagna "{nome}"</h2>
               <div className="border border-slate-100 rounded-2xl overflow-hidden divide-y divide-slate-100">
@@ -312,12 +356,12 @@ export default function CampagnaPlanner() {
                 </div>
               </div>
               {!pagata ? (
-                <button data-testid="checkout-campagna-button" onClick={checkout} disabled={busy}
+                <button data-testid="checkout-campagna-button" onClick={checkout} disabled={busy || proposalBusy}
                   className="w-full bg-[#1F3BB3] text-white rounded-full py-3.5 font-bold flex items-center justify-center gap-2 hover:bg-[#172E93] transition-colors disabled:opacity-50">
                   <CreditCard size={18} /> {busy ? "Elaborazione..." : `Paga ${campagna.importo_totale.toFixed(2)} € (mock)`}
                 </button>
               ) : (
-                <button data-testid="invia-campagna-button" onClick={invia} disabled={busy}
+                <button data-testid="invia-campagna-button" onClick={invia} disabled={busy || proposalBusy}
                   className="w-full bg-[#1F3BB3] text-white rounded-full py-3.5 font-bold flex items-center justify-center gap-2 hover:bg-[#172E93] transition-colors disabled:opacity-50">
                   <Send size={18} /> Invia tutte le pratiche ai Comuni
                 </button>
@@ -327,15 +371,15 @@ export default function CampagnaPlanner() {
 
           {error && <div data-testid="planner-error" className="mt-4 border border-red-200 bg-red-50 rounded-xl text-[#B91C1C] text-sm px-4 py-3">{error}</div>}
 
-          {step < 3 && (
+          {step < 6 && (
             <div className="mt-8 flex justify-between">
-              <button onClick={() => setStep(Math.max(0, step - 1))} disabled={step === 0 || (step === 2 && !!campagna)}
+              <button onClick={() => setStep(Math.max(0, step - 1))} disabled={step === 0 || (step === 5 && !!campagna)}
                 className="px-6 py-2.5 font-bold border border-slate-200 rounded-full hover:border-[#1F3BB3] transition-colors disabled:opacity-40">
                 Indietro
               </button>
-              <button data-testid="planner-next-button" onClick={next} disabled={busy}
+              <button data-testid="planner-next-button" onClick={next} disabled={busy || proposalBusy}
                 className="px-8 py-2.5 font-bold rounded-full bg-[#1F3BB3] text-white hover:bg-[#172E93] transition-colors disabled:opacity-50">
-                {busy ? "Attendi..." : step === 1 && !campagna ? "Crea pratiche e compila moduli" : "Avanti"}
+                {busy ? "Attendi..." : step === 4 && !campagna ? "Crea pratiche e compila moduli" : step === 3 ? "Selezione manuale" : "Avanti"}
               </button>
             </div>
           )}

@@ -1,3 +1,4 @@
+import { CatalogPlanningFields } from "../../components/CampaignBrief";
 import { useEffect, useState } from "react";
 import { MapContainer, TileLayer, CircleMarker, useMapEvents } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
@@ -48,6 +49,7 @@ export default function ComuneSpazi() {
     if (editing.lat == null) return toast.error("Posiziona lo spazio cliccando sulla mappa");
     try {
       const payload = {
+        contesti: editing.contesti || [], pubblici: editing.pubblici || [], attivita_ammesse: editing.attivita_ammesse || [], superficie_mq: editing.superficie_mq || null,
         nome: editing.nome,
         zona: zone.find((z) => z.id === editing.zona_id)?.nome || "",
         zona_id: editing.zona_id || null,
@@ -119,6 +121,7 @@ export default function ComuneSpazi() {
               </label>
               <span className="text-xs text-slate-400">JPG, PNG, WebP</span>
             </div>
+            <CatalogPlanningFields value={editing} onChange={setEditing} osp />
             <textarea className={input} rows={2} placeholder="Descrizione" value={editing.descrizione || ""} onChange={(e) => setEditing({ ...editing, descrizione: e.target.value })} />
             <div className="flex gap-3 pt-2">
               <button data-testid="salva-spazio-button" className="px-6 py-2.5 font-bold rounded-full bg-[#1F3BB3] text-white hover:bg-[#172E93] transition-colors">Salva</button>

@@ -1,3 +1,4 @@
+import { CatalogPlanningFields } from "../../components/CampaignBrief";
 import { useEffect, useState } from "react";
 import { BackofficeLayout, COMUNE_LINKS } from "../../components/BackofficeLayout";
 import { api, apiError, imgSrc } from "../../lib/api";
@@ -29,7 +30,7 @@ export default function ComuneImpianti() {
 
   const submit = async (e) => {
     e.preventDefault();
-    const payload = { codice: form.codice, zona_id: form.zona_id, via: form.via, lat: parseFloat(form.lat), lng: parseFloat(form.lng), tipologia: form.tipologia, prezzo: parseFloat(form.prezzo), foto_url: form.foto_url, foto_urls: (form.foto_urls_txt || "").split("\n").map((s) => s.trim()).filter(Boolean), giorni_minimi: Math.max(1, parseInt(form.giorni_minimi) || 1), note: form.note || "", attivo: form.attivo !== false };
+    const payload = { contesti: form.contesti || [], pubblici: form.pubblici || [], codice: form.codice, zona_id: form.zona_id, via: form.via, lat: parseFloat(form.lat), lng: parseFloat(form.lng), tipologia: form.tipologia, prezzo: parseFloat(form.prezzo), foto_url: form.foto_url, foto_urls: (form.foto_urls_txt || "").split("\n").map((s) => s.trim()).filter(Boolean), giorni_minimi: Math.max(1, parseInt(form.giorni_minimi) || 1), note: form.note || "", attivo: form.attivo !== false };
     try {
       if (form.id) await api.put(`/comune/impianti/${form.id}`, payload);
       else await api.post("/comune/impianti", payload);
@@ -88,6 +89,7 @@ export default function ComuneImpianti() {
             <input data-testid="impianto-giorni-minimi" className={input} type="number" min="1" placeholder="Prenotazione minima (giorni)" value={form.giorni_minimi} onChange={(e) => setForm({ ...form, giorni_minimi: e.target.value })} />
             <textarea data-testid="impianto-foto-urls" className={`${input} sm:col-span-2`} rows={2} placeholder="Altre foto: un URL per riga" value={form.foto_urls_txt} onChange={(e) => setForm({ ...form, foto_urls_txt: e.target.value })} />
           </div>
+          <div className="mt-4"><CatalogPlanningFields value={form} onChange={setForm} /></div>
           {form.tipologia && <div className="mt-3 text-xs text-slate-500">Formato derivato dalla tipologia: <strong>{FORMATO_HINT[form.tipologia] || "—"}</strong></div>}
           <div className="mt-4 flex gap-3">
             <button data-testid="impianto-submit" className="px-6 py-2.5 font-bold rounded-full bg-[#1F3BB3] text-white hover:bg-[#172E93] transition-colors">Salva impianto</button>

@@ -1,3 +1,4 @@
+import { SavedCampaignBrief } from "../../components/CampaignBrief";
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { UserShell } from "../../components/BackofficeLayout";
@@ -37,6 +38,7 @@ export default function CampagnaDetail() {
   return (
     <UserShell>
       <div className="max-w-5xl mx-auto" data-testid="campagna-detail">
+        <SavedCampaignBrief brief={campagna.brief} total={campagna.importo_totale} />
         <Link to="/campagne" className="inline-flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-slate-900 transition-colors">
           <ArrowLeft size={16} /> Le mie campagne
         </Link>
