@@ -10,8 +10,13 @@ from motor.motor_asyncio import AsyncIOMotorGridFSBucket
 class UploadStorage:
     def __init__(self, db, local_dir):
         self.db = db
-        self.bucket = AsyncIOMotorGridFSBucket(db, bucket_name="uploads")
         self.local_dir = local_dir
+
+    @property
+    def bucket(self):
+        # Motor binds GridFS to the current event loop. Construct it only
+        # during a request, after the ASGI server starts its running loop.
+        return AsyncIOMotorGridFSBucket(self.db, bucket_name="uploads")
 
     async def save(self, path, content):
         await self.bucket.upload_from_stream(path, content)
