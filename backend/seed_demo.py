@@ -1,9 +1,8 @@
 """Seed demo: 3 comuni (Roma, Napoli, Milano), 3 operatori L1/L2/L3 ciascuno,
-3 zone per comune, 3 circuiti per comune intitolati alla via con >=4 impianti sulla stessa via.
-Nessuna pratica. Ripetibile."""
+2 zone e 2 circuiti per comune, 5 impianti totali distribuiti 3 + 2.
+Nessuna pratica. Ripetibile e senza cancellazioni."""
 import asyncio
 import os
-import random
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -11,7 +10,6 @@ from dotenv import load_dotenv
 from motor.motor_asyncio import AsyncIOMotorClient
 
 load_dotenv(Path(__file__).parent / ".env")
-random.seed(7)
 
 IMG_BILLBOARD = "https://images.unsplash.com/photo-1699480114704-ac153307d2a0?crop=entropy&cs=srgb&fm=jpg&q=85"
 IMG_PIAZZA = "https://images.unsplash.com/photo-1777403705903-9704d002ca8a?crop=entropy&cs=srgb&fm=jpg&q=85"
@@ -54,14 +52,13 @@ MODULO_OSP = {
     ],
 }
 
-# per ogni comune: 3 zone, ciascuna con la via del circuito
+# per ogni comune: 2 zone, ciascuna con la via del circuito
 DATASET = {
     "Roma": {
         "regione": "Lazio", "provincia": "RM", "lat": 41.9028, "lng": 12.4964, "sigla": "RM",
         "zone": [
             {"nome": "EUR", "q": "Municipio IX", "c": (41.8320, 12.4700), "via": "Viale Europa"},
             {"nome": "Centro", "q": "Municipio I", "c": (41.8990, 12.4790), "via": "Via del Corso"},
-            {"nome": "Ostiense", "q": "Municipio VIII", "c": (41.8660, 12.4790), "via": "Via Ostiense"},
         ],
         "osp": ("Area Eventi Circo Massimo", 41.8860, 12.4850, "Via del Circo Massimo", 400),
     },
@@ -70,7 +67,6 @@ DATASET = {
         "zone": [
             {"nome": "Centro", "q": "Municipalità 2", "c": (40.8480, 14.2530), "via": "Via Toledo"},
             {"nome": "Vomero", "q": "Municipalità 5", "c": (40.8440, 14.2290), "via": "Via Scarlatti"},
-            {"nome": "Chiaia", "q": "Municipalità 1", "c": (40.8330, 14.2330), "via": "Riviera di Chiaia"},
         ],
         "osp": ("Area Eventi Piazza del Plebiscito", 40.8360, 14.2480, "Piazza del Plebiscito", 380),
     },
@@ -79,7 +75,6 @@ DATASET = {
         "zone": [
             {"nome": "Navigli", "q": "Municipio 6", "c": (45.4500, 9.1730), "via": "Corso San Gottardo"},
             {"nome": "Porta Nuova", "q": "Municipio 9", "c": (45.4820, 9.1900), "via": "Corso Como"},
-            {"nome": "Centro", "q": "Municipio 1", "c": (45.4640, 9.1900), "via": "Corso Buenos Aires"},
         ],
         "osp": ("Area Eventi Darsena", 45.4520, 9.1770, "Piazza XXIV Maggio", 350),
     },
@@ -93,85 +88,80 @@ def rect_polygon(lat, lng, dlat=0.008, dlng=0.011):
     return [[lat - dlat, lng - dlng], [lat - dlat, lng + dlng], [lat + dlat, lng + dlng], [lat + dlat, lng - dlng]]
 
 
-async def main():
-    import bcrypt
-    hash_pw = lambda p: bcrypt.hashpw(p.encode(), bcrypt.gensalt()).decode()
-    db = AsyncIOMotorClient(os.environ["MONGO_URL"])[os.environ["DB_NAME"]]
+def stable_id(key):
+    return str(uuid.uuid5(uuid.NAMESPACE_URL, "outdoorplanner/demo-three-cities/" + key))
 
-    # pulizia dati business (mantiene superadmin e inserzionisti)
-    for coll in ["comuni", "zone", "impianti", "pacchetti", "spazi", "form_templates",
-                 "pratiche", "campagne", "prenotazioni", "soggetti", "creativita",
-                 "log_stato", "chat", "notifiche"]:
-        r = await db[coll].delete_many({})
-        print(f"Pulita {coll}: {r.deleted_count}")
-    await db.users.delete_many({"ruolo": "comune"})
 
+async def seed_three_cities(db, hash_password):
+    """Insert missing demo resources; preserve existing catalog and accounts."""
+    demo_password_hash = hash_password("demo123")
     for nome, d in DATASET.items():
-        cid = str(uuid.uuid4())
-        await db.comuni.insert_one({
+        low = nome.lower()
+        existing = await db.comuni.find_one({"nome": nome})
+        cid = existing["id"] if existing else stable_id(low)
+        await db.comuni.update_one({"id": cid}, {"$setOnInsert": {
             "id": cid, "nome": nome, "regione": d["regione"], "provincia": d["provincia"],
             "lat": d["lat"], "lng": d["lng"], "logo_url": None, "tariffe": [],
-            "regole": "Regolamento comunale standard", "attivo": True,
+            "regole": "Regolamento comunale demo", "attivo": True,
             "livelli_attivi": [1, 2, 3], "stato_onboarding": "ATTIVO", "created_at": now(),
-        })
-
-        low = nome.lower()
-        for lv, ruolo in LIVELLI.items():
-            await db.users.insert_one({
-                "id": str(uuid.uuid4()), "email": f"{low}.l{lv}@demo.it",
-                "nome": f"{ruolo} {nome}", "ruolo": "comune", "comune_id": cid, "livello": lv,
-                "password_hash": hash_pw("demo123"), "created_at": now(),
-            })
-        print(f"{nome}: utenze {low}.l1@demo.it / {low}.l2@demo.it / {low}.l3@demo.it (demo123)")
-
-        tpl_ooh = {"id": str(uuid.uuid4()), "comune_id": cid, "tipo": "OOH",
-                   "nome": f"Modulo Campagna OOH — {nome}", **MODULO_OOH, "updated_at": now()}
-        tpl_osp = {"id": str(uuid.uuid4()), "comune_id": cid, "tipo": "OSP",
-                   "nome": "Modulo OSP — Occupazione Suolo Pubblico", **MODULO_OSP, "updated_at": now()}
-        await db.form_templates.insert_many([dict(tpl_ooh), dict(tpl_osp)])
-
-        for z in d["zone"]:
+        }}, upsert=True)
+        for lv, label in LIVELLI.items():
+            email = f"{low}.l{lv}@demo.it"
+            await db.users.update_one({"email": email}, {"$setOnInsert": {
+                "id": stable_id(email), "email": email, "nome": f"{label} {nome}",
+                "ruolo": "comune", "comune_id": cid, "livello": lv, "attivo": True,
+                "password_hash": demo_password_hash, "created_at": now(),
+            }}, upsert=True)
+        tid = stable_id(f"{low}/form-ooh")
+        await db.form_templates.update_one({"id": tid}, {"$setOnInsert": {
+            "id": tid, "comune_id": cid, "tipo": "OOH",
+            "nome": f"Modulo Campagna OOH — {nome}", **MODULO_OOH, "updated_at": now(),
+        }}, upsert=True)
+        for zi, z in enumerate(d["zone"]):
             lat, lng = z["c"]
-            zona = {"id": str(uuid.uuid4()), "comune_id": cid, "nome": z["nome"],
-                    "descrizione": f"Zona {z['nome']} — {z['q']}", "quartiere": z["q"],
-                    "polygon": rect_polygon(lat, lng), "vie": [z["via"]], "created_at": now()}
-            await db.zone.insert_one(dict(zona))
+            zid = stable_id(f"{low}/zone/{zi}")
+            await db.zone.update_one({"id": zid}, {"$setOnInsert": {
+                "id": zid, "comune_id": cid, "nome": z["nome"],
+                "descrizione": f"Zona {z['nome']} — {z['q']}", "quartiere": z["q"],
+                "polygon": rect_polygon(lat, lng), "vie": [z["via"]], "created_at": now(),
+            }}, upsert=True)
+            ids = []
+            for i in range(3 if zi == 0 else 2):
+                index = zi * 3 + i
+                tipo, formato, prezzo, img = TIPI[index]
+                iid = stable_id(f"{low}/impianto/{index}")
+                ids.append(iid)
+                await db.impianti.update_one({"id": iid}, {"$setOnInsert": {
+                    "id": iid, "comune_id": cid, "zona_id": zid,
+                    "codice": f"{d['sigla']}-DEMO-{index + 1:03d}",
+                    "via": z["via"], "indirizzo": f"{z['via']}, {10 + i * 22}",
+                    "lat": lat - 0.0015 + i * 0.0015, "lng": lng - 0.002 + i * 0.002,
+                    "tipologia": tipo, "formato": formato, "dimensioni": formato,
+                    "categoria": "dooh" if "Led" in tipo or "Mupi" in tipo else ("maxi" if "6x3" in tipo else "cartacee"),
+                    "prezzo": float(prezzo), "foto_url": img, "foto_urls": [img],
+                    "giorni_minimi": 1, "note": "Impianto dimostrativo", "attivo": True,
+                    "created_at": now(),
+                }}, upsert=True)
+            pid = stable_id(f"{low}/circuito/{zi}")
+            await db.pacchetti.update_one({"id": pid}, {"$setOnInsert": {
+                "id": pid, "comune_id": cid, "zona_id": zid, "nome": f"Circuito {z['via']}",
+                "descrizione": f"{len(ids)} impianti — {z['nome']}, {nome}",
+                "impianti_ids": ids, "form_template_id": tid, "attivo": True, "created_at": now(),
+            }}, upsert=True)
+    return {"comuni": 3, "utenze_comunali": 9, "zone": 6, "circuiti": 6, "impianti": 15}
 
-            via = z["via"]
-            abbrev = "".join(w[0] for w in via.split()).upper()
-            impianti = []
-            for i in range(5):
-                tipo, formato, prezzo, img = TIPI[i % len(TIPI)]
-                # impianti distribuiti lungo la via
-                imp = {"id": str(uuid.uuid4()), "comune_id": cid, "zona_id": zona["id"],
-                       "codice": f"{d['sigla']}-{abbrev}-{i+1:03d}",
-                       "via": via, "indirizzo": f"{via}, {10 + i * 22}",
-                       "lat": lat - 0.003 + i * 0.0015, "lng": lng - 0.004 + i * 0.002,
-                       "tipologia": tipo, "formato": formato, "dimensioni": formato,
-                       "categoria": "dooh" if "Led" in tipo or "Mupi" in tipo else ("maxi" if "6x3" in tipo else "cartacee"),
-                       "prezzo": float(prezzo), "foto_url": img, "note": "", "attivo": True, "created_at": now()}
-                impianti.append(imp)
-            await db.impianti.insert_many([dict(i) for i in impianti])
 
-            await db.pacchetti.insert_one({
-                "id": str(uuid.uuid4()), "comune_id": cid, "zona_id": zona["id"],
-                "nome": f"Circuito {via}",
-                "descrizione": f"{len(impianti)} impianti lungo {via} ({z['nome']}, {nome})",
-                "impianti_ids": [i["id"] for i in impianti],
-                "form_template_id": tpl_ooh["id"], "attivo": True, "created_at": now()})
-            print(f"  {nome}/{z['nome']}: zona + Circuito {via} con {len(impianti)} impianti")
+async def main():
+    import bcrypt
+    client = AsyncIOMotorClient(os.environ.get("MONGO_URL") or os.environ["MONGODB_URI"])
+    try:
+        def hash_password(password):
+            return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+        result = await seed_three_cities(client[os.environ["DB_NAME"]], hash_password)
+        print("Catalogo demo disponibile:", result)
+    finally:
+        client.close()
 
-        snome, slat, slng, sind, canone = d["osp"]
-        await db.spazi.insert_one({
-            "id": str(uuid.uuid4()), "comune_id": cid, "citta": nome, "regione": d["regione"],
-            "nome": snome, "tipologia": "Progetto Speciale", "formato": "Area su misura",
-            "zona": d["zone"][0]["nome"], "zona_id": None, "indirizzo": sind,
-            "lat": slat, "lng": slng, "canone_giornaliero": canone,
-            "dimensioni": "Area su misura",
-            "descrizione": "Area comunale per eventi, occupazioni temporanee e progetti speciali.",
-            "disponibile": True, "foto_url": IMG_PIAZZA, "form_template_id": tpl_osp["id"], "created_at": now()})
-        print(f"  {nome}: 1 area OSP ({snome})")
 
-    print("Seed demo completato: 3 comuni, 9 utenze comunali, 9 zone, 9 circuiti, 45 impianti, 0 pratiche.")
-
-asyncio.run(main())
+if __name__ == "__main__":
+    asyncio.run(main())

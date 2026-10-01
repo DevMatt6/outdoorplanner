@@ -1192,9 +1192,20 @@ async def startup():
     await db.pratiche.create_index("user_id")
     await db.pratiche.create_index("comune_id")
     await db.prenotazioni.create_index("stato")
+    if os.environ.get('VERCEL'):
+        migration_id = "demo-three-cities-2026-10-01"
+        if not await db.migrations.find_one({"_id": migration_id}):
+            from seed_demo import seed_three_cities
+            result = await seed_three_cities(db, hash_password)
+            await db.migrations.update_one(
+                {"_id": migration_id},
+                {"$setOnInsert": {"completed_at": now_iso(), "result": result}},
+                upsert=True,
+            )
     from seed import seed_all, ensure_livelli, ensure_catalogo
     await seed_all(db, hash_password)
-    await ensure_livelli(db, hash_password)
+    if not os.environ.get('VERCEL'):
+        await ensure_livelli(db, hash_password)
     await ensure_catalogo(db)
 
     # Serverless instances do not provide a persistent background worker.

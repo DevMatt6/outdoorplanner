@@ -59,3 +59,14 @@ cd frontend
 yarn install --frozen-lockfile
 WATCHPACK_POLLING=1000 yarn start
 ```
+
+## Catalogo demo Roma / Napoli / Milano
+
+`backend/seed_demo.py` inserisce 2 zone, 2 circuiti (3 + 2 impianti) e 5 impianti
+per comune. Gli account comunali sono `{comune}.l1@demo.it`,
+`{comune}.l2@demo.it`, `{comune}.l3@demo.it`, con password `demo123`.
+Lo script è ripetibile, conserva gli account e le risorse già presenti e non cancella dati.
+
+Su Vercel il seed viene applicato una sola volta all’avvio, registrando la migrazione
+`demo-three-cities-2026-10-01` nella collezione `migrations`. Un reset successivo
+non lo riapplica automaticamente. Il database locale non viene copiato online.
