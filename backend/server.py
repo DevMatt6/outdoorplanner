@@ -22,13 +22,15 @@ from pydantic import BaseModel
 from reportlab.pdfgen import canvas as pdf_canvas
 from reportlab.lib.pagesizes import A4
 
-mongo_url = os.environ['MONGO_URL']
+mongo_url = os.environ.get('MONGO_URL') or os.environ['MONGODB_URI']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
 DEFAULT_UPLOAD_DIR = '/tmp/outdoorplanner/uploads' if os.environ.get('VERCEL') else str(ROOT_DIR.parent / 'uploads')
 UPLOAD_DIR = Path(os.environ.get('UPLOAD_DIR', DEFAULT_UPLOAD_DIR))
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+from upload_storage import UploadStorage
+upload_storage = UploadStorage(db, UPLOAD_DIR)
 
 app = FastAPI()
 api_router = APIRouter(prefix="/api")
@@ -414,11 +416,9 @@ async def upload_documento(pratica_id: str, tipo: str = "documento", file: Uploa
     pratica = await db.pratiche.find_one({"id": pratica_id, "user_id": user["id"]}, {"_id": 0})
     if not pratica:
         raise HTTPException(status_code=404, detail="Pratica non trovata")
-    folder = UPLOAD_DIR / pratica_id
-    folder.mkdir(exist_ok=True)
-    safe_name = f"{uuid.uuid4().hex[:8]}_{file.filename}"
+    safe_name = f"{uuid.uuid4().hex[:8]}_{Path(file.filename or 'documento').name}"
     content = await file.read()
-    (folder / safe_name).write_bytes(content)
+    await upload_storage.save(f"{pratica_id}/{safe_name}", content)
     doc = {"id": str(uuid.uuid4()), "nome": file.filename, "tipo": tipo,
            "url": f"/api/uploads/{pratica_id}/{safe_name}", "uploaded_at": now_iso()}
     await db.pratiche.update_one({"id": pratica_id}, {"$push": {"documenti": doc}, "$set": {"updated_at": now_iso()}})
@@ -732,10 +732,8 @@ async def upload_foto_spazio(file: UploadFile = File(...), user: dict = Depends(
     ext = (file.filename or "img").rsplit(".", 1)[-1].lower()
     if ext not in ("jpg", "jpeg", "png", "webp"):
         raise HTTPException(status_code=400, detail="Formato non supportato (JPG, PNG, WebP)")
-    folder = UPLOAD_DIR / "spazi"
-    folder.mkdir(exist_ok=True)
     name = f"{uuid.uuid4().hex[:10]}.{ext}"
-    (folder / name).write_bytes(await file.read())
+    await upload_storage.save(f"spazi/{name}", await file.read())
     return {"url": f"/api/uploads/spazi/{name}"}
 
 @api_router.get("/comune/report/spazi")
@@ -984,10 +982,8 @@ async def upload_logo(file: UploadFile = File(...), user: dict = Depends(require
     ext = (file.filename or "img").rsplit(".", 1)[-1].lower()
     if ext not in ("png", "svg", "jpg", "jpeg", "webp"):
         raise HTTPException(status_code=400, detail="Formato non supportato (PNG, SVG)")
-    folder = UPLOAD_DIR / "loghi"
-    folder.mkdir(exist_ok=True)
     name = f"{uuid.uuid4().hex[:10]}.{ext}"
-    (folder / name).write_bytes(await file.read())
+    await upload_storage.save(f"loghi/{name}", await file.read())
     return {"url": f"/api/uploads/loghi/{name}"}
 
 @api_router.get("/admin/comuni")
@@ -1132,7 +1128,7 @@ async def reset_piattaforma(data: ResetIn, user: dict = Depends(require_role("su
         raise HTTPException(status_code=400, detail="Digita RESET per confermare l'operazione")
     collections = ["comuni", "zone", "impianti", "pacchetti", "spazi", "pratiche", "campagne",
                    "prenotazioni", "soggetti", "creativita", "form_templates", "log_stato",
-                   "chat", "notifiche", "notifications", "occupazioni"]
+                   "chat", "notifiche", "notifications", "occupazioni", "uploads.files", "uploads.chunks"]
     dettaglio = {}
     for coll in collections:
         r = await db[coll].delete_many({})
@@ -1172,8 +1168,12 @@ async def elimina_comune(comune_id: str, user: dict = Depends(require_role("supe
 
 from ooh import build as build_ooh, snapshot_richiedente, prefill_dati_form
 ooh_router, expire_holds = build_ooh(db, get_current_user, require_role, require_comune_l3,
-                                     notifica, log_stato, now_iso, UPLOAD_DIR)
+                                     notifica, log_stato, now_iso, UPLOAD_DIR, upload_storage.save)
 api_router.include_router(ooh_router)
+
+@api_router.get("/uploads/{path:path}")
+async def download_upload(path: str):
+    return await upload_storage.get(path)
 
 app.include_router(api_router)
 app.mount("/api/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")

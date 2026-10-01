@@ -13,7 +13,8 @@ Impostazioni del progetto Vercel:
 - Rimuovere eventuali override globali di install/build/output; sono definiti per servizio.
 
 Variabili d'ambiente del backend (Production e, se necessario, Preview):
-- `MONGO_URL`: URI di un database MongoDB online, ad esempio Atlas; non localhost.
+- `MONGODB_URI`: fornita automaticamente dall’integrazione MongoDB Atlas su Vercel.
+  In alternativa è supportata `MONGO_URL`; non usare localhost.
 - `DB_NAME`: nome del database dedicato (usare database distinti per preview e produzione).
 - `JWT_SECRET`: segreto casuale robusto, mantenuto invariato tra deploy.
 - `CORS_ORIGINS`: URL del sito, se si usa un frontend su un dominio diverso.
@@ -30,10 +31,10 @@ modifica il commit GitHub già usato dal deploy fallito.
 
 - Il seed automatico crea account demo con password `demo123` quando non trova il
   superadmin: questa configurazione serve per una demo, non per dati reali.
-- Gli upload su Vercel usano `/tmp`, uno spazio temporaneo: documenti, foto e
-  creatività caricati non sono persistenti né condivisi tra istanze. Prima dell'uso
-  reale integrare uno storage durevole (ad esempio Blob o S3). Il database resta
-  su MongoDB e non viene salvato nel filesystem Vercel.
+- Documenti, foto, loghi e creatività sono persistenti in MongoDB GridFS e
+  condivisi tra istanze. Il piano gratuito Atlas ha 512 MB complessivi; gli upload
+  via API restano soggetti ai limiti di richiesta Vercel. I file legacy nel
+  checkout locale continuano a essere accessibili.
 - Le scadenze OOH sono controllate durante le richieste; per notifiche puntuali
   senza traffico serve un job schedulato esterno.
 - Pagamenti e invio email sono simulati.

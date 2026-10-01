@@ -94,7 +94,7 @@ def _giorni(inizio: str, fine: str) -> int:
     return max((d2 - d1).days + 1, 1)
 
 
-def build(db, get_current_user, require_role, require_comune_l3, notifica, log_stato, now_iso, upload_dir):
+def build(db, get_current_user, require_role, require_comune_l3, notifica, log_stato, now_iso, upload_dir, save_upload):
     router = APIRouter()
 
     # ---------- scadenza hold ----------
@@ -467,10 +467,8 @@ def build(db, get_current_user, require_role, require_comune_l3, notifica, log_s
         ext = (file.filename or "img").rsplit(".", 1)[-1].lower()
         if ext not in ("jpg", "jpeg", "png", "webp", "pdf", "mp4", "gif"):
             raise HTTPException(status_code=400, detail="Formato file non supportato (JPG, PNG, PDF, MP4, GIF)")
-        folder = upload_dir / "creativita"
-        folder.mkdir(exist_ok=True)
         name = f"{uuid.uuid4().hex[:10]}.{ext}"
-        (folder / name).write_bytes(await file.read())
+        await save_upload(f"creativita/{name}", await file.read())
         sog = {"id": str(uuid.uuid4()), "campagna_id": campagna_id, "user_id": user["id"],
                "formato": formato, "ordine": ordine, "nome": nome or f"Soggetto {ordine} — {formato}",
                "file_nome": file.filename, "file_url": f"/api/uploads/creativita/{name}",
