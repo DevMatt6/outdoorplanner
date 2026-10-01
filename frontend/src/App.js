@@ -4,7 +4,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Toaster } from "sonner";
 import { useAuth, homeFor } from "./store/auth";
 import Auth from "./pages/Auth";
-import Spazi from "./pages/Spazi";
+import { SpaziCatalog } from "./pages/Spazi";
 import SpazioDetail from "./pages/SpazioDetail";
 import UserDashboard from "./pages/user/UserDashboard";
 import Home from "./pages/user/Home";
@@ -47,7 +47,8 @@ function App() {
         <Routes>
           <Route path="/" element={<Auth />} />
           <Route path="/login" element={<Auth />} />
-          <Route path="/spazi" element={<Spazi />} />
+          <Route path="/spazi" element={<Protected role="user"><CampagnaPlanner /></Protected>} />
+          <Route path="/spazi/catalogo" element={<SpaziCatalog />} />
           <Route path="/spazi/:id" element={<SpazioDetail />} />
           <Route path="/home" element={<Protected role="user"><Home /></Protected>} />
           <Route path="/dashboard" element={<Protected role="user"><UserDashboard /></Protected>} />

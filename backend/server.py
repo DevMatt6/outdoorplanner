@@ -523,7 +523,7 @@ async def crea_campagna(data: CampagnaIn, user: dict = Depends(require_role("use
     ids = list(dict.fromkeys(data.spazi_ids))
     if not ids:
         raise HTTPException(status_code=400, detail="Seleziona almeno uno spazio")
-    spazi = await db.spazi.find({"id": {"$in": ids}}, {"_id": 0}).to_list(100)
+    spazi = await db.spazi.find({"id": {"$in": ids}}, {"_id": 0}).to_list(len(ids))
     if len(spazi) != len(ids):
         raise HTTPException(status_code=404, detail="Uno o più spazi non trovati")
     non_disp = []
@@ -563,7 +563,7 @@ async def crea_campagna(data: CampagnaIn, user: dict = Depends(require_role("use
     return {**campagna, "pratiche": pratiche}
 
 async def _enrich_campagna(c: dict) -> dict:
-    pratiche = await db.pratiche.find({"campagna_id": c["id"]}, {"_id": 0}).to_list(100)
+    pratiche = await db.pratiche.find({"campagna_id": c["id"]}, {"_id": 0}).to_list(500)
     per_stato: dict = {}
     for p in pratiche:
         per_stato[p["stato"]] = per_stato.get(p["stato"], 0) + 1
@@ -598,7 +598,7 @@ async def checkout_campagna(campagna_id: str, user: dict = Depends(require_role(
     if not c:
         raise HTTPException(status_code=404, detail="Campagna non trovata")
     tx = f"MOCK-{uuid.uuid4().hex[:10].upper()}"
-    pratiche = await db.pratiche.find({"campagna_id": campagna_id, "pagata": False}, {"_id": 0}).to_list(100)
+    pratiche = await db.pratiche.find({"campagna_id": campagna_id, "pagata": False}, {"_id": 0}).to_list(500)
     for p in pratiche:
         await db.pratiche.update_one({"id": p["id"]}, {"$set": {
             "pagata": True,
@@ -612,7 +612,7 @@ async def invia_campagna(campagna_id: str, user: dict = Depends(require_role("us
     c = await db.campagne.find_one({"id": campagna_id, "user_id": user["id"]}, {"_id": 0})
     if not c:
         raise HTTPException(status_code=404, detail="Campagna non trovata")
-    pratiche = await db.pratiche.find({"campagna_id": campagna_id, "stato": "BOZZA"}, {"_id": 0}).to_list(100)
+    pratiche = await db.pratiche.find({"campagna_id": campagna_id, "stato": "BOZZA"}, {"_id": 0}).to_list(500)
     non_pagate = [p for p in pratiche if not p["pagata"]]
     if non_pagate:
         raise HTTPException(status_code=400, detail="Completa il pagamento prima di inviare")
@@ -1204,6 +1204,16 @@ async def startup():
         if not await db.migrations.find_one({"_id": migration_id}):
             from seed_demo import seed_three_cities
             result = await seed_three_cities(db, hash_password)
+            await db.migrations.update_one(
+                {"_id": migration_id},
+                {"$setOnInsert": {"completed_at": now_iso(), "result": result}},
+                upsert=True,
+            )
+    if os.environ.get('VERCEL'):
+        migration_id = "demo-rich-catalog-2026-10-01-v1"
+        if not await db.migrations.find_one({"_id": migration_id}):
+            from seed_demo import seed_rich_catalog
+            result = await seed_rich_catalog(db, hash_password)
             await db.migrations.update_one(
                 {"_id": migration_id},
                 {"$setOnInsert": {"completed_at": now_iso(), "result": result}},

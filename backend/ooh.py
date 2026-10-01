@@ -208,7 +208,7 @@ def build(db, get_current_user, require_role, require_comune_l3, notifica, log_s
         ids = list(dict.fromkeys(data.pacchetti_ids))
         if not ids:
             raise HTTPException(status_code=400, detail="Seleziona almeno un pacchetto")
-        pacchetti = await db.pacchetti.find({"id": {"$in": ids}, "attivo": True}, {"_id": 0}).to_list(50)
+        pacchetti = await db.pacchetti.find({"id": {"$in": ids}, "attivo": True}, {"_id": 0}).to_list(len(ids))
         if len(pacchetti) != len(ids):
             raise HTTPException(status_code=404, detail="Uno o più pacchetti non trovati")
         sel_map = {}

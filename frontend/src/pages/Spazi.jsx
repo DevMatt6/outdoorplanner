@@ -11,7 +11,7 @@ import { Megaphone, Landmark, ArrowLeft } from "lucide-react";
 
 const PublicShell = ({ children }) => (<div className="min-h-screen"><NavBar />{children}</div>);
 
-export default function Spazi() {
+export function SpaziCatalog() {
   const [params, setParams] = useSearchParams();
   const [all, setAll] = useState([]);
   const [comuni, setComuni] = useState([]);
@@ -75,9 +75,9 @@ export default function Spazi() {
           <h1 className="text-3xl sm:text-4xl font-heading font-extrabold tracking-tight">
             Spazi OSP / Eventi {filters.citta ? <span className="text-[#1F3BB3]">· {filters.citta}{filters.zona ? ` / ${filters.zona}` : ""}</span> : filters.regione && <span className="text-[#1F3BB3]">· {filters.regione}</span>}
           </h1>
-          <button data-testid="avvia-campagna-button" onClick={() => navigate("/campagne/ooh/nuova")}
+          <button data-testid="avvia-campagna-button" onClick={() => navigate("/campagne/nuova")}
             className="inline-flex items-center gap-2 bg-[#1F3BB3] text-white rounded-full px-6 py-3 font-bold hover:bg-[#172E93] transition-colors">
-            <Megaphone size={17} /> Pianifica campagna OOH
+            <Megaphone size={17} /> Pianifica campagna OSP
           </button>
         </div>
         <p className="text-sm text-slate-500 mt-1">Aree comunali per eventi, occupazioni temporanee e progetti speciali: scegli il Comune e avvia la richiesta OSP.</p>

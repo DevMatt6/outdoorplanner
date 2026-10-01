@@ -1,6 +1,6 @@
-"""Seed demo: 3 comuni (Roma, Napoli, Milano), 3 operatori L1/L2/L3 ciascuno,
-2 zone e 2 circuiti per comune, 5 impianti totali distribuiti 3 + 2.
-Nessuna pratica. Ripetibile e senza cancellazioni."""
+"""Repeatable three-city demo catalog with rich OOH/OSP planning attributes.
+Preserves existing records and never creates practices or reservations.
+"""
 import asyncio
 import os
 import uuid
@@ -157,10 +157,84 @@ async def main():
     try:
         def hash_password(password):
             return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
-        result = await seed_three_cities(client[os.environ["DB_NAME"]], hash_password)
+        result = await seed_rich_catalog(client[os.environ["DB_NAME"]], hash_password)
         print("Catalogo demo disponibile:", result)
     finally:
         client.close()
+
+
+
+# Rich demo catalog: synthetic positions and suitability attributes, not measured data.
+EXTRA_ZONES = {
+    'Roma': [('Termini',41.901,12.501,'Piazza dei Cinquecento','stazione','pendolari'),('San Lorenzo',41.898,12.516,'Via Tiburtina','universita','studenti'),('Prati',41.910,12.464,'Via Cola di Rienzo','commerciale','famiglie'),('Ostiense',41.872,12.480,'Via Ostiense','residenziale','famiglie')],
+    'Napoli': [('Stazione Centrale',40.853,14.272,'Piazza Garibaldi','stazione','pendolari'),('Università',40.847,14.257,'Corso Umberto I','universita','studenti'),('Chiaia',40.834,14.239,'Via Chiaia','commerciale','turisti'),('Fuorigrotta',40.826,14.193,'Viale Augusto','residenziale','famiglie')],
+    'Milano': [('Centrale',45.485,9.204,'Piazza Duca d’Aosta','stazione','pendolari'),('Città Studi',45.478,9.229,'Piazza Leonardo da Vinci','universita','studenti'),('Duomo',45.464,9.190,'Via Torino','commerciale','turisti'),('Bicocca',45.514,9.211,'Viale Piero e Alberto Pirelli','residenziale','famiglie')],
+}
+RICH_TYPES = TIPI + [
+    ('Manifesto 70x100','70x100 cm',45,IMG_BILLBOARD),
+    ('Schermo su Edicola/Chiosco','Schermo 55"',95,IMG_LED),
+    ('Mega Poster Stradale >18mq','12x6 m',850,IMG_BILLBOARD),
+    ('Impianto Digitale Temporaneo – SCIA','Ledwall 4x3 m',220,IMG_LED),
+]
+
+async def seed_rich_catalog(db, hash_password):
+    await seed_three_cities(db, hash_password)
+    await db.users.update_one({'email':'user@demo.it'},{'$setOnInsert':{
+        'id':stable_id('user@demo.it'),'email':'user@demo.it','nome':'Inserzionista Demo',
+        'ruolo':'user','attivo':True,'password_hash':hash_password('demo123'),'created_at':now()}},upsert=True)
+    for name, city in DATASET.items():
+        low = name.lower()
+        cid = (await db.comuni.find_one({'nome':name}))['id']
+        osp_template_id = stable_id(low+'/form-osp')
+        await db.form_templates.update_one({'id':osp_template_id},{'$setOnInsert':{
+            'id':osp_template_id,'comune_id':cid,'tipo':'OSP','nome':f'Modulo Eventi OSP — {name}',**MODULO_OSP,'updated_at':now()}},upsert=True)
+        zones = [dict(z, contesto='commerciale' if i==0 else 'centro', pubblico='famiglie' if i==0 else 'turisti') for i,z in enumerate(city['zone'])]
+        zones += [{'nome':n,'c':(lat,lng),'via':via,'q':'Zona demo','contesto':ctx,'pubblico':aud} for n,lat,lng,via,ctx,aud in EXTRA_ZONES[name]]
+        for zi,z in enumerate(zones):
+            lat,lng=z['c']; zid=stable_id(f'{low}/zone/{zi}')
+            await db.zone.update_one({'id':zid},{'$setOnInsert':{
+                'id':zid,'comune_id':cid,'nome':z['nome'],'quartiere':z['q'],
+                'descrizione':f"Zona dimostrativa {z['nome']} — {name}", 'polygon':rect_polygon(lat,lng),
+                'vie':[z['via']],'contesti':[z['contesto']],'pubblici':[z['pubblico']],'demo':True,'created_at':now()}},upsert=True)
+            # Fill missing recommendation metadata on the original five seeded installations.
+            if zi<2:
+                for i in range(3 if zi==0 else 2):
+                    legacy_id=stable_id(f'{low}/impianto/{zi*3+i}')
+                    for field,value in [('contesti',[z['contesto']]),('pubblici',[z['pubblico']])]:
+                        await db.impianti.update_one({'id':legacy_id,field:{'$exists':False}},{'$set':{field:value}})
+            ids=[]
+            for index in range(10):
+                tipo,fmt,base,img=RICH_TYPES[(index+zi)%len(RICH_TYPES)]
+                iid=stable_id(f'{low}/rich/impianto/{zi}/{index}');ids.append(iid)
+                await db.impianti.update_one({'id':iid},{'$setOnInsert':{
+                    'id':iid,'comune_id':cid,'zona_id':zid,'codice':f"{city['sigla']}-TEST-Z{zi+1}-{index+1:02d}",
+                    'via':z['via'],'indirizzo':f"{z['via']}, {20+index*12} (posizione demo)",
+                    'lat':round(lat+(index//5-0.5)*0.003,6),'lng':round(lng+(index%5-2)*0.0015,6),
+                    'tipologia':tipo,'formato':fmt,'dimensioni':fmt,'categoria':'dooh' if any(t in tipo.lower() for t in ['digitale','ledwall','schermo']) else ('maxi' if 'Poster' in tipo else 'cartacee'),
+                    'prezzo':round(base*(0.65+0.08*zi+0.03*index),2),'giorni_minimi':[1,3,7,14,1][index%5],
+                    'contesti':[z['contesto']]+(['commerciale'] if index%3==0 and z['contesto']!='commerciale' else []),
+                    'pubblici':[z['pubblico']]+(['pendolari'] if index%4==0 and z['pubblico']!='pendolari' else []),
+                    'foto_url':img,'foto_urls':[img],'note':'Dati sintetici per test; nessuna misura reale di audience o traffico.',
+                    'attivo':True,'demo':True,'created_at':now()}},upsert=True)
+            for group,group_ids in enumerate([ids[:4],ids[4:7],ids[7:]]):
+                pid=stable_id(f'{low}/rich/circuito/{zi}/{group}')
+                await db.pacchetti.update_one({'id':pid},{'$setOnInsert':{
+                    'id':pid,'comune_id':cid,'zona_id':zid,'nome':f"{z['nome']} · Circuito demo {group+1}",
+                    'descrizione':f"{len(group_ids)} impianti con prezzi e durate variabili — catalogo di test",
+                    'impianti_ids':group_ids,'form_template_id':stable_id(f'{low}/form-ooh'),'attivo':True,'demo':True,'created_at':now()}},upsert=True)
+            for index,(activity,surface,price) in enumerate([(['sampling','stand'],30,35),(['sampling','stand','installazione'],60,70),(['evento','stand'],120,140),(['evento','installazione'],250,250),(['evento','sampling','stand','installazione'],500,400),(['evento','installazione'],1000,650)]):
+                sid=stable_id(f'{low}/rich/osp/{zi}/{index}')
+                await db.spazi.update_one({'id':sid},{'$setOnInsert':{
+                    'id':sid,'comune_id':cid,'citta':name,'regione':city['regione'],'zona':z['nome'],'zona_id':zid,
+                    'nome':f"{z['nome']} — {['Area sampling','Stand promozionale','Spazio incontri','Area installazioni','Piazza eventi','Area grandi eventi'][index]}",
+                    'indirizzo':f"{z['via']}, area demo {index+1}",'lat':round(lat+(index//3-0.5)*0.003,6),'lng':round(lng+(index%3-1)*0.002,6),
+                    'tipologia':'Progetto Speciale','formato':'Area OSP','canone_giornaliero':round(price*(1+zi*0.06),2),
+                    'superficie_mq':surface,'attivita_ammesse':activity,'contesti':[z['contesto']],'pubblici':[z['pubblico']],
+                    'giorni_minimi':[1,1,3,7,1,14][index],'form_template_id':osp_template_id,'opzioni':{'energia_elettrica':index%2==0,'accessibile':True},
+                    'descrizione':f"Area sintetica da {surface} m² per test di budget, attività e prossimità. Non rappresenta una concessione reale.",
+                    'foto_url':IMG_PIAZZA,'disponibile':True,'demo':True,'created_at':now()}},upsert=True)
+    counts={collection:await db[collection].count_documents({'comune_id':{'$in':[(await db.comuni.find_one({'nome':name}))['id'] for name in DATASET]}}) for collection in ['zone','impianti','pacchetti','spazi']}
+    return {'comuni':3,'utenze_comunali':9,**counts}
 
 
 if __name__ == "__main__":

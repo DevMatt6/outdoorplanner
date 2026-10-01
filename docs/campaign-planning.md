@@ -20,7 +20,9 @@ For presence in every city, reserve the cheapest eligible item in each city firs
 
 Catalog editors let municipalities supply real contexts and relevant audiences, and for OSP allowed activities and available square metres. Unknown context/audience data do not imply measured reach. Missing OSP data exclude areas when activity/surface requirements were specified. No traffic, impression or conversion measurements are fabricated.
 
-The current demo contains 15 OOH installations and no OSP areas; add OSP areas and their suitability data in the municipality backoffice to use OSP recommendations.
+The signed-in OSP entry point `/spazi` opens the multistep planner; `/spazi/catalogo` remains the browsable catalog. `/campagne/nuova` is also available.
+
+Run `.venv/bin/python backend/seed_demo.py` to populate the configured database. The rich seed preserves existing edits and uses stable IDs. In a clean three-city database it supplies 18 zones, 195 OOH installations, 60 circuits, 108 OSP areas and OOH/OSP form templates. It includes all nine OOH typologies, minimum durations of 1/3/7/14 days, varying daily prices, audience/context labels, four OSP activities and surfaces from 30 to 1000 m². Positions and suitability attributes are synthetic and marked as demo; no real traffic/visibility measurements are asserted. Existing campaigns, reservations and accounts are preserved. It does not create fake occupancy or transactions.
 
 ## Verification
 
@@ -29,8 +31,11 @@ From repository root:
 ```sh
 .venv/bin/python backend/tests/test_campaign_planning.py
 .venv/bin/python backend/tests/test_planning_api.py
+.venv/bin/python backend/tests/test_rich_seed.py
 cd frontend
 yarn build
 ```
 
 The API integration script requires `httpx` as a test-only dependency and a local MongoDB on port 27017. It creates a unique test database and drops only that database on completion. It checks inventory conflicts, minimum duration, exclusions, budget validation before writes, saved briefs and the existing OOH post-approval / OSP pre-submission payment rules.
+
+Local advertiser demo: `user@demo.it` / `demo123`. Commune operators: `roma.l1@demo.it`, `roma.l2@demo.it`, `roma.l3@demo.it` (similarly `napoli` and `milano`), password `demo123` for newly seeded accounts; existing passwords are preserved.

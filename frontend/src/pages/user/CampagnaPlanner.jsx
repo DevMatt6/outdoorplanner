@@ -8,7 +8,6 @@ import { DynamicField, isVisible } from "../../components/DynamicField";
 import { EsploraMappa } from "../../components/EsploraMappa";
 import { SpazioCard } from "../../components/SpazioCard";
 import { api, apiError, imgSrc } from "../../lib/api";
-import { TIPOLOGIE, FORMATI } from "../../lib/catalogo";
 import { toast } from "sonner";
 import { CreditCard, Send, Upload, Landmark, ArrowLeft } from "lucide-react";
 
@@ -25,7 +24,6 @@ export default function CampagnaPlanner() {
   const [comuniSel, setComuniSel] = useState([]);
   const [nome, setNome] = useState("");
   const [range, setRange] = useState();
-  const [filtri, setFiltri] = useState({ tipologia: "", formato: "" });
   const [regioneSel, setRegioneSel] = useState("");
   const [comuneSel, setComuneSel] = useState("");
   const [zonaSel, setZonaSel] = useState("");
@@ -57,9 +55,8 @@ export default function CampagnaPlanner() {
     setSelected((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
 
   const filtrati = useMemo(() => disponibili.filter((s) =>
-    comuniSel.includes(s.comune_id) && catalogCompatible(s, brief, "OSP", giorni) &&
-    (!filtri.tipologia || s.tipologia === filtri.tipologia) && (!filtri.formato || s.formato === filtri.formato)
-  ), [disponibili, filtri, comuniSel, brief, giorni]);
+    comuniSel.includes(s.comune_id) && catalogCompatible(s, brief, "OSP", giorni)
+  ), [disponibili, comuniSel, brief, giorni]);
 
   const countPerComune = useMemo(() => {
     const m = {};
@@ -229,14 +226,6 @@ export default function CampagnaPlanner() {
             <div className="space-y-5">
               <div className="flex flex-wrap items-center gap-3">
                 <h2 className="font-heading font-extrabold text-xl flex-1">Spazi disponibili {dal} → {al}</h2>
-                <select data-testid="planner-filter-tipologia" className={input} value={filtri.tipologia} onChange={(e) => setFiltri({ ...filtri, tipologia: e.target.value })}>
-                  <option value="">Tipologia impianto</option>
-                  {TIPOLOGIE.map((t) => <option key={t}>{t}</option>)}
-                </select>
-                <select data-testid="planner-filter-formato" className={input} value={filtri.formato} onChange={(e) => setFiltri({ ...filtri, formato: e.target.value })}>
-                  <option value="">Formato</option>
-                  {FORMATI.map((f) => <option key={f}>{f}</option>)}
-                </select>
                 <span className="text-sm text-slate-500 font-mono">{filtrati.length} disponibili</span>
               </div>
 
@@ -285,7 +274,7 @@ export default function CampagnaPlanner() {
                       <SpazioCard key={s.id} spazio={s} selectable selected={selected.includes(s.id)} onClick={() => toggle(s.id)} />
                     ))}
                   </div>
-                  {gridSpazi.length === 0 && <div className="text-sm text-slate-500 p-6 text-center border border-slate-100 rounded-2xl">Nessuno spazio disponibile qui per il periodo/filtri.</div>}
+                  {gridSpazi.length === 0 && <div className="text-sm text-slate-500 p-6 text-center border border-slate-100 rounded-2xl">Nessuno spazio disponibile qui per il periodo e i requisiti scelti.</div>}
                 </div>
               )}
 
