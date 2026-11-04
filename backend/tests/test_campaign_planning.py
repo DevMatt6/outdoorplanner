@@ -4,7 +4,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from fastapi import HTTPException
 from pydantic import ValidationError
-from campaign_planning import CampaignBrief, check_selection, period_days, recommend
+from campaign_planning import CampaignBrief, OSPCampaignBrief, CatalogPlanning, check_selection, period_days, recommend
 
 
 def item(id, city='roma', cost=10, **extra):
@@ -76,5 +76,41 @@ class PlanningTests(unittest.TestCase):
             with self.assertRaises(HTTPException): period_days(start, end)
         for change in [{'budget': float('nan')}, {'budget': -1}, {'lat': 41.9}, {'obiettivo': 'unknown'}]:
             with self.assertRaises(ValidationError): self.brief(**change)
+
+class OSPBudgetOnlyTests(unittest.TestCase):
+    def test_budget_only_osp_is_accepted_without_an_objective(self):
+        brief = OSPCampaignBrief(budget=90, comuni_ids=['roma', 'milano'])
+        self.assertIsNone(brief.obiettivo)
+        check_selection(brief, [item('r', cost=10), item('m', 'milano', cost=20)], 'OSP', 3)
+
+    def test_osp_still_enforces_budget_municipalities_and_minimum_duration(self):
+        cases = [
+            (OSPCampaignBrief(budget=89, comuni_ids=['roma', 'milano']), [item('r', cost=10), item('m', 'milano', cost=20)], 3),
+            (OSPCampaignBrief(budget=100, comuni_ids=['roma', 'milano']), [item('r')], 1),
+            (OSPCampaignBrief(budget=100, comuni_ids=['roma']), [item('m', 'milano')], 1),
+            (OSPCampaignBrief(budget=100, comuni_ids=['roma']), [item('r', giorni_minimi=5)], 3),
+        ]
+        for brief, spaces, days in cases:
+            with self.assertRaises(HTTPException): check_selection(brief, spaces, 'OSP', days)
+
+    def test_ooh_still_requires_a_valid_objective(self):
+        with self.assertRaises(ValidationError): CampaignBrief(budget=100, comuni_ids=['roma'])
+        with self.assertRaises(ValidationError): CampaignBrief(obiettivo=None, budget=100)
+
+class OSPCapacityTests(unittest.TestCase):
+    def test_capacity_and_attendance_are_positive_integers(self):
+        for value in [0, -1, 2.5, '20', True]:
+            with self.assertRaises(ValidationError): CatalogPlanning(capienza=value)
+            with self.assertRaises(ValidationError): OSPCampaignBrief(budget=100, persone_previste=value)
+        self.assertEqual(CatalogPlanning(capienza=100, superficie_mq=55.5).capienza, 100)
+
+    def test_selection_enforces_declared_capacity_and_rejects_unknown(self):
+        brief = OSPCampaignBrief(budget=100, comuni_ids=['roma'], persone_previste=50)
+        check_selection(brief, [item('yes', capienza=50)], 'OSP', 1)
+        for extra in [{}, {'capienza': None}, {'capienza': 49}]:
+            with self.assertRaises(HTTPException): check_selection(brief, [item('no', **extra)], 'OSP', 1)
+
+    def test_legacy_osp_without_attendance_remains_compatible(self):
+        check_selection(OSPCampaignBrief(budget=100, comuni_ids=['roma']), [item('legacy')], 'OSP', 1)
 
 if __name__ == '__main__': unittest.main()

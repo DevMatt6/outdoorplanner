@@ -2,7 +2,14 @@ import "@/App.css";
 import { useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Toaster } from "sonner";
+import { ThemeProvider, useTheme } from "next-themes";
+
+function AppToaster() {
+  const { resolvedTheme } = useTheme();
+  return <Toaster theme={resolvedTheme} position="top-right" toastOptions={{ style: { borderRadius: "var(--radius)", border: "1px solid hsl(var(--border))", background: "hsl(var(--popover))", color: "hsl(var(--foreground))" } }} />;
+}
 import { useAuth, homeFor } from "./store/auth";
+import { ConfirmProvider } from "./components/ConfirmDialog";
 import Auth from "./pages/Auth";
 import { SpaziCatalog } from "./pages/Spazi";
 import SpazioDetail from "./pages/SpazioDetail";
@@ -41,9 +48,11 @@ function App() {
     if (localStorage.getItem("op_token")) refresh();
   }, [refresh]);
   return (
+    <ThemeProvider attribute="class" defaultTheme="light" enableSystem storageKey="op_theme">
     <div className="App">
       <BrowserRouter>
-        <Toaster position="top-right" toastOptions={{ style: { borderRadius: 14, border: "1px solid #E5E7E4" } }} />
+        <AppToaster />
+        <ConfirmProvider>
         <Routes>
           <Route path="/" element={<Auth />} />
           <Route path="/login" element={<Auth />} />
@@ -73,8 +82,10 @@ function App() {
           <Route path="/admin/monitor" element={<Protected role="superadmin"><AdminMonitor /></Protected>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        </ConfirmProvider>
       </BrowserRouter>
     </div>
+    </ThemeProvider>
   );
 }
 

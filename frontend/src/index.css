@@ -1,124 +1,119 @@
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-body {
-    margin: 0;
-    font-family: 'Plus Jakarta Sans', sans-serif;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-    background: #F4F5F7;
-    color: #1F2937;
-}
-
-h1, h2, h3, h4, .font-heading {
-    font-family: 'Plus Jakarta Sans', sans-serif;
-    letter-spacing: -0.02em;
-}
-
-code, .font-mono {
-    font-family: 'JetBrains Mono', monospace;
-}
-
 @layer base {
-    :root {
-        --background: 220 16% 96%;
-        --foreground: 222 47% 11%;
-        --card: 0 0% 100%;
-        --card-foreground: 222 47% 11%;
-        --popover: 0 0% 100%;
-        --popover-foreground: 222 47% 11%;
-        --primary: 228 71% 41%;
-        --primary-foreground: 0 0% 100%;
-        --secondary: 220 50% 96%;
-        --secondary-foreground: 228 71% 35%;
-        --muted: 220 20% 96%;
-        --muted-foreground: 220 10% 46%;
-        --accent: 220 60% 94%;
-        --accent-foreground: 228 71% 35%;
-        --destructive: 354 70% 54%;
-        --destructive-foreground: 0 0% 100%;
-        --border: 220 20% 91%;
-        --input: 220 20% 88%;
-        --ring: 228 71% 41%;
-        --chart-1: 228 71% 41%;
-        --chart-2: 199 89% 48%;
-        --chart-3: 42 100% 50%;
-        --chart-4: 354 70% 54%;
-        --chart-5: 152 69% 31%;
-        --radius: 0.75rem;
-    }
+  :root {
+    color-scheme: light;
+    --font-ui: 'Geist', 'Inter', system-ui, sans-serif;
+    --background: 210 40% 98%;
+    --foreground: 222 47% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+    --primary: 228.648649 70.476190% 41.176471%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 212.537313 94.366197% 58.235294%;
+    --secondary-foreground: 222 47% 11%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%;
+    --brand-foreground: 228.648649 70.476190% 41.176471%;
+    --accent: 228 75% 97%;
+    --accent-foreground: 228.648649 70.476190% 41.176471%;
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 228.648649 70.476190% 41.176471%;
+    --success: 142 76% 36%;
+    --success-muted: 138 76% 97%;
+    --success-foreground: 142 72% 29%;
+    --warning: 38 92% 50%;
+    --warning-muted: 48 100% 96%;
+    --warning-foreground: 32 95% 29%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+    --destructive-muted: 0 86% 97%;
+    --info: 221 83% 53%;
+    --info-muted: 214 100% 97%;
+    --chart-1: 228.648649 70.476190% 41.176471%;
+    --chart-2: 212.537313 94.366197% 58.235294%;
+    --chart-3: 215 20% 65%;
+    --chart-4: 221 83% 53%;
+    --chart-5: 142 76% 36%;
+    --radius: 0.625rem;
+    --space-page: clamp(1rem, 3vw, 2rem);
+  }
+  .dark {
+    color-scheme: dark;
+    --background: 222 30% 7%;
+    --foreground: 210 40% 96%;
+    --card: 222 28% 10%;
+    --card-foreground: 210 40% 96%;
+    --popover: 222 28% 10%;
+    --popover-foreground: 210 40% 96%;
+    --primary: 228.648649 70.476190% 41.176471%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 212.537313 94.366197% 58.235294%;
+    --secondary-foreground: 222 47% 11%;
+    --muted: 217 25% 14%;
+    --muted-foreground: 215 20% 65%;
+    --brand-foreground: 212.537313 94.366197% 58.235294%;
+    --accent: 228 35% 18%;
+    --accent-foreground: 210 40% 96%;
+    --border: 217 25% 20%;
+    --input: 217 25% 24%;
+    --ring: 212.537313 94.366197% 58.235294%;
+    --success: 142 69% 58%;
+    --success-foreground: 142 69% 70%;
+    --success-muted: 142 35% 12%;
+    --warning: 38 92% 60%;
+    --warning-foreground: 43 96% 70%;
+    --warning-muted: 38 35% 12%;
+    --destructive: 0 85% 70%;
+    --destructive-foreground: 222 47% 11%;
+    --destructive-muted: 0 35% 13%;
+    --info: 217 91% 70%;
+    --info-muted: 221 40% 14%;
+    --chart-1: 228.648649 70.476190% 41.176471%;
+    --chart-2: 212.537313 94.366197% 58.235294%;
+    --chart-3: 215 20% 45%;
+    --chart-4: 217 91% 70%;
+    --chart-5: 142 69% 58%;
+  }
+  * { @apply border-border; }
+  body { @apply bg-background text-foreground; margin: 0; font-family: var(--font-ui); font-size: 14px; -webkit-font-smoothing: antialiased; }
+  h1, h2, h3, h4, .font-heading { font-family: inherit; letter-spacing: -0.025em; }
+  h1 { font-weight: 600; }
+  code, kbd, samp, pre { font-family: var(--font-ui); }
+  button, input, select, textarea { font: inherit; }
+  button, a, input, select, textarea, [tabindex] { -webkit-tap-highlight-color: transparent; }
+  :focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 3px; }
+  button:disabled { cursor: not-allowed; }
+  input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=file]), select, textarea { background-color: hsl(var(--card)); color: hsl(var(--foreground)); }
+  input::placeholder, textarea::placeholder { color: hsl(var(--muted-foreground)); }
+  table { font-variant-numeric: tabular-nums; }
+  th { white-space: nowrap; }
+  ::selection { background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); }
 }
-
-@layer base {
-    * {
-        @apply border-border;
-    }
-    body {
-        @apply bg-background text-foreground;
-    }
-    ::selection {
-        background: #1F3BB3;
-        color: #ffffff;
-    }
+@layer components {
+  .workspace-content { padding: var(--space-page); max-width: 1600px; margin-inline: auto; }
+  .workspace-content h1 { font-size: clamp(24px, 2.2vw, 30px); line-height: 1.25; }
+  .workspace-content h2 { font-size: 20px; }
+  .workspace-content table:not([role="grid"]) { min-width: 640px; }
+  .workspace-content table:not([role="grid"]) th { font-weight: 500; text-transform: none; letter-spacing: normal; background: hsl(var(--muted) / .5); }
+  .workspace-content table:not([role="grid"]) td { vertical-align: middle; }
+  .workspace-content tr:last-child { border-bottom: 0; }
+  .skip-link { @apply fixed left-4 top-4 z-[2000] -translate-y-24 rounded-md bg-primary px-4 py-2 text-primary-foreground focus:translate-y-0; }
+  .page-eyebrow { @apply text-xs font-medium text-muted-foreground; }
 }
-
-::-webkit-scrollbar { width: 10px; height: 10px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #C9CFC7; border-radius: 8px; }
-::-webkit-scrollbar-thumb:hover { background: #1F3BB3; }
-
-/* Leaflet: look morbido coerente col tema */
-.leaflet-container {
-    font-family: 'Plus Jakarta Sans', sans-serif;
-    background: #E8EDE7;
-    border-radius: 1rem;
-}
-.leaflet-tooltip {
-    border-radius: 10px;
-    border: 1px solid #DDE2EC;
-    background: #ffffff;
-    color: #1F2937;
-    font-weight: 600;
-    padding: 6px 12px;
-}
-.leaflet-popup-content-wrapper {
-    border-radius: 14px;
-    border: 1px solid #DDE2EC;
-}
-.leaflet-bar a {
-    border-radius: 8px !important;
-}
-
-@layer base {
-    [data-debug-wrapper="true"] {
-        display: contents !important;
-    }
-    [data-debug-wrapper="true"] > * {
-        margin-left: inherit;
-        margin-right: inherit;
-        margin-top: inherit;
-        margin-bottom: inherit;
-        padding-left: inherit;
-        padding-right: inherit;
-        padding-top: inherit;
-        padding-bottom: inherit;
-        column-gap: inherit;
-        row-gap: inherit;
-        gap: inherit;
-        border-left-width: inherit;
-        border-right-width: inherit;
-        border-top-width: inherit;
-        border-bottom-width: inherit;
-        border-left-style: inherit;
-        border-right-style: inherit;
-        border-top-style: inherit;
-        border-bottom-style: inherit;
-        border-left-color: inherit;
-        border-right-color: inherit;
-        border-top-color: inherit;
-        border-bottom-color: inherit;
-    }
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-thumb { background: hsl(var(--border)); border-radius: 8px; }
+.leaflet-container { font-family: inherit; background: hsl(var(--muted)); border-radius: var(--radius); }
+.leaflet-tooltip, .leaflet-popup-content-wrapper { border: 1px solid hsl(var(--border)); border-radius: var(--radius); background: hsl(var(--card)); color: hsl(var(--foreground)); }
+.leaflet-bar a { border-radius: 6px !important; }
+[data-debug-wrapper="true"] { display: contents !important; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
 }

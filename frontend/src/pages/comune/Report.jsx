@@ -1,3 +1,4 @@
+import { LoadingState } from "../../components/LoadingState";
 import { useEffect, useState, Fragment } from "react";
 import { BarChart, Bar, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { BackofficeLayout, COMUNE_LINKS } from "../../components/BackofficeLayout";
@@ -17,14 +18,14 @@ export default function Report() {
     api.get("/comune/report/ooh").then(({ data }) => setOoh(data));
   }, []);
 
-  if (!report) return <BackofficeLayout title="Backoffice Comune" links={COMUNE_LINKS}><div className="text-slate-500">Caricamento...</div></BackofficeLayout>;
+  if (!report) return <BackofficeLayout title="Backoffice Comune" links={COMUNE_LINKS}><LoadingState /></BackofficeLayout>;
 
   const statoData = Object.entries(report.per_stato).map(([stato, count]) => ({ stato: STATO_COLORS[stato]?.label || stato, count, fill: STATO_COLORS[stato]?.dot }));
 
   return (
     <BackofficeLayout title="Backoffice Comune" links={COMUNE_LINKS}>
-      <h1 className="text-2xl sm:text-3xl font-heading font-extrabold tracking-tight" data-testid="report-title">Report & incassi</h1>
-      <div className="mt-6 grid grid-cols-2 md:grid-cols-4 border border-slate-100 rounded-2xl overflow-hidden divide-x divide-slate-100 bg-white">
+      <h1 className="text-2xl sm:text-3xl font-heading font-semibold tracking-tight" data-testid="report-title">Report & incassi</h1>
+      <div className="mt-6 grid grid-cols-2 md:grid-cols-4 border border-slate-100 rounded-xl overflow-hidden divide-x divide-slate-100 bg-card">
         {[
           [`${report.incassi_totali.toFixed(2)} €`, "Incassi totali"],
           [report.pratiche_totali, "Pratiche ricevute"],
@@ -32,50 +33,50 @@ export default function Report() {
           [report.spazi_totali, "Spazi a catalogo"],
         ].map(([v, l]) => (
           <div key={l} className="p-5">
-            <div className="font-heading font-extrabold text-2xl md:text-3xl">{v}</div>
-            <div className="text-xs uppercase tracking-wider text-slate-500 mt-1">{l}</div>
+            <div className="font-heading font-semibold text-2xl md:text-3xl">{v}</div>
+            <div className="text-xs tracking-normal text-slate-500 mt-1">{l}</div>
           </div>
         ))}
       </div>
 
       <div className="mt-6 grid lg:grid-cols-2 gap-6">
-        <div className="border border-slate-100 bg-white rounded-2xl overflow-hidden p-6">
-          <div className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-4">Pratiche per stato</div>
+        <div className="border border-slate-100 bg-card rounded-xl overflow-hidden p-6">
+          <div className="text-xs font-semibold tracking-normal text-slate-500 mb-4">Pratiche per stato</div>
           <ResponsiveContainer width="100%" height={280}>
             <BarChart data={statoData}>
-              <CartesianGrid strokeDasharray="0" stroke="#E2E8F0" vertical={false} />
+              <CartesianGrid strokeDasharray="0" stroke="hsl(var(--border))" vertical={false} />
               <XAxis dataKey="stato" tick={{ fontSize: 10 }} interval={0} angle={-20} textAnchor="end" height={60} />
               <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
-              <Tooltip contentStyle={{ borderRadius: 0, border: "1px solid #0F172A" }} />
+              <Tooltip contentStyle={{ borderRadius: 8, border: "1px solid hsl(var(--border))", background: "hsl(var(--popover))", color: "hsl(var(--foreground))" }} />
               <Bar dataKey="count" name="Pratiche" isAnimationActive={false}>
                 {statoData.map((d, i) => <Cell key={i} fill={d.fill} />)}
               </Bar>
             </BarChart>
           </ResponsiveContainer>
         </div>
-        <div className="border border-slate-100 bg-white rounded-2xl overflow-hidden p-6">
-          <div className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-4">Incassi per mese (€)</div>
+        <div className="border border-slate-100 bg-card rounded-xl overflow-hidden p-6">
+          <div className="text-xs font-semibold tracking-normal text-slate-500 mb-4">Incassi per mese (€)</div>
           <ResponsiveContainer width="100%" height={280}>
             <BarChart data={report.incassi_mese}>
-              <CartesianGrid strokeDasharray="0" stroke="#E2E8F0" vertical={false} />
+              <CartesianGrid strokeDasharray="0" stroke="hsl(var(--border))" vertical={false} />
               <XAxis dataKey="mese" tick={{ fontSize: 11 }} />
               <YAxis tick={{ fontSize: 11 }} />
-              <Tooltip contentStyle={{ borderRadius: 0, border: "1px solid #0F172A" }} />
-              <Bar dataKey="importo" name="Incassi" fill="#2B4BDB" isAnimationActive={false} />
+              <Tooltip contentStyle={{ borderRadius: 8, border: "1px solid hsl(var(--border))", background: "hsl(var(--popover))", color: "hsl(var(--foreground))" }} />
+              <Bar dataKey="importo" name="Incassi" fill="hsl(var(--chart-2))" isAnimationActive={false} />
             </BarChart>
           </ResponsiveContainer>
         </div>
       </div>
 
       {ooh && (
-        <div className="mt-6 border border-slate-100 bg-white rounded-2xl overflow-hidden" data-testid="report-ooh">
-          <div className="px-5 py-3 border-b border-slate-100 text-xs font-bold uppercase tracking-widest bg-[#F8F9FD]">Campagne OOH — circuiti e prenotazioni</div>
+        <div className="mt-6 border border-slate-100 bg-card rounded-xl overflow-hidden overflow-x-auto" data-testid="report-ooh">
+          <div className="px-5 py-3 border-b border-slate-100 text-xs font-semibold tracking-normal bg-muted">Campagne OOH — circuiti e prenotazioni</div>
           <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-slate-100 border-b border-slate-100">
             {[[ooh.prenotazioni.HELD, "In prenotazione (HELD)"], [ooh.prenotazioni.CONFIRMED, "Confermate"],
               [ooh.prenotazioni.EXPIRED, "Scadute"], [`${ooh.conversione}%`, "Conversione HELD→CONFIRMED"]].map(([v, l]) => (
               <div key={l} className="p-4">
-                <div className="font-heading font-extrabold text-xl">{v}</div>
-                <div className="text-[10px] uppercase tracking-wider text-slate-500">{l}</div>
+                <div className="font-heading font-semibold text-xl">{v}</div>
+                <div className="text-[10px] tracking-normal text-slate-500">{l}</div>
               </div>
             ))}
           </div>
@@ -83,19 +84,19 @@ export default function Report() {
             <thead>
               <tr className="border-b border-slate-100 text-left">
                 {["Circuito", "Zona", "Impianti", "€/giorno", "Pratiche", "Incassato"].map((h) => (
-                  <th key={h} className="px-4 py-2.5 text-[11px] font-bold uppercase tracking-widest text-slate-500">{h}</th>
+                  <th key={h} className="px-4 py-2.5 text-[11px] font-semibold tracking-normal text-slate-500">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {ooh.pacchetti.map((p) => (
-                <tr key={p.pacchetto_id} className="border-b border-slate-100 hover:bg-[#F0F4FF] transition-colors">
-                  <td className="px-4 py-2.5 font-bold">{p.nome}</td>
+                <tr key={p.pacchetto_id} className="border-b border-slate-100 hover:bg-accent transition-colors">
+                  <td className="px-4 py-2.5 font-semibold">{p.nome}</td>
                   <td className="px-4 py-2.5">{p.zona}</td>
-                  <td className="px-4 py-2.5 font-mono">{p.n_impianti}</td>
-                  <td className="px-4 py-2.5 font-mono">{p.prezzo_giornaliero} €</td>
-                  <td className="px-4 py-2.5 font-mono">{p.pratiche}</td>
-                  <td className="px-4 py-2.5 font-heading font-extrabold">{p.incassato.toFixed(2)} €</td>
+                  <td className="px-4 py-2.5 tabular-nums">{p.n_impianti}</td>
+                  <td className="px-4 py-2.5 tabular-nums">{p.prezzo_giornaliero} €</td>
+                  <td className="px-4 py-2.5 tabular-nums">{p.pratiche}</td>
+                  <td className="px-4 py-2.5 font-heading font-semibold">{p.incassato.toFixed(2)} €</td>
                 </tr>
               ))}
             </tbody>
@@ -103,43 +104,43 @@ export default function Report() {
         </div>
       )}
 
-      <div className="mt-6 border border-slate-100 bg-white rounded-2xl overflow-hidden" data-testid="report-per-spazio">
-        <div className="px-5 py-3 border-b border-slate-100 text-xs font-bold uppercase tracking-widest bg-[#F8F9FD]">OSP — dettaglio per area</div>
+      <div className="mt-6 border border-slate-100 bg-card rounded-xl overflow-hidden overflow-x-auto" data-testid="report-per-spazio">
+        <div className="px-5 py-3 border-b border-slate-100 text-xs font-semibold tracking-normal bg-muted">OSP — dettaglio per area</div>
         <table className="w-full text-sm border-collapse">
           <thead>
             <tr className="border-b border-slate-100 text-left">
               {["Spazio", "Pratiche", "Pagate", "Incassato", ""].map((h) => (
-                <th key={h} className="px-4 py-3 text-[11px] font-bold uppercase tracking-widest text-slate-500">{h}</th>
+                <th key={h} className="px-4 py-3 text-[11px] font-semibold tracking-normal text-slate-500">{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {perSpazio.map((s) => (
               <Fragment key={s.spazio_id}>
-                <tr className="border-b border-slate-100 hover:bg-[#F0F4FF] transition-colors cursor-pointer"
+                <tr className="border-b border-slate-100 hover:bg-accent transition-colors cursor-pointer"
                   data-testid={`report-spazio-${s.spazio_id}`}
                   onClick={() => setExpanded(expanded === s.spazio_id ? null : s.spazio_id)}>
                   <td className="px-4 py-3">
-                    <div className="font-bold">{s.nome}</div>
+                    <div className="font-semibold">{s.nome}</div>
                     <div className="text-xs text-slate-400">{s.tipologia}{s.formato ? ` · ${s.formato}` : ""}</div>
                   </td>
-                  <td className="px-4 py-3 font-mono">{s.pratiche_totali}</td>
-                  <td className="px-4 py-3 font-mono">{s.pratiche_pagate}</td>
-                  <td className="px-4 py-3 font-heading font-extrabold">{s.incassato.toFixed(2)} €</td>
+                  <td className="px-4 py-3 tabular-nums">{s.pratiche_totali}</td>
+                  <td className="px-4 py-3 tabular-nums">{s.pratiche_pagate}</td>
+                  <td className="px-4 py-3 font-heading font-semibold">{s.incassato.toFixed(2)} €</td>
                   <td className="px-4 py-3 text-slate-400">{expanded === s.spazio_id ? <ChevronUp size={16} /> : <ChevronDown size={16} />}</td>
                 </tr>
                 {expanded === s.spazio_id && (
                   <tr>
-                    <td colSpan={5} className="bg-[#F8F9FD] px-4 py-3 border-b border-slate-100">
+                    <td colSpan={5} className="bg-muted px-4 py-3 border-b border-slate-100">
                       {s.storico.length === 0 && <div className="text-xs text-slate-500">Nessuna pratica su questo spazio.</div>}
                       <div className="space-y-1.5">
                         {s.storico.map((r, i) => (
-                          <div key={i} className="flex flex-wrap items-center gap-3 text-xs bg-white border border-slate-100 rounded-xl px-3 py-2">
-                            <span className="font-mono text-slate-500">{r.data}</span>
-                            <span className="font-bold flex-1 min-w-[140px]">{r.user_nome}</span>
-                            <span className="font-mono text-slate-500">{r.periodo}</span>
+                          <div key={i} className="flex flex-wrap items-center gap-3 text-xs bg-card border border-slate-100 rounded-xl px-3 py-2">
+                            <span className="tabular-nums text-slate-500">{r.data}</span>
+                            <span className="font-semibold flex-1 min-w-[140px]">{r.user_nome}</span>
+                            <span className="tabular-nums text-slate-500">{r.periodo}</span>
                             <StatusBadge stato={r.stato} />
-                            <span className="font-bold">{r.importo.toFixed(2)} €</span>
+                            <span className="font-semibold">{r.importo.toFixed(2)} €</span>
                           </div>
                         ))}
                       </div>

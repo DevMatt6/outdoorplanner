@@ -4,12 +4,12 @@ import "leaflet/dist/leaflet.css";
 import { imgSrc } from "../lib/api";
 
 const BASE_STYLE = { fillColor: "#DCE4F7", fillOpacity: 1, color: "#93A6E8", weight: 1 };
-const ACTIVE_STYLE = { fillColor: "#1F3BB3", fillOpacity: 1, color: "#2B4BDB", weight: 1.5 };
+const ACTIVE_STYLE = { fillColor: "hsl(var(--info))", fillOpacity: 1, color: "hsl(var(--info))", weight: 1.5 };
 const FLAT_TILES = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
 
 const Crumb = ({ label, onClick, active }) => (
   <button type="button" onClick={onClick} disabled={active}
-    className={`px-3 py-1 text-xs font-bold rounded-full transition-colors ${active ? "bg-[#1F3BB3] text-white cursor-default" : "bg-white border border-slate-200 hover:border-[#1F3BB3] text-slate-600"}`}>
+    className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors ${active ? "bg-primary text-primary-foreground cursor-default" : "bg-card border border-slate-200 hover:border-primary text-slate-600"}`}>
     {label}
   </button>
 );
@@ -70,7 +70,7 @@ export const EsploraMappa = ({ comuni, spazi, regione, comune, zona, onRegione, 
     : (!showPins ? "Scegli una zona / quartiere" : "Passa sui pin per vedere la scheda dello spazio");
 
   return (
-    <div className="relative border border-slate-100 rounded-2xl overflow-hidden bg-white aspect-[16/10] w-full" data-testid="esplora-mappa">
+    <div className="relative border border-slate-100 rounded-xl overflow-hidden bg-card aspect-[16/10] w-full" data-testid="esplora-mappa">
       {!comune ? (
         <MapContainer key={`italia-${regione || "all"}`} center={[42.0, 12.5]} zoom={5.6} zoomSnap={0.2}
           style={{ height: "100%", width: "100%", background: "#F7F8F6" }} scrollWheelZoom={false} attributionControl={false}>
@@ -95,7 +95,7 @@ export const EsploraMappa = ({ comuni, spazi, regione, comune, zona, onRegione, 
           {!showPins && zone.map((z) => (
             <CircleMarker key={z.nome} center={[z.lat, z.lng]} radius={14}
               eventHandlers={{ click: () => onZona(z.nome) }}
-              pathOptions={{ color: "#2B4BDB", weight: 2, fillColor: "#1F3BB3", fillOpacity: 0.9 }}>
+              pathOptions={{ color: "hsl(var(--info))", weight: 2, fillColor: "hsl(var(--info))", fillOpacity: 0.9 }}>
               <Tooltip permanent direction="right" offset={[12, 0]} opacity={1} interactive
                 eventHandlers={{ click: () => onZona(z.nome) }}>
                 <span style={{ fontWeight: 800, fontSize: 12, cursor: "pointer" }}>{z.nome} · {z.count}</span>
@@ -107,7 +107,7 @@ export const EsploraMappa = ({ comuni, spazi, regione, comune, zona, onRegione, 
             return (
               <CircleMarker key={s.id} center={[s.lat, s.lng]} radius={10}
                 eventHandlers={{ click: () => (selectable ? onToggle(s.id) : onPinClick?.(s)) }}
-                pathOptions={{ color: "#FFFFFF", weight: 2, fillColor: sel ? "#F59E0B" : s.disponibile === false ? "#94A3B8" : "#1F3BB3", fillOpacity: 1 }}>
+                pathOptions={{ color: "#FFFFFF", weight: 2, fillColor: sel ? "#F59E0B" : s.disponibile === false ? "#94A3B8" : "hsl(var(--info))", fillOpacity: 1 }}>
                 <PinTooltip s={s} />
               </CircleMarker>
             );
@@ -122,8 +122,8 @@ export const EsploraMappa = ({ comuni, spazi, regione, comune, zona, onRegione, 
         {zona && <Crumb label={zona} active onClick={() => {}} />}
       </div>
 
-      <div className="absolute bottom-3 left-3 z-[1000] bg-white/95 border border-slate-100 rounded-xl px-3.5 py-2 text-xs font-semibold text-slate-600" data-testid="mappa-hint">
-        {hovered && !comune ? <span className="text-[#1F3BB3] font-bold">{hovered} →</span> : hint}
+      <div className="absolute bottom-3 left-3 z-[1000] bg-card/95 border border-slate-100 rounded-xl px-3.5 py-2 text-xs font-semibold text-slate-600" data-testid="mappa-hint">
+        {hovered && !comune ? <span className="text-brand-foreground font-semibold">{hovered} →</span> : hint}
       </div>
     </div>
   );

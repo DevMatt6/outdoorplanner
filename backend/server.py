@@ -18,8 +18,9 @@ from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
-from pydantic import BaseModel
-from campaign_planning import CatalogPlanning, CampaignBrief, build_planning, check_selection, period_days, period_cost
+from pydantic import BaseModel, ConfigDict
+from rome_osp_form import template_for_space, prepare as prepare_osp_form, merge_values, errors as osp_form_errors, install as install_rome_osp_form
+from campaign_planning import CatalogPlanning, OSPCampaignBrief, build_planning, check_selection, period_days, period_cost
 from reportlab.pdfgen import canvas as pdf_canvas
 from reportlab.lib.pagesizes import A4
 
@@ -143,6 +144,7 @@ class SpazioIn(CatalogPlanning):
     foto_url: str = ""
 
 class CampoTemplate(BaseModel):
+    model_config = ConfigDict(extra="allow")
     id: str
     label: str
     tipo: str = "text"
@@ -151,6 +153,7 @@ class CampoTemplate(BaseModel):
     condizione: Optional[dict] = None
 
 class DocumentoRichiesto(BaseModel):
+    model_config = ConfigDict(extra="allow")
     id: str
     label: str
     required: bool = False
@@ -184,7 +187,7 @@ class CampagnaIn(BaseModel):
     data_inizio: str
     data_fine: str
     spazi_ids: List[str]
-    brief: Optional[CampaignBrief] = None
+    brief: Optional[OSPCampaignBrief] = None
 
 class CampagnaFormIn(BaseModel):
     pratica_ids: List[str]
@@ -267,7 +270,7 @@ async def list_spazi(regione: Optional[str] = None, citta: Optional[str] = None,
                      tipologia: Optional[str] = None, formato: Optional[str] = None,
                      zona: Optional[str] = None, prezzo_max: Optional[float] = None,
                      q: Optional[str] = None, disponibile: Optional[bool] = None):
-    query: dict = {}
+    query: dict = {"archiviato": {"$ne": True}}
     if regione:
         query["regione"] = regione
     if citta:
@@ -290,7 +293,7 @@ async def list_spazi(regione: Optional[str] = None, citta: Optional[str] = None,
 
 @api_router.get("/spazi/zone")
 async def spazi_zone(citta: Optional[str] = None):
-    query = {"zona": {"$nin": [None, ""]}}
+    query = {"zona": {"$nin": [None, ""]}, "archiviato": {"$ne": True}}
     if citta:
         query["citta"] = citta
     return sorted(await db.spazi.distinct("zona", query))
@@ -299,7 +302,7 @@ async def spazi_zone(citta: Optional[str] = None):
 async def spazi_disponibili(data_inizio: str, data_fine: str, regione: Optional[str] = None,
                             citta: Optional[str] = None, tipologia: Optional[str] = None,
                             formato: Optional[str] = None, zona: Optional[str] = None):
-    query: dict = {"disponibile": True}
+    query: dict = {"disponibile": True, "archiviato": {"$ne": True}}
     if regione:
         query["regione"] = regione
     if citta:
@@ -348,7 +351,7 @@ async def get_template_spazio(spazio_id: str):
     if spazio.get("form_template_id"):
         tpl = await db.form_templates.find_one({"id": spazio["form_template_id"]}, {"_id": 0})
     if not tpl:
-        tpl = await db.form_templates.find_one({"comune_id": spazio["comune_id"]}, {"_id": 0})
+        tpl = await template_for_space(db, spazio)
     if tpl:
         tpl.setdefault("documenti_richiesti", DOC_DEFAULT)
         return tpl
@@ -375,11 +378,12 @@ async def crea_pratica(data: PraticaIn, user: dict = Depends(require_role("user"
     spazio = await db.spazi.find_one({"id": data.spazio_id}, {"_id": 0})
     if not spazio:
         raise HTTPException(status_code=404, detail="Spazio non trovato")
+    if spazio.get("archiviato"):
+        raise HTTPException(status_code=409, detail="Area archiviata e non prenotabile")
     if await _periodo_occupato(spazio["id"], data.data_inizio, data.data_fine):
         raise HTTPException(status_code=409, detail="Periodo non disponibile: lo spazio è già impegnato in queste date")
     importo = round(_giorni(data.data_inizio, data.data_fine) * spazio["canone_giornaliero"], 2)
-    tpl = await db.form_templates.find_one({"comune_id": spazio["comune_id"], "tipo": "OSP"}, {"_id": 0}) \
-        or await db.form_templates.find_one({"comune_id": spazio["comune_id"]}, {"_id": 0}) or {"campi": []}
+    tpl = await template_for_space(db, spazio)
     pratica = {"id": str(uuid.uuid4()), "tipo": "OSP", "user_id": user["id"], "user_nome": user["nome"],
                "spazio_id": spazio["id"], "spazio_nome": spazio["nome"], "comune_id": spazio["comune_id"],
                "stato": "BOZZA", "dati_form": {**prefill_dati_form(tpl.get("campi", []), user),
@@ -388,6 +392,7 @@ async def crea_pratica(data: PraticaIn, user: dict = Depends(require_role("user"
                "data_inizio": data.data_inizio, "data_fine": data.data_fine,
                "importo": importo, "pagata": False,
                "created_at": now_iso(), "updated_at": now_iso()}
+    prepare_osp_form(pratica, tpl, spazio, user)
     await db.pratiche.insert_one({**pratica})
     await log_stato(pratica["id"], None, "BOZZA", user, "Pratica creata")
     return pratica
@@ -401,7 +406,7 @@ async def aggiorna_pratica(pratica_id: str, data: PraticaUpdate, user: dict = De
         raise HTTPException(status_code=400, detail="Pratica non modificabile in questo stato")
     updates: dict = {"updated_at": now_iso()}
     if data.dati_form is not None:
-        updates["dati_form"] = data.dati_form
+        updates["dati_form"] = merge_values(pratica, data.dati_form)
     if data.data_inizio and data.data_fine:
         if await _periodo_occupato(pratica["spazio_id"], data.data_inizio, data.data_fine, exclude_id=pratica_id):
             raise HTTPException(status_code=409, detail="Periodo non disponibile: lo spazio è già impegnato in queste date")
@@ -409,6 +414,8 @@ async def aggiorna_pratica(pratica_id: str, data: PraticaUpdate, user: dict = De
         updates["data_inizio"] = data.data_inizio
         updates["data_fine"] = data.data_fine
         updates["importo"] = round(_giorni(data.data_inizio, data.data_fine) * spazio["canone_giornaliero"], 2)
+        if pratica.get("form_template_snapshot"):
+            updates["dati_form"] = {**updates.get("dati_form", pratica.get("dati_form", {})), "data_inizio": data.data_inizio, "data_fine": data.data_fine}
     await db.pratiche.update_one({"id": pratica_id}, {"$set": updates})
     return await db.pratiche.find_one({"id": pratica_id}, {"_id": 0})
 
@@ -418,11 +425,21 @@ async def upload_documento(pratica_id: str, tipo: str = "documento", file: Uploa
     pratica = await db.pratiche.find_one({"id": pratica_id, "user_id": user["id"]}, {"_id": 0})
     if not pratica:
         raise HTTPException(status_code=404, detail="Pratica non trovata")
+    if pratica.get("form_template_snapshot"):
+        if pratica["stato"] not in ("BOZZA", "INTEGRAZIONE_RICHIESTA"):
+            raise HTTPException(400, "Allegati non modificabili in questo stato")
+        spec = next((d for d in pratica["form_template_snapshot"].get("documenti_richiesti", []) if d["id"] == tipo), None)
+        if spec and Path(file.filename or "").suffix.lower() not in spec.get("accept", ".pdf,.p7m").split(","):
+            raise HTTPException(400, "Formato del file non ammesso per questo allegato")
     safe_name = f"{uuid.uuid4().hex[:8]}_{Path(file.filename or 'documento').name}"
     content = await file.read()
+    if pratica.get("form_template_snapshot") and (not content or len(content) > 20 * 1024 * 1024):
+        raise HTTPException(400, "Carica un file non vuoto di massimo 20 MB")
     await upload_storage.save(f"{pratica_id}/{safe_name}", content)
     doc = {"id": str(uuid.uuid4()), "nome": file.filename, "tipo": tipo,
            "url": f"/api/uploads/{pratica_id}/{safe_name}", "uploaded_at": now_iso()}
+    if pratica.get("form_template_snapshot"):
+        await db.pratiche.update_one({"id": pratica_id}, {"$pull": {"documenti": {"tipo": tipo}}})
     await db.pratiche.update_one({"id": pratica_id}, {"$push": {"documenti": doc}, "$set": {"updated_at": now_iso()}})
     return doc
 
@@ -442,6 +459,9 @@ async def invia_pratica(pratica_id: str, user: dict = Depends(require_role("user
     pratica = await db.pratiche.find_one({"id": pratica_id, "user_id": user["id"]}, {"_id": 0})
     if not pratica:
         raise HTTPException(status_code=404, detail="Pratica non trovata")
+    missing = osp_form_errors(pratica)
+    if missing:
+        raise HTTPException(400, "Completa il modulo: " + "; ".join(missing))
     if pratica["stato"] == "BOZZA":
         if not pratica["pagata"]:
             raise HTTPException(status_code=400, detail="Completa il pagamento prima di inviare")
@@ -461,7 +481,11 @@ async def invia_pratica(pratica_id: str, user: dict = Depends(require_role("user
 
 @api_router.get("/pratiche")
 async def mie_pratiche(user: dict = Depends(get_current_user)):
-    return await db.pratiche.find({"user_id": user["id"]}, {"_id": 0}).sort("updated_at", -1).to_list(200)
+    pratiche = await db.pratiche.find({"user_id": user["id"]}, {"_id": 0}).sort("updated_at", -1).to_list(200)
+    comune_ids = list({p["comune_id"] for p in pratiche if p.get("comune_id")})
+    comuni = await db.comuni.find({"id": {"$in": comune_ids}}, {"_id": 0, "id": 1, "nome": 1}).to_list(len(comune_ids)) if comune_ids else []
+    nomi = {c["id"]: c["nome"] for c in comuni}
+    return [{**p, "comune_nome": nomi.get(p.get("comune_id")) or p.get("comune_nome") or p.get("citta")} for p in pratiche]
 
 @api_router.delete("/pratiche/{pratica_id}")
 async def elimina_pratica(pratica_id: str, user: dict = Depends(require_role("user"))):
@@ -512,6 +536,7 @@ async def get_pratica(pratica_id: str, user: dict = Depends(get_current_user)):
     else:
         tpl = await db.form_templates.find_one({"comune_id": pratica["comune_id"], "tipo": "OSP"}, {"_id": 0})
     tpl = tpl or await db.form_templates.find_one({"comune_id": pratica["comune_id"]}, {"_id": 0}) or {"campi": [], "documenti_richiesti": []}
+    tpl = pratica.get("form_template_snapshot") or tpl
     return {**pratica, "spazio": spazio, "comune": comune, "log_stato": logs,
             "richiedente": richiedente, "prenotazione": prenotazione, "template": tpl,
             "campagna": campagna, "creativita_dettagli": creativita_dettagli}
@@ -539,8 +564,7 @@ async def crea_campagna(data: CampagnaIn, user: dict = Depends(require_role("use
     campagna_id = str(uuid.uuid4())
     pratiche = []
     for s in spazi:
-        tpl = await db.form_templates.find_one({"comune_id": s["comune_id"], "tipo": "OSP"}, {"_id": 0}) \
-            or await db.form_templates.find_one({"comune_id": s["comune_id"]}, {"_id": 0}) or {"campi": []}
+        tpl = await template_for_space(db, s)
         pratica = {"id": str(uuid.uuid4()), "tipo": "OSP", "user_id": user["id"], "user_nome": user["nome"],
                    "spazio_id": s["id"], "spazio_nome": s["nome"], "comune_id": s["comune_id"],
                    "campagna_id": campagna_id, "campagna_nome": data.nome,
@@ -550,6 +574,7 @@ async def crea_campagna(data: CampagnaIn, user: dict = Depends(require_role("use
                    "documenti": [], "data_inizio": data.data_inizio, "data_fine": data.data_fine,
                    "importo": period_cost(s["canone_giornaliero"], giorni) / 100, "pagata": False,
                    "created_at": now_iso(), "updated_at": now_iso()}
+        prepare_osp_form(pratica, tpl, s, user, data.brief.persone_previste if data.brief else None)
         await db.pratiche.insert_one({**pratica})
         await log_stato(pratica["id"], None, "BOZZA", user, f"Pratica creata dalla campagna '{data.nome}'")
         pratiche.append(pratica)
@@ -564,8 +589,11 @@ async def crea_campagna(data: CampagnaIn, user: dict = Depends(require_role("use
 
 async def _enrich_campagna(c: dict) -> dict:
     pratiche = await db.pratiche.find({"campagna_id": c["id"]}, {"_id": 0}).to_list(500)
+    cities = await db.comuni.find({"id": {"$in": list({p["comune_id"] for p in pratiche})}}, {"_id": 0, "id": 1, "nome": 1}).to_list(500)
+    names = {row["id"]: row["nome"] for row in cities}
     per_stato: dict = {}
     for p in pratiche:
+        p["comune_nome"] = names.get(p["comune_id"], "")
         per_stato[p["stato"]] = per_stato.get(p["stato"], 0) + 1
     return {**c, "pratiche": pratiche, "per_stato": per_stato,
             "pagate": sum(1 for p in pratiche if p.get("pagata"))}
@@ -587,10 +615,10 @@ async def campagna_dati_form(campagna_id: str, data: CampagnaFormIn, user: dict 
     c = await db.campagne.find_one({"id": campagna_id, "user_id": user["id"]}, {"_id": 0})
     if not c:
         raise HTTPException(status_code=404, detail="Campagna non trovata")
-    res = await db.pratiche.update_many(
-        {"campagna_id": campagna_id, "id": {"$in": data.pratica_ids}, "stato": "BOZZA"},
-        {"$set": {"dati_form": data.dati_form, "updated_at": now_iso()}})
-    return {"ok": True, "aggiornate": res.modified_count}
+    rows = await db.pratiche.find({"campagna_id": campagna_id, "user_id": user["id"], "id": {"$in": data.pratica_ids}, "stato": "BOZZA"}, {"_id": 0}).to_list(500)
+    for p in rows:
+        await db.pratiche.update_one({"id": p["id"]}, {"$set": {"dati_form": merge_values(p, data.dati_form), "updated_at": now_iso()}})
+    return {"ok": True, "aggiornate": len(rows)}
 
 @api_router.post("/campagne/{campagna_id}/checkout")
 async def checkout_campagna(campagna_id: str, user: dict = Depends(require_role("user"))):
@@ -616,6 +644,10 @@ async def invia_campagna(campagna_id: str, user: dict = Depends(require_role("us
     non_pagate = [p for p in pratiche if not p["pagata"]]
     if non_pagate:
         raise HTTPException(status_code=400, detail="Completa il pagamento prima di inviare")
+    for p in pratiche:
+        missing = osp_form_errors(p)
+        if missing:
+            raise HTTPException(400, p["spazio_nome"] + ": " + "; ".join(missing))
     inviate = 0
     for p in pratiche:
         await db.pratiche.update_one({"id": p["id"]}, {"$set": {"stato": "INVIATA", "updated_at": now_iso()}})
@@ -668,7 +700,7 @@ async def comune_profilo(user: dict = Depends(require_role("comune"))):
 
 @api_router.get("/comune/spazi")
 async def comune_spazi(user: dict = Depends(require_role("comune"))):
-    return await db.spazi.find({"comune_id": user["comune_id"]}, {"_id": 0}).to_list(200)
+    return await db.spazi.find({"comune_id": user["comune_id"], "tipologia": "Progetto Speciale", "archiviato": {"$ne": True}}, {"_id": 0}).to_list(200)
 
 @api_router.post("/comune/spazi")
 async def crea_spazio(data: SpazioIn, user: dict = Depends(require_comune_l3)):
@@ -868,7 +900,7 @@ async def comune_report(user: dict = Depends(require_role("comune"))):
             incassi_totali += p["importo"]
             mese = p["created_at"][:7]
             incassi_mese[mese] = incassi_mese.get(mese, 0) + p["importo"]
-    spazi_count = await db.spazi.count_documents({"comune_id": cid})
+    spazi_count = await db.spazi.count_documents({"comune_id": cid, "archiviato": {"$ne": True}})
     return {"pratiche_totali": len(pratiche), "per_stato": per_stato,
             "incassi_totali": round(incassi_totali, 2),
             "incassi_mese": [{"mese": k, "importo": round(v, 2)} for k, v in sorted(incassi_mese.items())],
@@ -928,7 +960,7 @@ async def pdf_autorizzazione(pratica_id: str, user: dict = Depends(get_current_u
 async def admin_kpi(user: dict = Depends(require_role("superadmin"))):
     utenti = await db.users.count_documents({"ruolo": "user"})
     comuni = await db.comuni.count_documents({})
-    spazi = await db.spazi.count_documents({})
+    spazi = await db.spazi.count_documents({"archiviato": {"$ne": True}})
     pratiche = await db.pratiche.find({"stato": {"$ne": "BOZZA"}}, {"_id": 0}).to_list(2000)
     per_stato: dict = {}
     revenue = 0.0
@@ -1001,7 +1033,7 @@ async def admin_comuni(user: dict = Depends(require_role("superadmin"))):
         mie = [p for p in pratiche if p["comune_id"] == c["id"]]
         incasso = round(sum(p["importo"] for p in mie if p.get("pagata")), 2)
         result.append({**c,
-                       "spazi_count": await db.spazi.count_documents({"comune_id": c["id"]}),
+                       "spazi_count": await db.spazi.count_documents({"comune_id": c["id"], "archiviato": {"$ne": True}}),
                        "spazi_attivi": await db.spazi.count_documents({"comune_id": c["id"], "disponibile": True}),
                        "zone_count": await db.zone.count_documents({"comune_id": c["id"]}),
                        "impianti_count": await db.impianti.count_documents({"comune_id": c["id"]}),
@@ -1224,6 +1256,11 @@ async def startup():
     if not os.environ.get('VERCEL'):
         await ensure_livelli(db, hash_password)
     await ensure_catalogo(db)
+    from seed_rome_osp import seed_rome_osp
+    await seed_rome_osp(db)
+    await install_rome_osp_form(db)
+    from reset_demo_user import reset_demo_user
+    await reset_demo_user(db, apply=True)
 
     # Serverless instances do not provide a persistent background worker.
     # OOH routes also expire reservations when handling requests.

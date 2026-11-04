@@ -1,33 +1,20 @@
+const tone = (name) => ({ bg: `hsl(var(--${name}-muted))`, text: `hsl(var(--${name === 'success' || name === 'warning' ? `${name}-foreground` : name}))`, dot: `hsl(var(--${name}))` });
+const neutral = { bg: "hsl(var(--muted))", text: "hsl(var(--muted-foreground))", dot: "hsl(var(--muted-foreground))" };
 export const STATO_COLORS = {
-  BOZZA: { bg: "#E9EAE7", text: "#4B5563", dot: "#9CA3AF", label: "Bozza" },
-  DA_COMPLETARE: { bg: "#E9EAE7", text: "#4B5563", dot: "#9CA3AF", label: "Da completare" },
-  INVIATA: { bg: "#DBEAFE", text: "#1D4ED8", dot: "#3B82F6", label: "Inviata" },
-  IN_ISTRUTTORIA: { bg: "#FEF3C7", text: "#B45309", dot: "#F59E0B", label: "In istruttoria" },
-  IN_VERIFICA: { bg: "#FEF3C7", text: "#B45309", dot: "#F59E0B", label: "In verifica" },
-  INTEGRAZIONE_RICHIESTA: { bg: "#FEE2E2", text: "#B91C1C", dot: "#EF4444", label: "Integrazione richiesta" },
-  APPROVATA: { bg: "#E8EFFF", text: "#1F3BB3", dot: "#1F3BB3", label: "Approvata" },
-  RIFIUTATA: { bg: "#26292B", text: "#FFFFFF", dot: "#26292B", label: "Rifiutata" },
-  PRENOTAZIONE_SCADUTA: { bg: "#FEE2E2", text: "#B91C1C", dot: "#EF4444", label: "Prenotazione scaduta" },
-  PAGAMENTO_SCADUTO: { bg: "#FEE2E2", text: "#B91C1C", dot: "#EF4444", label: "Pagamento scaduto" },
-  ANNULLATA: { bg: "#E9EAE7", text: "#6B7280", dot: "#9CA3AF", label: "Annullata" },
+  BOZZA: { ...neutral, label: "Bozza" },
+  DA_COMPLETARE: { ...neutral, label: "Da completare" },
+  INVIATA: { ...tone("info"), label: "Inviata" },
+  IN_ISTRUTTORIA: { ...tone("warning"), label: "In istruttoria" },
+  IN_VERIFICA: { ...tone("warning"), label: "In verifica" },
+  INTEGRAZIONE_RICHIESTA: { ...tone("warning"), label: "Integrazione richiesta" },
+  APPROVATA: { ...tone("success"), label: "Approvata" },
+  RIFIUTATA: { ...tone("destructive"), label: "Rifiutata" },
+  PRENOTAZIONE_SCADUTA: { ...tone("destructive"), label: "Prenotazione scaduta" },
+  PAGAMENTO_SCADUTO: { ...tone("destructive"), label: "Pagamento scaduto" },
+  ANNULLATA: { ...neutral, label: "Annullata" },
 };
-
-export const TipoBadge = ({ tipo }) => (
-  <span data-testid={`badge-tipo-${tipo || "OSP"}`}
-    className={`inline-block px-2.5 py-0.5 text-[10px] font-bold rounded-full whitespace-nowrap border ${tipo === "OOH" ? "border-[#1F3BB3] text-[#1F3BB3] bg-[#E8EFFF]" : "border-[#B45309] text-[#B45309] bg-[#FEF3C7]"}`}>
-    {tipo === "OOH" ? "Campagna OOH" : "OSP / Evento"}
-  </span>
-);
-
+export const TipoBadge = ({ tipo }) => <span data-testid={`badge-tipo-${tipo || "OSP"}`} className="inline-flex whitespace-nowrap rounded-md border bg-muted/50 px-2 py-0.5 text-[11px] font-medium text-muted-foreground">{tipo === "OOH" ? "Campagna OOH" : "OSP / Evento"}</span>;
 export const StatusBadge = ({ stato }) => {
   const s = STATO_COLORS[stato] || STATO_COLORS.BOZZA;
-  return (
-    <span
-      data-testid={`badge-stato-${stato}`}
-      className="inline-block px-3 py-1 text-[11px] font-bold rounded-full whitespace-nowrap"
-      style={{ backgroundColor: s.bg, color: s.text }}
-    >
-      {s.label}
-    </span>
-  );
+  return <span data-testid={`badge-stato-${stato}`} className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-md px-2 py-1 text-[11px] font-medium" style={{ backgroundColor: s.bg, color: s.text }}><span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: s.dot }} aria-hidden="true" />{s.label}</span>;
 };

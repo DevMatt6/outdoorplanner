@@ -222,6 +222,8 @@ async def seed_rich_catalog(db, hash_password):
                     'id':pid,'comune_id':cid,'zona_id':zid,'nome':f"{z['nome']} · Circuito demo {group+1}",
                     'descrizione':f"{len(group_ids)} impianti con prezzi e durate variabili — catalogo di test",
                     'impianti_ids':group_ids,'form_template_id':stable_id(f'{low}/form-ooh'),'attivo':True,'demo':True,'created_at':now()}},upsert=True)
+            if name == "Roma":
+                continue  # Rome OSP uses the five-venue catalog below; OOH remains unchanged.
             for index,(activity,surface,price) in enumerate([(['sampling','stand'],30,35),(['sampling','stand','installazione'],60,70),(['evento','stand'],120,140),(['evento','installazione'],250,250),(['evento','sampling','stand','installazione'],500,400),(['evento','installazione'],1000,650)]):
                 sid=stable_id(f'{low}/rich/osp/{zi}/{index}')
                 await db.spazi.update_one({'id':sid},{'$setOnInsert':{
@@ -233,6 +235,8 @@ async def seed_rich_catalog(db, hash_password):
                     'giorni_minimi':[1,1,3,7,1,14][index],'form_template_id':osp_template_id,'opzioni':{'energia_elettrica':index%2==0,'accessibile':True},
                     'descrizione':f"Area sintetica da {surface} m² per test di budget, attività e prossimità. Non rappresenta una concessione reale.",
                     'foto_url':IMG_PIAZZA,'disponibile':True,'demo':True,'created_at':now()}},upsert=True)
+    from seed_rome_osp import seed_rome_osp
+    await seed_rome_osp(db)
     counts={collection:await db[collection].count_documents({'comune_id':{'$in':[(await db.comuni.find_one({'nome':name}))['id'] for name in DATASET]}}) for collection in ['zone','impianti','pacchetti','spazi']}
     return {'comuni':3,'utenze_comunali':9,**counts}
 

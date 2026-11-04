@@ -70,3 +70,9 @@ Lo script è ripetibile, conserva gli account e le risorse già presenti e non c
 Su Vercel il seed viene applicato una sola volta all’avvio, registrando la migrazione
 `demo-three-cities-2026-10-01` nella collezione `migrations`. Un reset successivo
 non lo riapplica automaticamente. Il database locale non viene copiato online.
+
+## Catalogo OSP Roma
+
+Il seed OSP di Roma comprende cinque aree con foto reali: Lago Eur, Osservatorio Astronomico Romano (Monte Mario), Villa Ada, Circo Massimo e Piazza del popolo. Costi, superfici e capienze sono valori dimostrativi. La migrazione controllata all’avvio sostituisce il catalogo una sola volta, conserva i record richiamati dallo storico e salva un backup dei documenti precedenti. Le successive modifiche del Comune sono conservate.
+
+Per una verifica senza modifiche: `.venv/bin/python backend/seed_rome_osp.py`. Per applicare la sostituzione al database configurato: aggiungere `--apply`. Dettagli, valori e crediti fotografici in [docs/osp-roma-cinque-aree.md](docs/osp-roma-cinque-aree.md).

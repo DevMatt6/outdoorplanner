@@ -61,14 +61,14 @@ export const IntegrazioneEditor = ({ pratica, reload }) => {
   return (
     <div className="mt-5 space-y-5" data-testid="integrazione-editor">
       {campi.length > 0 && (
-        <div className="bg-white border border-[#E9ECEF] rounded-2xl p-5">
-          <div className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-3">Correggi i dati del modulo</div>
+        <div className="bg-card border border-[#E9ECEF] rounded-xl p-5">
+          <div className="text-xs font-semibold tracking-normal text-slate-500 mb-3">Correggi i dati del modulo</div>
           <div className="grid sm:grid-cols-2 gap-4">
             {campi.map((c) => (
-              <div key={c.id} className={campiRichiesti.has(c.id) ? "rounded-xl ring-2 ring-[#B45309]/60 p-2 bg-amber-50/50" : ""}>
+              <div key={c.id} className={campiRichiesti.has(c.id) ? "rounded-xl ring-2 ring-warning-foreground/60 p-2 bg-warning-muted/50" : ""}>
                 <DynamicField campo={c} value={values[c.id]} onChange={(v) => setValues({ ...values, [c.id]: v })} />
                 {campiRichiesti.has(c.id) && (
-                  <div className="text-[11px] font-bold text-[#B45309] mt-1" data-testid={`richiesta-campo-${c.id}`}>
+                  <div className="text-[11px] font-semibold text-warning-foreground mt-1" data-testid={`richiesta-campo-${c.id}`}>
                     Da correggere{notaPer("campo", c.id) ? `: "${notaPer("campo", c.id)}"` : ""}
                   </div>
                 )}
@@ -76,32 +76,32 @@ export const IntegrazioneEditor = ({ pratica, reload }) => {
             ))}
           </div>
           <button data-testid="salva-dati-integrazione" onClick={salvaDati}
-            className="mt-4 inline-flex items-center gap-2 bg-[#1F3BB3] text-white rounded-full px-5 py-2.5 text-sm font-bold hover:bg-[#172E93] transition-colors">
+            className="mt-4 inline-flex items-center gap-2 bg-primary text-primary-foreground rounded-md px-5 py-2.5 text-sm font-semibold hover:bg-primary transition-colors">
             <Save size={15} /> Salva dati modulo
           </button>
         </div>
       )}
 
       {isOOH && (pratica.impianti || []).length > 0 && (
-        <div className="bg-white border border-[#E9ECEF] rounded-2xl p-5">
-          <div className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-3">Correggi le creatività</div>
+        <div className="bg-card border border-[#E9ECEF] rounded-xl p-5">
+          <div className="text-xs font-semibold tracking-normal text-slate-500 mb-3">Correggi le creatività</div>
           <div className="space-y-3">
             {pratica.impianti.map((i) => {
               const compatibili = soggetti.filter((s) => s.formato === i.formato);
               const daCorreggere = creativitaRichieste.has(i.id);
               return (
-                <div key={i.id} className={`flex flex-wrap items-center gap-3 border rounded-xl px-4 py-3 ${daCorreggere ? "border-[#B45309] ring-2 ring-[#B45309]/40 bg-amber-50/50" : "border-[#E5E9F2]"}`}>
+                <div key={i.id} className={`flex flex-wrap items-center gap-3 border rounded-xl px-4 py-3 ${daCorreggere ? "border-warning-foreground ring-2 ring-warning-foreground/40 bg-warning-muted/50" : "border-border"}`}>
                   <div className="min-w-0 flex-1">
-                    <div className="text-sm font-bold">{i.codice} <span className="font-normal text-slate-500">· {i.formato}</span></div>
+                    <div className="text-sm font-semibold">{i.codice} <span className="font-normal text-slate-500">· {i.formato}</span></div>
                     {daCorreggere && (
-                      <div className="text-[11px] font-bold text-[#B45309]" data-testid={`richiesta-creativita-${i.codice}`}>
+                      <div className="text-[11px] font-semibold text-warning-foreground" data-testid={`richiesta-creativita-${i.codice}`}>
                         Da sostituire{notaPer("creativita", i.id) ? `: "${notaPer("creativita", i.id)}"` : ""}
                       </div>
                     )}
                   </div>
                   <select data-testid={`select-creativita-${i.codice}`} value={assegnataA(i.id)}
                     onChange={(e) => assegna(i.id, e.target.value)}
-                    className="border border-[#DDE2EC] rounded-xl px-3 py-2 text-sm outline-none focus:border-[#1F3BB3] bg-white max-w-[220px]">
+                    className="border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-primary bg-card max-w-[220px]">
                     <option value="">— Scegli soggetto —</option>
                     {compatibili.map((s) => <option key={s.id} value={s.id}>{s.nome}</option>)}
                   </select>
@@ -111,7 +111,7 @@ export const IntegrazioneEditor = ({ pratica, reload }) => {
           </div>
           <div className="mt-4 flex flex-wrap gap-3">
             {formati.map((f) => (
-              <label key={f} className="cursor-pointer inline-flex items-center gap-2 border border-[#DDE2EC] bg-white rounded-full px-4 py-2 text-xs font-bold hover:border-[#1F3BB3] hover:text-[#1F3BB3] transition-colors">
+              <label key={f} className="cursor-pointer inline-flex items-center gap-2 border border-border bg-card rounded-md px-4 py-2 text-xs font-semibold hover:border-primary hover:text-brand-foreground transition-colors">
                 <Upload size={13} /> Nuovo soggetto {f}
                 <input data-testid={`upload-soggetto-${f}`} type="file" className="hidden" accept=".jpg,.jpeg,.png,.webp,.pdf,.mp4,.gif"
                   onChange={(e) => uploadSoggetto(f, e.target.files[0])} />

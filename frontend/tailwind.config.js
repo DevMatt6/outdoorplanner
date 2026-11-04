@@ -7,12 +7,22 @@ module.exports = {
   ],
   theme: {
     extend: {
+      // All interface text uses Geist, including legacy font utility classes.
+      fontFamily: {
+        sans: ['Geist', 'Inter', 'system-ui', 'sans-serif'],
+        mono: ['Geist', 'Inter', 'system-ui', 'sans-serif'],
+      },
       borderRadius: {
         lg: 'var(--radius)',
         md: 'calc(var(--radius) - 2px)',
         sm: 'calc(var(--radius) - 4px)'
       },
       colors: {
+        brand: { foreground: 'hsl(var(--brand-foreground) / <alpha-value>)' },
+        success: { DEFAULT: 'hsl(var(--success) / <alpha-value>)', muted: 'hsl(var(--success-muted) / <alpha-value>)', foreground: 'hsl(var(--success-foreground) / <alpha-value>)' },
+        warning: { DEFAULT: 'hsl(var(--warning) / <alpha-value>)', muted: 'hsl(var(--warning-muted) / <alpha-value>)', foreground: 'hsl(var(--warning-foreground) / <alpha-value>)' },
+        info: { DEFAULT: 'hsl(var(--info) / <alpha-value>)', muted: 'hsl(var(--info-muted) / <alpha-value>)' },
+        slate: { 50: 'hsl(var(--background) / <alpha-value>)', 100: 'hsl(var(--muted) / <alpha-value>)', 200: 'hsl(var(--border) / <alpha-value>)', 300: 'hsl(var(--input) / <alpha-value>)', 400: 'hsl(var(--muted-foreground) / <alpha-value>)', 500: 'hsl(var(--muted-foreground) / <alpha-value>)', 600: 'hsl(var(--muted-foreground) / <alpha-value>)', 700: 'hsl(var(--foreground) / <alpha-value>)', 800: 'hsl(var(--foreground) / <alpha-value>)', 900: 'hsl(var(--foreground) / <alpha-value>)' },
         background: 'hsl(var(--background))',
         foreground: 'hsl(var(--foreground))',
         card: {
@@ -41,7 +51,7 @@ module.exports = {
         },
         destructive: {
           DEFAULT: 'hsl(var(--destructive))',
-          foreground: 'hsl(var(--destructive-foreground))'
+          foreground: 'hsl(var(--destructive-foreground))', muted: 'hsl(var(--destructive-muted) / <alpha-value>)'
         },
         border: 'hsl(var(--border))',
         input: 'hsl(var(--input))',

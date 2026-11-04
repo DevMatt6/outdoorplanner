@@ -1,62 +1,27 @@
 import { Link } from "react-router-dom";
 import { UserShell } from "../../components/BackofficeLayout";
 import { useAuth } from "../../store/auth";
-import { Megaphone, Tent, ArrowRight, FolderOpen, LayoutDashboard } from "lucide-react";
+import { Button } from "../../components/ui/button";
+import { Card, CardContent } from "../../components/ui/card";
+import { Megaphone, Tent, ArrowRight, FolderOpen, LayoutDashboard, CalendarDays, MapPin, Check } from "lucide-react";
 
 export default function Home() {
   const { user } = useAuth();
-  return (
-    <UserShell>
-      <div className="max-w-6xl mx-auto" data-testid="home-hub">
-        <div className="text-xs font-bold uppercase tracking-[0.25em] text-slate-500">Ciao, {user?.nome?.split(" ")[0]}</div>
-        <h1 className="text-3xl sm:text-4xl lg:text-5xl font-heading font-extrabold tracking-tight mt-1">Cosa vuoi fare?</h1>
-        <p className="text-slate-500 mt-2 max-w-2xl">Scegli il servizio: la campagna pubblicitaria sui circuiti OOH dei Comuni oppure la richiesta di spazi per eventi e occupazioni temporanee.</p>
-
-        <div className="mt-10 grid md:grid-cols-2 gap-6">
-          <Link to="/campagne/ooh/nuova" data-testid="hub-card-ooh"
-            className="group bg-[#2B4BDB] text-white rounded-3xl p-10 flex flex-col justify-between min-h-[300px] hover:bg-[#172E93] transition-colors">
-            <div>
-              <span className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-white/10"><Megaphone size={26} /></span>
-              <h2 className="font-heading font-extrabold text-2xl mt-6">Pianifica una Campagna OOH</h2>
-              <p className="text-emerald-100/80 text-sm mt-3 leading-relaxed">Seleziona un territorio e prenota i circuiti pubblicitari messi a disposizione dai Comuni: zone, vie e pacchetti di impianti con blocco 24 ore.</p>
-            </div>
-            <span className="inline-flex items-center gap-2 font-bold mt-8 bg-white text-[#2B4BDB] rounded-full px-6 py-3 w-fit group-hover:gap-3 transition-all">
-              Pianifica Campagna <ArrowRight size={17} />
-            </span>
-          </Link>
-
-          <Link to="/spazi" data-testid="hub-card-osp"
-            className="group bg-white border border-slate-100 rounded-3xl p-10 flex flex-col justify-between min-h-[300px] hover:border-[#1F3BB3] transition-colors">
-            <div>
-              <span className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-[#E8EFFF] text-[#1F3BB3]"><Tent size={26} /></span>
-              <h2 className="font-heading font-extrabold text-2xl mt-6">OSP / Progetti Speciali – Eventi</h2>
-              <p className="text-slate-500 text-sm mt-3 leading-relaxed">Richiedi uno spazio per eventi, occupazioni di suolo pubblico, installazioni temporanee e progetti speciali con l'iter amministrativo online.</p>
-            </div>
-            <span className="inline-flex items-center gap-2 font-bold mt-8 bg-[#1F3BB3] text-white rounded-full px-6 py-3 w-fit group-hover:gap-3 transition-all">
-              Avvia richiesta OSP <ArrowRight size={17} />
-            </span>
-          </Link>
-        </div>
-
-        <div className="mt-6 grid sm:grid-cols-2 gap-4">
-          <Link to="/campagne" data-testid="hub-link-campagne"
-            className="bg-white border border-slate-100 rounded-2xl px-6 py-5 flex items-center gap-4 hover:border-[#1F3BB3] transition-colors">
-            <LayoutDashboard size={20} className="text-[#1F3BB3]" />
-            <div>
-              <div className="font-heading font-extrabold">Le mie campagne</div>
-              <div className="text-xs text-slate-500">Tutte le campagne e le relative pratiche, countdown 24h e stato di avanzamento</div>
-            </div>
-          </Link>
-          <Link to="/spazi" data-testid="hub-link-osp"
-            className="bg-white border border-slate-100 rounded-2xl px-6 py-5 flex items-center gap-4 hover:border-[#1F3BB3] transition-colors">
-            <FolderOpen size={20} className="text-[#1F3BB3]" />
-            <div>
-              <div className="font-heading font-extrabold">OSP / Eventi</div>
-              <div className="text-xs text-slate-500">Spazi per eventi e occupazioni temporanee</div>
-            </div>
-          </Link>
-        </div>
-      </div>
-    </UserShell>
-  );
+  return <UserShell><div className="mx-auto max-w-6xl" data-testid="home-hub">
+    <div className="page-eyebrow">Il tuo spazio di lavoro</div>
+    <h1 className="mt-2">Benvenuto, {user?.nome?.split(" ")[0]}</h1>
+    <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">Dai spazio alle tue idee. Pianifica una campagna pubblicitaria o trova il luogo per il tuo prossimo evento.</p>
+    <div className="mt-8 flex items-center justify-between border-b pb-3"><h2 className="font-semibold">Da dove vuoi iniziare?</h2><span className="hidden text-xs text-muted-foreground sm:block">Due servizi, un unico posto</span></div>
+    <div className="mt-5 grid gap-5 md:grid-cols-2">
+      {[
+        { to: "/campagne/ooh/nuova", id: "hub-card-ooh", icon: Megaphone, tag: "Pubblicità outdoor", title: "La tua prossima campagna,\nparte da qui.", text: "Raggiungi le persone nei luoghi che contano. Esplora i circuiti dei Comuni e scegli gli impianti per il tuo messaggio.", features: ["Circuiti e impianti sul territorio", "Prenotazione con blocco di 24 ore"], action: "Pianifica campagna" },
+        { to: "/spazi", id: "hub-card-osp", icon: Tent, tag: "Spazi ed eventi", title: "Uno spazio per ogni\nnuova idea.", text: "Eventi, installazioni e progetti speciali. Trova uno spazio pubblico e segui la tua richiesta in un unico flusso.", features: ["Spazi per occupazioni temporanee", "Iter amministrativo online"], action: "Avvia richiesta OSP" },
+      ].map(({ to, id, icon: Icon, tag, title, text, features, action }) => <Card key={id} className="group flex flex-col shadow-none transition-colors hover:border-primary/40"><CardContent className="flex flex-1 flex-col p-6 sm:p-8"><div className="flex items-center justify-between"><span className="flex h-11 w-11 items-center justify-center rounded-lg border bg-muted/50"><Icon size={21} strokeWidth={1.5} /></span><span className="text-xs text-muted-foreground">{tag}</span></div><h2 className="mt-7 whitespace-pre-line !text-2xl font-semibold leading-snug tracking-tight">{title}</h2><p className="mt-3 text-sm leading-relaxed text-muted-foreground">{text}</p><ul className="mb-8 mt-5 space-y-2">{features.map((f) => <li key={f} className="flex items-center gap-2 text-xs text-muted-foreground"><Check size={14} />{f}</li>)}</ul><Button asChild variant={id === "hub-card-ooh" ? "default" : "outline"} className="mt-auto w-fit"><Link to={to} data-testid={id}>{action}<ArrowRight /></Link></Button></CardContent></Card>)}
+    </div>
+    <div className="mt-8 flex items-center justify-between border-b pb-3"><h2 className="font-semibold">Tutto sotto controllo</h2></div>
+    <div className="mt-5 grid gap-4 sm:grid-cols-2">
+      {[["/campagne", "hub-link-campagne", LayoutDashboard, "Le mie campagne", "Riepiloghi, creatività e stato di avanzamento."], ["/dashboard", "hub-link-pratiche", FolderOpen, "Le mie pratiche", "Documenti, richieste e aggiornamenti dai Comuni."]].map(([to, id, Icon, title, description]) => <Link key={id} to={to} data-testid={id} className="flex items-center gap-4 rounded-xl border bg-card p-5 transition-colors hover:bg-accent"><Icon size={20} className="shrink-0 text-muted-foreground" strokeWidth={1.5} /><div className="flex-1"><div className="text-sm font-medium">{title}</div><div className="mt-1 text-xs text-muted-foreground">{description}</div></div><ArrowRight size={16} className="text-muted-foreground" /></Link>)}
+    </div>
+    <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-3 text-xs text-muted-foreground"><span className="flex items-center gap-2"><MapPin size={14} />Un unico accesso ai territori</span><span className="flex items-center gap-2"><CalendarDays size={14} />Pianificazione e richieste online</span></div>
+  </div></UserShell>;
 }

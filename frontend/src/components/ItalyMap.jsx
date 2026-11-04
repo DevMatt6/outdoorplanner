@@ -5,7 +5,7 @@ import "leaflet/dist/leaflet.css";
 import { api } from "../lib/api";
 
 const BASE_STYLE = { fillColor: "#DCE4F7", fillOpacity: 1, color: "#93A6E8", weight: 1 };
-const HOVER_STYLE = { fillColor: "#1F3BB3", fillOpacity: 1, color: "#2B4BDB", weight: 1.5 };
+const HOVER_STYLE = { fillColor: "hsl(var(--info))", fillOpacity: 1, color: "hsl(var(--info))", weight: 1.5 };
 
 export const ItalyMap = () => {
   const [geo, setGeo] = useState(null);
@@ -35,20 +35,20 @@ export const ItalyMap = () => {
   };
 
   return (
-    <div className="relative border border-slate-100 rounded-2xl overflow-hidden aspect-[16/10] w-full" data-testid="italy-map">
+    <div className="relative border border-slate-100 rounded-xl overflow-hidden aspect-[16/10] w-full" data-testid="italy-map">
       <MapContainer center={[42.0, 12.5]} zoom={5.4} zoomSnap={0.2} style={{ height: "100%", width: "100%" }}
         scrollWheelZoom={false} zoomControl={true} attributionControl={false}>
         {geo && <GeoJSON data={geo} style={() => BASE_STYLE} onEachFeature={onEach} />}
       </MapContainer>
-      <div className="absolute bottom-4 left-4 z-[1000] bg-white border border-slate-100 rounded-2xl overflow-hidden px-4 py-3 min-w-[220px]">
+      <div className="absolute bottom-4 left-4 z-[1000] bg-card border border-slate-100 rounded-xl overflow-hidden px-4 py-3 min-w-[220px]">
         {hovered ? (
           <>
-            <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">Regione</div>
-            <div className="font-heading font-extrabold text-xl" data-testid="hovered-region">{hovered}</div>
+            <div className="text-[10px] font-semibold tracking-normal text-slate-500">Regione</div>
+            <div className="font-heading font-semibold text-xl" data-testid="hovered-region">{hovered}</div>
             <div className="text-sm text-slate-600">
               {counts[hovered] ? `${counts[hovered]} spazi disponibili` : "Nessuno spazio attivo"}
             </div>
-            <div className="text-xs font-semibold text-[#1F3BB3] mt-1">Clicca per esplorare →</div>
+            <div className="text-xs font-semibold text-brand-foreground mt-1">Clicca per esplorare →</div>
           </>
         ) : (
           <div className="text-sm text-slate-600">Passa il mouse su una regione<br />e clicca per filtrare gli spazi</div>

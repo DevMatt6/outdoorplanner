@@ -1,3 +1,4 @@
+import { LoadingState } from "../components/LoadingState";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { NavBar } from "../components/NavBar";
@@ -66,34 +67,34 @@ export function SpaziCatalog() {
     .slice()
     .sort((a, b) => (countPerComune[b.nome] || 0) - (countPerComune[a.nome] || 0));
 
-  const input = "border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#1F3BB3] bg-white";
+  const input = "border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-primary bg-card";
 
   return (
     <Shell>
       <div className="max-w-7xl mx-auto px-6 py-8">
         <div className="flex flex-wrap items-end justify-between gap-4">
-          <h1 className="text-3xl sm:text-4xl font-heading font-extrabold tracking-tight">
-            Spazi OSP / Eventi {filters.citta ? <span className="text-[#1F3BB3]">· {filters.citta}{filters.zona ? ` / ${filters.zona}` : ""}</span> : filters.regione && <span className="text-[#1F3BB3]">· {filters.regione}</span>}
+          <h1 className="text-3xl sm:text-3xl font-heading font-semibold tracking-tight">
+            Spazi OSP / Eventi {filters.citta ? <span className="text-brand-foreground">· {filters.citta}{filters.zona ? ` / ${filters.zona}` : ""}</span> : filters.regione && <span className="text-brand-foreground">· {filters.regione}</span>}
           </h1>
           <button data-testid="avvia-campagna-button" onClick={() => navigate("/campagne/nuova")}
-            className="inline-flex items-center gap-2 bg-[#1F3BB3] text-white rounded-full px-6 py-3 font-bold hover:bg-[#172E93] transition-colors">
+            className="inline-flex items-center gap-2 bg-primary text-primary-foreground rounded-md px-6 py-3 font-semibold hover:bg-primary transition-colors">
             <Megaphone size={17} /> Pianifica campagna OSP
           </button>
         </div>
         <p className="text-sm text-slate-500 mt-1">Aree comunali per eventi, occupazioni temporanee e progetti speciali: scegli il Comune e avvia la richiesta OSP.</p>
 
-        <div className="mt-6 bg-white border border-slate-100 rounded-2xl p-4 flex flex-wrap gap-3 items-center" data-testid="filtri-spazi">
-          <input data-testid="filter-q" className={input} placeholder="Cerca per nome o indirizzo..."
+        <div className="mt-6 bg-card border border-slate-100 rounded-xl p-4 flex flex-wrap gap-3 items-center" data-testid="filtri-spazi">
+          <input aria-label="Cerca per nome o indirizzo..." data-testid="filter-q" className={input} placeholder="Cerca per nome o indirizzo..."
             defaultValue={filters.q} onKeyDown={(e) => e.key === "Enter" && setMany({ q: e.target.value })} />
-          <select data-testid="filter-tipologia" className={input} value={filters.tipologia} onChange={(e) => setMany({ tipologia: e.target.value })}>
+          <select aria-label="filter tipologia" data-testid="filter-tipologia" className={input} value={filters.tipologia} onChange={(e) => setMany({ tipologia: e.target.value })}>
             <option value="">Tipologia impianto</option>
             {TIPOLOGIE.map((t) => <option key={t} value={t}>{t}</option>)}
           </select>
-          <select data-testid="filter-formato" className={input} value={filters.formato} onChange={(e) => setMany({ formato: e.target.value })}>
+          <select aria-label="filter formato" data-testid="filter-formato" className={input} value={filters.formato} onChange={(e) => setMany({ formato: e.target.value })}>
             <option value="">Formato</option>
             {FORMATI.map((f) => <option key={f} value={f}>{f}</option>)}
           </select>
-          <span className="ml-auto text-sm text-slate-500 font-mono" data-testid="risultati-count">
+          <span className="ml-auto text-sm text-slate-500 tabular-nums" data-testid="risultati-count">
             {filters.citta ? `${gridSpazi.length} spazi` : `${all.length} spazi in ${Object.keys(countPerComune).length} Comuni`}
           </span>
         </div>
@@ -107,24 +108,24 @@ export function SpaziCatalog() {
 
         {!filters.citta && (
           <div className="mt-8">
-            <div className="text-xs font-bold uppercase tracking-[0.2em] text-slate-500 mb-3">
+            <div className="text-xs font-semibold tracking-normal text-slate-500 mb-3">
               Comuni {filters.regione ? `in ${filters.regione}` : "attivi"}
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4" data-testid="comuni-grid">
               {comuniGrid.map((c) => (
                 <button key={c.id} data-testid={`comune-card-${c.id}`} onClick={() => onComune(c.nome)}
-                  className="bg-white border border-slate-100 rounded-2xl p-5 text-left hover:border-[#1F3BB3] transition-colors group">
+                  className="bg-card border border-slate-100 rounded-xl p-5 text-left hover:border-primary transition-colors group">
                   {c.logo_url ? (
-                    <img src={imgSrc(c.logo_url)} alt="" className="w-10 h-10 rounded-xl object-contain border border-slate-100 bg-white" />
+                    <img src={imgSrc(c.logo_url)} alt="" className="w-10 h-10 rounded-xl object-contain border border-slate-100 bg-card" />
                   ) : (
-                    <span className="w-10 h-10 rounded-xl bg-[#F0F4FF] flex items-center justify-center text-[#1F3BB3]"><Landmark size={18} /></span>
+                    <span className="w-10 h-10 rounded-xl bg-accent flex items-center justify-center text-brand-foreground"><Landmark size={18} /></span>
                   )}
-                  <div className="font-heading font-extrabold mt-3 group-hover:text-[#2B4BDB] transition-colors">{c.nome}</div>
+                  <div className="font-heading font-semibold mt-3 group-hover:text-brand-foreground transition-colors">{c.nome}</div>
                   <div className="text-xs text-slate-500">{c.regione}</div>
-                  <div className="text-xs font-bold text-[#1F3BB3] mt-2">{countPerComune[c.nome] || 0} spazi</div>
+                  <div className="text-xs font-semibold text-brand-foreground mt-2">{countPerComune[c.nome] || 0} spazi</div>
                 </button>
               ))}
-              {comuniGrid.length === 0 && <div className="col-span-full text-sm text-slate-500 bg-white border border-slate-100 rounded-2xl p-8 text-center">Nessun Comune attivo in questa regione.</div>}
+              {comuniGrid.length === 0 && <div className="col-span-full text-sm text-slate-500 bg-card border border-slate-100 rounded-xl p-8 text-center">Nessun Comune attivo in questa regione.</div>}
             </div>
           </div>
         )}
@@ -132,17 +133,17 @@ export function SpaziCatalog() {
         {filters.citta && (
           <div className="mt-8">
             <div className="flex items-center justify-between mb-3">
-              <div className="text-xs font-bold uppercase tracking-[0.2em] text-slate-500">
+              <div className="text-xs font-semibold tracking-normal text-slate-500">
                 Spazi a {filters.citta}{filters.zona ? ` — ${filters.zona}` : ""}
               </div>
               <button data-testid="torna-comuni-button" onClick={() => onComune(null)}
-                className="inline-flex items-center gap-1.5 text-sm font-bold text-slate-600 hover:text-[#1F3BB3] transition-colors">
+                className="inline-flex items-center gap-1.5 text-sm font-semibold text-slate-600 hover:text-brand-foreground transition-colors">
                 <ArrowLeft size={15} /> Tutti i Comuni
               </button>
             </div>
-            {loading && <div className="text-slate-500 p-8">Caricamento...</div>}
+            {loading && <LoadingState />}
             {!loading && gridSpazi.length === 0 && (
-              <div className="border border-slate-100 bg-white rounded-2xl p-10 text-center text-slate-500">Nessuno spazio trovato con questi filtri.</div>
+              <div className="border border-slate-100 bg-card rounded-xl p-10 text-center text-slate-500">Nessuno spazio trovato con questi filtri.</div>
             )}
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5" data-testid="spazi-grid">
               {gridSpazi.map((s) => (

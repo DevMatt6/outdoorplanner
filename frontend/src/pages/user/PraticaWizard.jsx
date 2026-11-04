@@ -1,11 +1,14 @@
+import { Stepper } from "../../components/Stepper";
+import { LoadingState } from "../../components/LoadingState";
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { UserShell } from "../../components/BackofficeLayout";
-import { DynamicField, isVisible } from "../../components/DynamicField";
+import { OSPFields, OSPDocuments } from "../../components/OSPForms";
+import { fieldErrors, visibleDocuments } from "../../lib/ospForms";
 import { DateRangePicker, fmtDay } from "../../components/DateRangePicker";
 import { api, apiError } from "../../lib/api";
 import { toast } from "sonner";
-import { Upload, CreditCard, Check, FileText } from "lucide-react";
+import { CreditCard, Check, FileText } from "lucide-react";
 
 const STEPS = ["Periodo", "Modulo Comune", "Documenti", "Pagamento", "Invio"];
 
@@ -36,13 +39,13 @@ export default function PraticaWizard() {
     });
   }, [spazioId]);
 
-  if (!spazio || !template) return <UserShell><div className="text-slate-500">Caricamento...</div></UserShell>;
+  if (!spazio || !template) return <UserShell><LoadingState /></UserShell>;
 
   const giorni = date.inizio && date.fine
     ? Math.max(Math.floor((new Date(date.fine) - new Date(date.inizio)) / 86400000) + 1, 1) : 0;
   const importo = giorni * spazio.canone_giornaliero;
-  const campiVisibili = template.campi.filter((c) => isVisible(c, values));
-  const docsRichiesti = template.documenti_richiesti || [];
+  const campiVisibili = template.campi;
+  const docsRichiesti = visibleDocuments(template, values);
 
   const next = async () => {
     setError("");
@@ -52,15 +55,17 @@ export default function PraticaWizard() {
         if (!pratica) {
           const { data } = await api.post("/pratiche", { spazio_id: spazio.id, data_inizio: date.inizio, data_fine: date.fine, dati_form: {} });
           setPratica(data);
+          if (data.form_template_snapshot) setTemplate(data.form_template_snapshot);
           setValues((v) => ({ ...(data.dati_form || {}), ...v }));
         } else {
           const { data } = await api.put(`/pratiche/${pratica.id}`, { data_inizio: date.inizio, data_fine: date.fine });
           setPratica(data);
+          setValues(data.dati_form || {});
         }
       }
       if (step === 1) {
-        const mancanti = campiVisibili.filter((c) => c.required && (values[c.id] === undefined || values[c.id] === "" || values[c.id] === null));
-        if (mancanti.length) return setError(`Compila i campi obbligatori: ${mancanti.map((c) => c.label).join(", ")}`);
+        const mancanti = fieldErrors(template, values);
+        if (mancanti.length) return setError(`Compila i campi obbligatori: ${mancanti.join(", ")}`);
         const { data } = await api.put(`/pratiche/${pratica.id}`, { dati_form: values });
         setPratica(data);
       }
@@ -72,21 +77,6 @@ export default function PraticaWizard() {
     } catch (e) {
       setError(apiError(e));
     }
-  };
-
-  const uploadFile = async (e, tipo) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const fd = new FormData();
-    fd.append("file", file);
-    try {
-      const { data } = await api.post(`/pratiche/${pratica.id}/documenti?tipo=${tipo}`, fd);
-      setDocs([...docs, data]);
-      toast.success(`${file.name} caricato`);
-    } catch (err) {
-      toast.error(apiError(err));
-    }
-    e.target.value = "";
   };
 
   const pay = async () => {
@@ -113,28 +103,20 @@ export default function PraticaWizard() {
     }
   };
 
-  const input = "w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#1F3BB3] transition-colors";
 
   return (
     <UserShell>
       <div className="max-w-3xl mx-auto" data-testid="pratica-wizard">
-        <div className="text-xs font-bold uppercase tracking-[0.25em] text-slate-500">Nuova candidatura</div>
-        <h1 className="text-3xl font-heading font-extrabold tracking-tight mt-1">{spazio.nome}</h1>
+        <div className="text-xs font-semibold tracking-normal text-slate-500">Nuova candidatura</div>
+        <h1 className="text-3xl font-heading font-semibold tracking-tight mt-1">{spazio.nome}</h1>
         <div className="text-sm text-slate-600">{spazio.citta} · {spazio.tipologia} · {spazio.canone_giornaliero} €/giorno</div>
 
-        <div className="mt-8 grid grid-cols-5 border border-slate-100 bg-white rounded-2xl overflow-hidden" data-testid="wizard-steps">
-          {STEPS.map((s, i) => (
-            <div key={s} className={`py-2.5 px-2 text-center text-[11px] font-bold uppercase tracking-wider border-r border-slate-100 last:border-r-0 transition-colors
-              ${i === step ? "bg-[#1F3BB3] text-white" : i < step ? "bg-[#2B4BDB] text-white" : "text-slate-400"}`}>
-              {i + 1}. {s}
-            </div>
-          ))}
-        </div>
+        <Stepper steps={STEPS} current={step} data-testid="wizard-steps" />
 
-        <div className="mt-6 border border-slate-100 bg-white rounded-2xl overflow-hidden p-8">
+        <div className="mt-6 border border-slate-100 bg-card rounded-xl overflow-hidden p-4 sm:p-8">
           {step === 0 && (
             <div className="space-y-4">
-              <h2 className="font-heading font-extrabold text-xl">Periodo di occupazione</h2>
+              <h2 className="font-heading font-semibold text-xl">Periodo di occupazione</h2>
               <p className="text-sm text-slate-500">Seleziona inizio e fine sul calendario. Le date in rosso sono già occupate e non selezionabili.</p>
               <DateRangePicker
                 occupazioni={occupazioni}
@@ -147,7 +129,7 @@ export default function PraticaWizard() {
               {giorni > 0 && (
                 <div className="border border-slate-200 rounded-xl bg-slate-50 px-4 py-3 flex justify-between text-sm">
                   <span>{giorni} giorni × {spazio.canone_giornaliero} €</span>
-                  <span className="font-heading font-extrabold" data-testid="importo-calcolato">{importo.toFixed(2)} €</span>
+                  <span className="font-heading font-semibold" data-testid="importo-calcolato">{importo.toFixed(2)} €</span>
                 </div>
               )}
             </div>
@@ -155,49 +137,34 @@ export default function PraticaWizard() {
 
           {step === 1 && (
             <div className="space-y-4">
-              <h2 className="font-heading font-extrabold text-xl">{template.nome}</h2>
+              <h2 className="font-heading font-semibold text-xl">{template.nome}</h2>
               <p className="text-sm text-slate-500">Modulo dinamico configurato dal Comune di {spazio.comune?.nome}. I campi cambiano in base alle risposte.</p>
-              {campiVisibili.map((c) => (
-                <DynamicField key={c.id} campo={c} value={values[c.id]} onChange={(v) => setValues({ ...values, [c.id]: v })} />
-              ))}
+              <OSPFields fields={campiVisibili} values={values} profile={pratica?.richiedente} prefix={`${pratica?.id}-`} onChange={(id, value) => setValues(prev => ({ ...prev, [id]: value }))} />
               {template.campi.length === 0 && <div className="text-sm text-slate-500">Nessun campo aggiuntivo richiesto.</div>}
             </div>
           )}
 
           {step === 2 && (
             <div className="space-y-5">
-              <h2 className="font-heading font-extrabold text-xl">Documenti allegati</h2>
+              <h2 className="font-heading font-semibold text-xl">Documenti allegati</h2>
               <p className="text-sm text-slate-500">Documenti richiesti dal Comune di {spazio.comune?.nome} per il modulo "{template.nome}".</p>
-              {docsRichiesti.map((d) => (
-                <div key={d.id} className="border border-slate-100 rounded-xl p-4 flex items-center justify-between gap-4">
-                  <div>
-                    <div className="font-bold text-sm">{d.label}{d.required && <span className="text-[#B91C1C]"> *</span>}</div>
-                    <div className="text-xs text-slate-500">{docs.filter((x) => x.tipo === d.id).map((x) => x.nome).join(", ") || "Nessun file caricato"}</div>
-                  </div>
-                  <label className="cursor-pointer inline-flex items-center gap-2 border border-slate-200 rounded-full px-4 py-2 text-sm font-bold hover:bg-[#1F3BB3] hover:text-white transition-colors">
-                    <Upload size={15} /> Carica
-                    <input data-testid={`upload-${d.id}`} type="file" className="hidden" onChange={(e) => uploadFile(e, d.id)} />
-                  </label>
-                </div>
-              ))}
-              {docsRichiesti.length === 0 && <div className="text-sm text-slate-500">Nessun documento richiesto per questo modulo.</div>}
-              <p className="text-xs text-slate-500">I file sono archiviati in locale (demo). Formati consigliati: PDF, PNG, JPG.</p>
+              <OSPDocuments pratica={pratica} template={template} values={values} documents={docs} onUploaded={doc => setDocs(prev => [...prev.filter(d => d.tipo !== doc.tipo), doc])} />
             </div>
           )}
 
           {step === 3 && (
             <div className="space-y-5">
-              <h2 className="font-heading font-extrabold text-xl">Checkout</h2>
-              <div className="border border-slate-100 rounded-2xl overflow-hidden divide-y divide-slate-300">
-                <div className="px-4 py-3 flex justify-between text-sm"><span>Spazio</span><span className="font-bold">{spazio.nome}</span></div>
-                <div className="px-4 py-3 flex justify-between text-sm"><span>Periodo</span><span className="font-mono">{pratica?.data_inizio} → {pratica?.data_fine}</span></div>
-                <div className="px-4 py-3 flex justify-between text-sm"><span>Canone totale</span><span className="font-heading font-extrabold text-lg">{pratica?.importo?.toFixed(2)} €</span></div>
+              <h2 className="font-heading font-semibold text-xl">Checkout</h2>
+              <div className="border border-slate-100 rounded-xl overflow-hidden divide-y divide-slate-300">
+                <div className="px-4 py-3 flex justify-between text-sm"><span>Spazio</span><span className="font-semibold">{spazio.nome}</span></div>
+                <div className="px-4 py-3 flex justify-between text-sm"><span>Periodo</span><span className="tabular-nums">{pratica?.data_inizio} → {pratica?.data_fine}</span></div>
+                <div className="px-4 py-3 flex justify-between text-sm"><span>Canone totale</span><span className="font-heading font-semibold text-lg">{pratica?.importo?.toFixed(2)} €</span></div>
               </div>
               <div className="border border-dashed border-slate-300 rounded-xl bg-slate-50 p-4 text-xs text-slate-600">
                 Pagamento simulato (demo) — nessun addebito reale. In produzione: Stripe / PagoPA.
               </div>
               <button data-testid="checkout-button" onClick={pay} disabled={paying}
-                className="w-full bg-[#1F3BB3] text-white rounded-full py-3.5 font-bold flex items-center justify-center gap-2 hover:bg-[#172E93] hover:text-white transition-colors disabled:opacity-60">
+                className="w-full bg-primary text-primary-foreground rounded-md py-3.5 font-semibold flex items-center justify-center gap-2 hover:bg-primary hover:text-white transition-colors disabled:opacity-60">
                 <CreditCard size={18} /> {paying ? "Elaborazione..." : `Paga ${pratica?.importo?.toFixed(2)} € (mock)`}
               </button>
             </div>
@@ -205,26 +172,26 @@ export default function PraticaWizard() {
 
           {step === 4 && (
             <div className="space-y-5 text-center py-4">
-              <div className="mx-auto w-14 h-14 border-2 border-[#10B981] flex items-center justify-center"><Check size={28} className="text-[#10B981]" /></div>
-              <h2 className="font-heading font-extrabold text-2xl">Tutto pronto</h2>
+              <div className="mx-auto w-14 h-14 border-2 border-success flex items-center justify-center"><Check size={28} className="text-success" /></div>
+              <h2 className="font-heading font-semibold text-2xl">Tutto pronto</h2>
               <p className="text-sm text-slate-600">Pagamento registrato. Invia la pratica al Comune di {spazio.comune?.nome} per avviare l'istruttoria.</p>
               <button data-testid="invia-pratica-button" onClick={invia}
-                className="w-full bg-[#1F3BB3] text-white rounded-full py-3.5 font-bold flex items-center justify-center gap-2 hover:bg-[#172E93] transition-colors">
+                className="w-full bg-primary text-primary-foreground rounded-md py-3.5 font-semibold flex items-center justify-center gap-2 hover:bg-primary transition-colors">
                 <FileText size={18} /> Invia pratica
               </button>
             </div>
           )}
 
-          {error && <div data-testid="wizard-error" className="mt-4 border border-red-200 bg-red-50 rounded-xl text-[#B91C1C] text-sm px-4 py-3">{error}</div>}
+          {error && <div data-testid="wizard-error" className="mt-4 border border-destructive/20 bg-destructive-muted rounded-xl text-destructive text-sm px-4 py-3">{error}</div>}
 
           {step < 3 && (
             <div className="mt-8 flex justify-between">
               <button onClick={() => setStep(Math.max(0, step - 1))} disabled={step === 0}
-                className="px-6 py-2.5 font-bold border border-slate-200 rounded-full hover:border-[#1F3BB3] transition-colors disabled:opacity-40">
+                className="px-6 py-2.5 font-semibold border border-slate-200 rounded-md hover:border-primary transition-colors disabled:opacity-40">
                 Indietro
               </button>
               <button data-testid="wizard-next-button" onClick={next}
-                className="px-8 py-2.5 font-bold rounded-full bg-[#1F3BB3] text-white hover:bg-[#172E93] transition-colors">
+                className="px-8 py-2.5 font-semibold rounded-md bg-primary text-primary-foreground hover:bg-primary transition-colors">
                 Avanti
               </button>
             </div>

@@ -24,7 +24,7 @@ async def main():
             await db.impianti.insert_many([{'id': iid, 'comune_id': city, 'codice': iid, 'zona_id': 'z', 'tipologia': 'Manifesto 200x140', 'prezzo': price, 'attivo': True, 'lat': 41.9, 'lng': 12.5, 'giorni_minimi': minimum} for iid, city, price, minimum in [('r','roma',10,1),('m','milano',20,1),('busy','roma',1,1),('long','roma',1,30)]])
             await db.pacchetti.insert_many([{'id': 'p-'+city, 'comune_id': city, 'zona_id': 'z', 'nome': 'Circuito '+city, 'attivo': True, 'impianti_ids': ids} for city, ids in [('roma',['r','busy','long']),('milano',['m'])]])
             await db.prenotazioni.insert_one({'id':'existing','stato':'CONFIRMED','impianti_ids':['busy'],'data_inizio':'2027-01-01','data_fine':'2027-01-31'})
-            await db.spazi.insert_many([{'id':'s-'+city,'comune_id':city,'nome':city,'disponibile':True,'canone_giornaliero':10,'lat':41.9,'lng':12.5,'attivita_ammesse':['sampling'],'superficie_mq':50} for city in ['roma','milano']])
+            await db.spazi.insert_many([{'id':'s-'+city,'comune_id':city,'nome':city,'disponibile':True,'canone_giornaliero':10,'lat':41.9,'lng':12.5,'attivita_ammesse':['sampling'],'superficie_mq':50,'capienza':100} for city in ['roma','milano']])
             brief={'obiettivo':'awareness','budget':90,'comuni_ids':['roma','milano'],'distribuzione':'tutti'}
             period={'data_inizio':'2027-01-01','data_fine':'2027-01-03'}
             request={'tipo':'OOH','brief':brief,**period}
@@ -65,8 +65,40 @@ async def main():
             assert sent.status_code==200 and sent.json()['inviate']==2
             occupied=(await api.post('/api/planning/recommend',json=osp_request)).json()
             assert not occupied['fattibile'] and occupied['items']==[]
+            budget_only = {'budget':60, 'persone_previste':80, 'comuni_ids':['roma','milano'], 'distribuzione':'tutti'}
+            next_period = {'data_inizio':'2027-02-01', 'data_fine':'2027-02-03'}
+            manual = await api.post('/api/campagne', json={'nome':'Manual budget-only OSP', **next_period, 'spazi_ids':['s-roma','s-milano'], 'brief':budget_only})
+            assert manual.status_code == 200, manual.text
+            assert manual.json()['brief']['obiettivo'] is None
+            assert manual.json()['brief']['persone_previste'] == 80
+            assert manual.json()['importo_totale'] == 60
+            capacity_body = {'nome':'OSP capacity check', 'data_inizio':'2027-03-01', 'data_fine':'2027-03-03', 'spazi_ids':['s-roma','s-milano'], 'brief':{**budget_only, 'persone_previste':101}}
+            insufficient = await api.post('/api/campagne', json=capacity_body)
+            assert insufficient.status_code == 400 and 'capienza' in insufficient.text
+            await db.spazi.update_one({'id':'s-roma'}, {'$unset':{'capienza':''}})
+            unknown = await api.post('/api/campagne', json={**capacity_body, 'brief':budget_only})
+            assert unknown.status_code == 400 and 'capienza' in unknown.text
+            await db.comuni.update_one({'id':'roma'}, {'$set': {'stato_onboarding':'SOSPESO'}})
+            practices = await api.get('/api/pratiche')
+            assert practices.status_code == 200
+            assert practices.json() and all(p['comune_nome'] == p['comune_id'].title() for p in practices.json())
+            assert all(p['user_id'] == user['id'] for p in practices.json())
+            ooh_without_objective = await api.post('/api/ooh/campagne', json={**body, **next_period, 'brief':budget_only})
+            assert ooh_without_objective.status_code == 422
             bad_period=await api.post('/api/planning/recommend',json={**request,'data_fine':'2026-01-01'})
             assert bad_period.status_code==400
+            # Verify the Municipality creates and edits real area metadata without inferred capacity.
+            await db.comuni.update_one({'id':'roma'}, {'$set': {'regione':'Lazio'}})
+            user.update({'ruolo':'comune', 'livello':3, 'comune_id':'roma'})
+            area = {'nome':'Area capacity test', 'indirizzo':'Indirizzo test', 'lat':41.9, 'lng':12.5, 'canone_giornaliero':25, 'superficie_mq':75.5, 'capienza':100}
+            new_area = await api.post('/api/comune/spazi', json=area)
+            assert new_area.status_code == 200, new_area.text
+            area_id = new_area.json()['id']
+            assert new_area.json()['capienza'] == 100 and new_area.json()['superficie_mq'] == 75.5
+            updated = await api.put('/api/comune/spazi/'+area_id, json={**area,'capienza':120})
+            assert updated.status_code == 200 and updated.json()['capienza'] == 120
+            invalid_capacity = await api.put('/api/comune/spazi/'+area_id, json={**area,'capienza':1.5})
+            assert invalid_capacity.status_code == 422
             print('API integration OK: availability, min duration, budget, exclusions, persisted brief, OOH option/payment policy and OSP payment/submission.')
         finally:
             await server.client.drop_database(db.name)

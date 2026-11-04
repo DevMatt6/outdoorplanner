@@ -1,42 +1,43 @@
-import { CampaignBrief, BudgetSummary, RecommendationPanel, initialBrief, briefPayload, briefError, catalogCompatible } from "../../components/CampaignBrief";
-import { useEffect, useMemo, useState } from "react";
+import { initialOSPBrief, ospBriefPayload, ospBudgetError, ospPeopleError, ospAvailable, ospCost, ospBudgetAdvice } from "../../lib/ospPlanning";
+import { LoadingState } from "../../components/LoadingState";
+import { Stepper } from "../../components/Stepper";
+import { BudgetSummary } from "../../components/CampaignBrief";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import "leaflet/dist/leaflet.css";
 import { UserShell } from "../../components/BackofficeLayout";
 import { DateRangePicker, fmtDay } from "../../components/DateRangePicker";
-import { DynamicField, isVisible } from "../../components/DynamicField";
-import { EsploraMappa } from "../../components/EsploraMappa";
+import { OSPForms } from "../../components/OSPForms";
 import { SpazioCard } from "../../components/SpazioCard";
-import { api, apiError, imgSrc } from "../../lib/api";
+import { api, apiError } from "../../lib/api";
 import { toast } from "sonner";
-import { CreditCard, Send, Upload, Landmark, ArrowLeft } from "lucide-react";
+import { CreditCard, Send, Search } from "lucide-react";
 
-const STEPS = [[0,"Obiettivo e budget"],[1,"Periodo"],[2,"Comuni"],[3,"Proposta"],[4,"Spazi"],[5,"Moduli"],[6,"Riepilogo"]];
+const STEPS = [[0,"Budget e persone"],[1,"Periodo"],[2,"Comuni"],[3,"Spazi OSP"],[4,"Moduli"],[5,"Riepilogo"]];
 
 export default function CampagnaPlanner() {
   const navigate = useNavigate();
+  const plannerRef = useRef(null);
   const [step, setStep] = useState(0);
-  const [brief, setBrief] = useState(initialBrief);
-  const [proposal, setProposal] = useState(null);
-  const [excluded, setExcluded] = useState([]);
-  const [proposalBusy, setProposalBusy] = useState(false);
-  const [proposalError, setProposalError] = useState("");
+  const [brief, setBrief] = useState(initialOSPBrief);
+  const [spacesLoading, setSpacesLoading] = useState(false);
+  const [spacesError, setSpacesError] = useState("");
+  const [reloadSpaces, setReloadSpaces] = useState(0);
+  const [search, setSearch] = useState("");
   const [comuniSel, setComuniSel] = useState([]);
   const [nome, setNome] = useState("");
   const [range, setRange] = useState();
-  const [regioneSel, setRegioneSel] = useState("");
   const [comuneSel, setComuneSel] = useState("");
   const [zonaSel, setZonaSel] = useState("");
   const [comuniList, setComuniList] = useState([]);
   const [disponibili, setDisponibili] = useState([]);
   const [selected, setSelected] = useState([]);
   const [campagna, setCampagna] = useState(null);
-  const [templates, setTemplates] = useState({});
-  const [formValues, setFormValues] = useState({});
-  const [docsUp, setDocsUp] = useState({});
+  const formsRef = useRef(null);
   const [pagata, setPagata] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => { plannerRef.current?.scrollIntoView?.({ block: "start" }); }, [step]);
 
   const dal = fmtDay(range?.from);
   const al = fmtDay(range?.to);
@@ -47,79 +48,50 @@ export default function CampagnaPlanner() {
   }, []);
 
   useEffect(() => {
-    if ((step !== 4 && step !== 3) || !dal || !al) return;
-    api.get("/spazi/disponibili", { params: { data_inizio: dal, data_fine: al } }).then(({ data }) => setDisponibili(data));
-  }, [step, dal, al]);
+    if (step !== 3 || !dal || !al) return;
+    let active = true;
+    setSpacesLoading(true); setSpacesError("");
+    api.get("/spazi/disponibili", { params: { data_inizio: dal, data_fine: al } })
+      .then(({ data }) => { if (active) setDisponibili(data); })
+      .catch((e) => { if (active) { setDisponibili([]); setSpacesError(apiError(e)); } })
+      .finally(() => { if (active) setSpacesLoading(false); });
+    return () => { active = false; };
+  }, [step, dal, al, reloadSpaces]);
 
-  const toggle = (id) =>
-    setSelected((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
-
-  const filtrati = useMemo(() => disponibili.filter((s) =>
-    comuniSel.includes(s.comune_id) && catalogCompatible(s, brief, "OSP", giorni)
-  ), [disponibili, comuniSel, brief, giorni]);
-
-  const countPerComune = useMemo(() => {
-    const m = {};
-    filtrati.forEach((s) => { m[s.citta] = (m[s.citta] || 0) + 1; });
-    return m;
-  }, [filtrati]);
-
-  const comuniGrid = (regioneSel ? comuniList.filter((c) => c.regione === regioneSel) : comuniList)
-    .filter(c => comuniSel.includes(c.id))
-    .slice()
-    .sort((a, b) => (countPerComune[b.nome] || 0) - (countPerComune[a.nome] || 0));
-
-  const spaziComune = comuneSel ? filtrati.filter((s) => s.citta === comuneSel) : filtrati;
-  const gridSpazi = zonaSel ? spaziComune.filter((s) => (s.zona || "Altro") === zonaSel) : spaziComune;
-
-  const spaziSelezionati = disponibili.filter((s) => selected.includes(s.id));
-  const totale = spaziSelezionati.reduce((a, s) => a + s.canone_giornaliero * giorni, 0);
-  const perCity = {};
-  spaziSelezionati.forEach(s => { const name = comuniList.find(c => c.id === s.comune_id)?.nome || s.citta; perCity[name] = (perCity[name] || 0) + s.canone_giornaliero * giorni; });
-
-
-  const onRegione = (r) => { setRegioneSel(r || ""); setComuneSel(""); setZonaSel(""); };
-  const onComune = (nomeC) => {
-    if (!nomeC) { setComuneSel(""); setZonaSel(""); setRegioneSel(""); return; }
-    const c = comuniList.find((x) => x.nome === nomeC);
-    setComuneSel(nomeC); setZonaSel(""); if (c) setRegioneSel(c.regione);
-  };
+  const filtrati = useMemo(() => ospAvailable(disponibili, comuniSel, giorni, Number(brief.persone_previste)), [disponibili, comuniSel, giorni, brief.persone_previste]);
+  // Keep the initial catalog order while live advice follows the remaining budget.
+  const initialRecommendations = useMemo(() => ospBudgetAdvice(filtrati, [], comuniSel, brief.budget, giorni).recommended, [filtrati, comuniSel, brief.budget, giorni]);
+  const advice = useMemo(() => ospBudgetAdvice(filtrati, selected, comuniSel, brief.budget, giorni), [filtrati, selected, comuniSel, brief.budget, giorni]);
+  const spaziSelezionati = filtrati.filter((s) => selected.includes(s.id));
+  const totale = advice.total / 100;
+  const perCity = Object.fromEntries(comuniSel.map((id) => [comuniList.find((c) => c.id === id)?.nome || id, 0]));
+  spaziSelezionati.forEach((s) => { const name = comuniList.find((c) => c.id === s.comune_id)?.nome || s.citta; perCity[name] = (perCity[name] || 0) + ospCost(s, giorni) / 100; });
+  const spaziComune = comuneSel ? filtrati.filter((s) => s.comune_id === comuneSel) : filtrati;
+  const zone = [...new Set(spaziComune.map((s) => s.zona || "Altro"))].sort((a, b) => a.localeCompare(b, "it"));
+  const gridSpazi = spaziComune.filter((s) => (!zonaSel || (s.zona || "Altro") === zonaSel) && `${s.nome} ${s.citta} ${s.indirizzo || ""}`.toLocaleLowerCase("it").includes(search.trim().toLocaleLowerCase("it")))
+    .sort((a, b) => Number(initialRecommendations.has(b.id)) - Number(initialRecommendations.has(a.id)) || ospCost(a, giorni) - ospCost(b, giorni) || a.nome.localeCompare(b.nome, "it"));
+  const toggle = (id) => { setError(""); setSelected((ids) => ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]); };
 
   const comuneNomeById = (cid) => comuniList.find((c) => c.id === cid)?.nome || "—";
 
-  const calculate = async (omit = []) => {
-    setProposalBusy(true); setProposalError(""); setProposal(null);
-    try {
-      const { data } = await api.post("/planning/recommend", { tipo: "OSP", brief: briefPayload(brief, comuniSel), data_inizio: dal, data_fine: al, esclusi: omit });
-      const names = Object.fromEntries(comuniList.map(c => [c.id, c.nome]));
-      data.avvisi = data.avvisi.map(w => Object.entries(names).reduce((text, [id, name]) => text.replaceAll(id, name), w));
-      setProposal(data);
-    } catch (e) { setProposalError(apiError(e)); } finally { setProposalBusy(false); }
-  };
-  const applyProposal = () => {
-    if (!proposal?.fattibile) return;
-      setSelected(proposal.items.map(i => i.id));
-    setStep(4);
-  };
-  const excludeSuggestion = (id) => { const omit = [...excluded, id]; setExcluded(omit); calculate(omit); };
   const next = async () => {
     setError("");
     if (step === 0) {
-      const invalid = briefError(brief);
+      const invalid = ospBudgetError(brief.budget) || ospPeopleError(brief.persone_previste);
       if (invalid) return setError(invalid);
       setStep(1);
     } else if (step === 1) {
       if (!nome.trim()) return setError("Dai un nome alla campagna");
       if (!dal || !al) return setError("Seleziona il periodo sul calendario");
       if (al < dal) return setError("Periodo non valido");
-      setSelected([]); setProposal(null); setExcluded([]);
+      setSelected([]); setDisponibili([]);
       setStep(2);
     } else if (step === 2) {
       if (!comuniSel.length) return setError("Seleziona almeno un Comune");
-      setSelected([]); setExcluded([]); setStep(3); calculate([]);
+      setSelected([]); setComuneSel(""); setZonaSel(""); setSearch(""); setStep(3);
     } else if (step === 3) {
-      setStep(4);
-    } else if (step === 4) {
+      if (spacesLoading || spacesError) return setError("Attendi il caricamento degli spazi disponibili");
+      if (selected.some((id) => !filtrati.some((s) => s.id === id))) return setError("Uno spazio selezionato non è più disponibile");
       if (totale > Number(brief.budget) + 0.001) return setError("La selezione supera il budget massimo");
       if (brief.distribuzione === "tutti" && comuniSel.some(id => !spaziSelezionati.some(s => s.comune_id === id))) return setError("Seleziona almeno uno spazio per ciascun comune");
       if (selected.length === 0) return setError("Seleziona almeno uno spazio");
@@ -127,50 +99,16 @@ export default function CampagnaPlanner() {
       try {
         const { data } = campagna
           ? { data: campagna }
-          : await api.post("/campagne", { nome, data_inizio: dal, data_fine: al, spazi_ids: selected, brief: briefPayload(brief, comuniSel) });
+          : await api.post("/campagne", { nome, data_inizio: dal, data_fine: al, spazi_ids: selected, brief: ospBriefPayload(brief, comuniSel) });
         setCampagna(data);
-        const tpls = {};
-        for (const p of data.pratiche) {
-          const res = await api.get(`/form-templates/spazio/${p.spazio_id}`);
-          tpls[p.id] = res.data;
-        }
-        setTemplates(tpls);
         if (!campagna) toast.success(`Campagna creata: ${data.pratiche.length} pratiche generate`);
-        setStep(5);
+        setStep(4);
       } catch (e) { setError(apiError(e)); } finally { setBusy(false); }
-    } else if (step === 5) {
-      for (const p of campagna.pratiche) {
-        const tpl = templates[p.id];
-        const values = formValues[p.id] || {};
-        const visibili = (tpl?.campi || []).filter((c) => isVisible(c, values));
-        const mancanti = visibili.filter((c) => c.required && (values[c.id] === undefined || values[c.id] === "" || values[c.id] === null));
-        if (mancanti.length) return setError(`${p.spazio_nome}: compila ${mancanti.map((c) => c.label).join(", ")}`);
-        const docMancanti = (tpl?.documenti_richiesti || []).filter((d) => d.required && !docsUp[`${p.id}:${d.id}`]);
-        if (docMancanti.length) return setError(`${p.spazio_nome}: carica ${docMancanti.map((d) => d.label).join(", ")}`);
-      }
+    } else if (step === 4) {
       setBusy(true);
-      try {
-        for (const p of campagna.pratiche) {
-          await api.put(`/campagne/${campagna.id}/dati-form`, {
-            pratica_ids: [p.id], dati_form: formValues[p.id] || {},
-          });
-        }
-        setStep(6);
-      } catch (e) { setError(apiError(e)); } finally { setBusy(false); }
+      try { if (await formsRef.current?.save(true)) setStep(5); }
+      finally { setBusy(false); }
     }
-  };
-
-  const uploadDoc = async (e, p, d) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    try {
-      const fd = new FormData();
-      fd.append("file", file);
-      await api.post(`/pratiche/${p.id}/documenti?tipo=${d.id}`, fd);
-      setDocsUp((x) => ({ ...x, [`${p.id}:${d.id}`]: file.name }));
-      toast.success(`${file.name} allegato a ${p.spazio_nome}`);
-    } catch (err) { toast.error(apiError(err)); }
-    e.target.value = "";
   };
 
   const checkout = async () => {
@@ -191,184 +129,87 @@ export default function CampagnaPlanner() {
     } catch (e) { setError(apiError(e)); } finally { setBusy(false); }
   };
 
-  const input = "border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#1F3BB3] transition-colors bg-white";
+  const input = "border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-primary transition-colors bg-card";
 
   return (
     <UserShell>
-      <div className="max-w-7xl mx-auto" data-testid="campagna-planner">
-        <div className="text-xs font-bold uppercase tracking-[0.25em] text-slate-400">Campaign Planner</div>
-        <h1 className="text-3xl font-heading font-extrabold tracking-tight mt-1">Nuova campagna multi-spazio</h1>
+      <div ref={plannerRef} className="max-w-7xl mx-auto scroll-mt-24" data-testid="campagna-planner">
+        <div className="text-xs font-semibold tracking-normal text-slate-400">OSP / Eventi</div>
+        <h1 className="text-3xl font-heading font-semibold tracking-tight mt-1">Pianifica spazi OSP</h1>
 
-        <div className="mt-8 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 bg-white border border-slate-100 rounded-2xl overflow-hidden" data-testid="planner-steps">
-          {STEPS.map(([stage, s], i) => (
-            <div key={s} className={`py-3 px-2 text-center text-[11px] font-bold uppercase tracking-wider transition-colors
-              ${stage === step ? "bg-[#1F3BB3] text-white" : stage < step ? "bg-[#2B4BDB] text-white" : "text-slate-400"}`}>
-              {i + 1}. {s}
-            </div>
-          ))}
-        </div>
+        <Stepper steps={STEPS} current={step} data-testid="planner-steps" />
 
-        <div className="mt-6 bg-white border border-slate-100 rounded-2xl p-8">
-          {step === 3 && <RecommendationPanel proposal={proposal} busy={proposalBusy} error={proposalError} onCalculate={() => { setExcluded([]); calculate([]); }} onApply={applyProposal} onExclude={excludeSuggestion} cityName={comuneNomeById} />}
-          {step >= 4 && <div className="mb-5"><BudgetSummary brief={brief} total={totale} perCity={perCity} /></div>}
-          {step === 0 && <CampaignBrief value={brief} onChange={setBrief} tipo="OSP" />}
+        <div className="mt-6 bg-card border border-slate-100 rounded-xl p-4 sm:p-8">
+          {step >= 3 && <div className="mb-5"><BudgetSummary brief={brief} total={totale} perCity={perCity} /></div>}
+          {step === 0 && <div className="space-y-5" data-testid="osp-budget-step"><div><h2 className="text-xl font-semibold">Budget e persone previste</h2><p className="mt-2 text-sm text-muted-foreground">Indica il budget per l’intero periodo e il numero di persone previste. Potrai scegliere manualmente quelli più adatti.</p></div><label className="block max-w-md text-sm font-medium">Budget massimo per l’intero periodo (€)<input data-testid="campaign-budget" type="number" min="0.01" step="0.01" className={`${input} mt-2 w-full`} value={brief.budget} onChange={(e) => setBrief({ ...brief, budget: e.target.value })} /></label><label className="block max-w-md text-sm font-medium">Numero di persone previste<input data-testid="osp-persone-previste" type="number" min="1" step="1" className={`${input} mt-2 w-full`} value={brief.persone_previste} onChange={(e) => setBrief({ ...brief, persone_previste: e.target.value })} /></label><p className="text-xs text-muted-foreground">Il budget copre i canoni degli spazi. Allestimento, produzione ed eventuali costi aggiuntivi non sono inclusi.</p></div>}
           {step === 1 && (
             <div className="space-y-5">
-              <h2 className="font-heading font-extrabold text-xl">Nome e periodo</h2>
-              <input data-testid="campagna-nome-input" className={`${input} w-full max-w-md px-4 py-3`} placeholder="Nome campagna (es. Lancio primavera 2027)"
+              <h2 className="font-heading font-semibold text-xl">Nome e periodo</h2>
+              <input aria-label="Nome campagna (es. Lancio primavera 2027)" data-testid="campagna-nome-input" className={`${input} w-full max-w-md px-4 py-3`} placeholder="Nome campagna (es. Lancio primavera 2027)"
                 value={nome} onChange={(e) => setNome(e.target.value)} />
               <DateRangePicker value={range} onChange={setRange} />
             </div>
           )}
 
-          {step === 2 && <div className="space-y-4"><h2 className="font-extrabold text-xl">Seleziona i comuni</h2><div className="grid sm:grid-cols-3 gap-3">{comuniList.map(c => <label key={c.id} className="border rounded-xl p-4"><input type="checkbox" className="accent-[#1F3BB3] mr-2" checked={comuniSel.includes(c.id)} onChange={() => setComuniSel(ids => ids.includes(c.id) ? ids.filter(x => x !== c.id) : [...ids, c.id])} />{c.nome} · {c.regione}</label>)}</div></div>}
-          {step === 4 && (
-            <div className="space-y-5">
-              <div className="flex flex-wrap items-center gap-3">
-                <h2 className="font-heading font-extrabold text-xl flex-1">Spazi disponibili {dal} → {al}</h2>
-                <span className="text-sm text-slate-500 font-mono">{filtrati.length} disponibili</span>
-              </div>
-
-              <EsploraMappa comuni={comuniList} spazi={spaziComune}
-                regione={regioneSel} comune={comuneSel} zona={zonaSel}
-                onRegione={onRegione} onComune={onComune} onZona={(z) => setZonaSel(z || "")}
-                selectable selectedIds={selected} onToggle={toggle} height={420} />
-
-              {!comuneSel && (
-                <div>
-                  <div className="text-xs font-bold uppercase tracking-[0.2em] text-slate-500 mb-3">
-                    Comuni {regioneSel ? `in ${regioneSel}` : "con spazi disponibili"}
-                  </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4" data-testid="planner-comuni-grid">
-                    {comuniGrid.map((c) => (
-                      <button key={c.id} type="button" data-testid={`planner-comune-card-${c.id}`} onClick={() => onComune(c.nome)}
-                        className="bg-white border border-slate-100 rounded-2xl p-5 text-left hover:border-[#1F3BB3] transition-colors group">
-                        {c.logo_url ? (
-                          <img src={imgSrc(c.logo_url)} alt="" className="w-10 h-10 rounded-xl object-contain border border-slate-100 bg-white" />
-                        ) : (
-                          <span className="w-10 h-10 rounded-xl bg-[#F0F4FF] flex items-center justify-center text-[#1F3BB3]"><Landmark size={18} /></span>
-                        )}
-                        <div className="font-heading font-extrabold mt-3 group-hover:text-[#2B4BDB] transition-colors">{c.nome}</div>
-                        <div className="text-xs text-slate-500">{c.regione}</div>
-                        <div className="text-xs font-bold text-[#1F3BB3] mt-2">{countPerComune[c.nome] || 0} disponibili</div>
-                      </button>
-                    ))}
-                    {comuniGrid.length === 0 && <div className="col-span-full text-sm text-slate-500 p-6 text-center">Nessun Comune attivo in questa regione.</div>}
-                  </div>
-                </div>
-              )}
-
-              {comuneSel && (
-                <div>
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="text-xs font-bold uppercase tracking-[0.2em] text-slate-500">
-                      Spazi a {comuneSel}{zonaSel ? ` — ${zonaSel}` : ""} · clicca per selezionare
-                    </div>
-                    <button type="button" data-testid="planner-torna-comuni" onClick={() => onComune(null)}
-                      className="inline-flex items-center gap-1.5 text-sm font-bold text-slate-600 hover:text-[#1F3BB3] transition-colors">
-                      <ArrowLeft size={15} /> Tutti i Comuni
-                    </button>
-                  </div>
-                  <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5" data-testid="planner-spazi-grid">
-                    {gridSpazi.map((s) => (
-                      <SpazioCard key={s.id} spazio={s} selectable selected={selected.includes(s.id)} onClick={() => toggle(s.id)} />
-                    ))}
-                  </div>
-                  {gridSpazi.length === 0 && <div className="text-sm text-slate-500 p-6 text-center border border-slate-100 rounded-2xl">Nessuno spazio disponibile qui per il periodo e i requisiti scelti.</div>}
-                </div>
-              )}
-
-              <div className="bg-[#F8F9FD] rounded-xl px-5 py-3 flex flex-wrap gap-2 justify-between items-center text-sm font-bold" data-testid="planner-totale">
-                <span>{selected.length} spazi selezionati{spaziSelezionati.length > 0 && <span className="font-normal text-slate-500"> — {spaziSelezionati.map((s) => s.nome).join(" · ")}</span>}</span>
-                <span className="font-heading">{totale.toFixed(2)} €</span>
-              </div>
+          {step === 2 && <div className="space-y-4"><h2 className="font-semibold text-xl">Seleziona i comuni</h2><div className="grid sm:grid-cols-3 gap-3">{comuniList.map(c => <label key={c.id} className="border rounded-xl p-4"><input type="checkbox" className="accent-primary mr-2" checked={comuniSel.includes(c.id)} onChange={() => setComuniSel(ids => ids.includes(c.id) ? ids.filter(x => x !== c.id) : [...ids, c.id])} />{c.nome} · {c.regione}</label>)}</div></div>}
+          {step === 3 && <div className="space-y-5">
+            <div><h2 className="text-xl font-semibold">Scegli i tuoi spazi OSP</h2><p className="mt-2 text-sm text-muted-foreground">Seleziona manualmente le card. Gli spazi mostrati hanno capienza sufficiente per {brief.persone_previste} persone. Quelli consigliati rientrano nel budget residuo e lasciano margine per almeno uno spazio in ogni Comune scelto.</p><p className="mt-1 text-xs text-muted-foreground">I prezzi totali si riferiscono al periodo {dal} → {al} ({giorni} giorni).</p></div>
+            <div className="flex flex-wrap gap-3" data-testid="osp-space-filters">
+              <div className="relative min-w-0 flex-1"><Search size={15} className="absolute left-3 top-3 text-muted-foreground" /><input aria-label="Cerca uno spazio OSP" className={`${input} w-full pl-9`} placeholder="Cerca uno spazio o un indirizzo…" value={search} onChange={(e) => setSearch(e.target.value)} /></div>
+              <select aria-label="Filtra per Comune" className={input} value={comuneSel} onChange={(e) => { setComuneSel(e.target.value); setZonaSel(""); }}><option value="">Tutti i Comuni scelti</option>{comuniList.filter((c) => comuniSel.includes(c.id)).map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}</select>
+              <select aria-label="Filtra per zona" className={input} value={zonaSel} onChange={(e) => setZonaSel(e.target.value)}><option value="">Tutte le zone</option>{zone.map((z) => <option key={z} value={z}>{z}</option>)}</select>
             </div>
-          )}
+            {spacesLoading ? <LoadingState /> : spacesError ? <div role="alert" className="rounded-xl border border-destructive/20 p-5"><p className="text-destructive">{spacesError}</p><button className="mt-3 rounded-md border px-4 py-2" onClick={() => setReloadSpaces((v) => v + 1)}>Riprova</button></div> : <>
+              {!advice.feasible && <p role="status" className="rounded-lg border border-warning/20 bg-warning-muted p-4 text-sm text-warning-foreground">{filtrati.length ? "Il budget residuo non basta a coprire almeno uno spazio in ogni Comune scelto. Modifica la selezione, il budget o i Comuni." : "Nessuno spazio con capienza sufficiente e confermata nei Comuni scelti per questo periodo. Modifica il periodo o i Comuni."}</p>}
+              <div className="flex flex-wrap justify-between gap-2 text-xs text-muted-foreground" aria-live="polite"><span>{gridSpazi.length} spazi disponibili</span><span>{advice.recommended.size} consigliati nel budget residuo · nessuna selezione automatica</span></div>
+              <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" data-testid="planner-spazi-grid">{gridSpazi.map((s) => <SpazioCard key={s.id} spazio={s} selectable selected={selected.includes(s.id)} onClick={() => toggle(s.id)} imageAspect="landscape" showOSPDetails periodCost={ospCost(s, giorni) / 100} recommended={advice.recommended.has(s.id)} />)}</div>
+              {gridSpazi.length === 0 && <div className="rounded-xl border p-8 text-center text-sm text-muted-foreground">Nessuno spazio trovato con capienza confermata per il numero di persone indicato. Prova a modificare i filtri, i Comuni, il periodo o le persone previste.</div>}
+            </>}
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-muted px-5 py-3 text-sm font-medium" data-testid="planner-totale"><span>{spaziSelezionati.length} spazi selezionati</span><span>{totale.toFixed(2)} €</span></div>
+          </div>}
+
+          {step === 4 && campagna && <OSPForms ref={formsRef} pratiche={campagna.pratiche} campagnaId={campagna.id} comuneNome={comuneNomeById} />}
 
           {step === 5 && campagna && (
-            <div className="space-y-6">
-              <div>
-                <h2 className="font-heading font-extrabold text-xl">Moduli per spazio</h2>
-                <p className="text-sm text-slate-500 mt-1">Ogni spazio richiede il modulo previsto dal proprio Comune. Compila i dati e allega i documenti per ciascuno spazio.</p>
-              </div>
-              {campagna.pratiche.map((p) => {
-                const tpl = templates[p.id];
-                const values = formValues[p.id] || {};
-                const visibili = (tpl?.campi || []).filter((c) => isVisible(c, values));
-                return (
-                  <div key={p.id} className="border border-slate-100 rounded-2xl overflow-hidden" data-testid={`modulo-pratica-${p.id}`}>
-                    <div className="px-5 py-3 bg-[#F8F9FD] border-b border-slate-100 flex flex-wrap items-center justify-between gap-2">
-                      <div className="font-heading font-extrabold">{p.spazio_nome}</div>
-                      <div className="text-xs text-slate-500">Comune di {comuneNomeById(p.comune_id)} · modulo "{tpl?.nome || "standard"}"</div>
-                    </div>
-                    <div className="p-5 grid sm:grid-cols-2 gap-4">
-                      {visibili.map((c) => (
-                        <DynamicField key={c.id} campo={c} value={values[c.id]}
-                          onChange={(v) => setFormValues({ ...formValues, [p.id]: { ...values, [c.id]: v } })} />
-                      ))}
-                      {visibili.length === 0 && <div className="text-sm text-slate-500">Nessun campo aggiuntivo richiesto.</div>}
-                    </div>
-                    <div className="px-5 pb-5 space-y-2">
-                      {(tpl?.documenti_richiesti || []).map((d) => (
-                        <div key={d.id} className="flex flex-wrap items-center gap-3 border border-slate-100 rounded-xl px-4 py-2" data-testid={`doc-pratica-${p.id}-${d.id}`}>
-                          <span className="text-sm font-semibold flex-1 min-w-[160px]">{d.label}{d.required && <span className="text-[#B91C1C]"> *</span>}</span>
-                          <span className="text-xs text-slate-500">{docsUp[`${p.id}:${d.id}`] || "Nessun file"}</span>
-                          <label className="cursor-pointer inline-flex items-center gap-2 border border-slate-200 rounded-full px-4 py-1.5 text-xs font-bold hover:border-[#1F3BB3] hover:text-[#1F3BB3] transition-colors">
-                            <Upload size={13} /> Carica
-                            <input data-testid={`upload-pratica-${p.id}-${d.id}`} type="file" className="hidden" onChange={(e) => uploadDoc(e, p, d)} />
-                          </label>
-                        </div>
-                      ))}
-                      {(tpl?.documenti_richiesti || []).length === 0 && (
-                        <span className="text-xs text-slate-500">Nessun documento richiesto per questo spazio.</span>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          {step === 6 && campagna && (
             <div className="space-y-5">
-              <h2 className="font-heading font-extrabold text-xl">Riepilogo campagna "{nome}"</h2>
-              <div className="border border-slate-100 rounded-2xl overflow-hidden divide-y divide-slate-100">
+              <h2 className="font-heading font-semibold text-xl">Riepilogo campagna "{nome}"</h2><p className="text-sm text-muted-foreground">Persone previste: {brief.persone_previste}</p>
+              <div className="border border-slate-100 rounded-xl overflow-hidden divide-y divide-slate-100">
                 {campagna.pratiche.map((p) => (
                   <div key={p.id} className="px-5 py-3 flex justify-between text-sm">
                     <span><strong>{p.spazio_nome}</strong></span>
-                    <span className="font-mono">{p.importo.toFixed(2)} €</span>
+                    <span className="tabular-nums">{p.importo.toFixed(2)} €</span>
                   </div>
                 ))}
-                <div className="px-5 py-3 flex justify-between font-bold bg-[#F8F9FD]">
+                <div className="px-5 py-3 flex justify-between font-semibold bg-muted">
                   <span>Totale · {dal} → {al}</span>
                   <span className="font-heading text-lg" data-testid="riepilogo-totale">{campagna.importo_totale.toFixed(2)} €</span>
                 </div>
               </div>
               {!pagata ? (
-                <button data-testid="checkout-campagna-button" onClick={checkout} disabled={busy || proposalBusy}
-                  className="w-full bg-[#1F3BB3] text-white rounded-full py-3.5 font-bold flex items-center justify-center gap-2 hover:bg-[#172E93] transition-colors disabled:opacity-50">
+                <button data-testid="checkout-campagna-button" onClick={checkout} disabled={busy}
+                  className="w-full bg-primary text-primary-foreground rounded-md py-3.5 font-semibold flex items-center justify-center gap-2 hover:bg-primary transition-colors disabled:opacity-50">
                   <CreditCard size={18} /> {busy ? "Elaborazione..." : `Paga ${campagna.importo_totale.toFixed(2)} € (mock)`}
                 </button>
               ) : (
-                <button data-testid="invia-campagna-button" onClick={invia} disabled={busy || proposalBusy}
-                  className="w-full bg-[#1F3BB3] text-white rounded-full py-3.5 font-bold flex items-center justify-center gap-2 hover:bg-[#172E93] transition-colors disabled:opacity-50">
+                <button data-testid="invia-campagna-button" onClick={invia} disabled={busy}
+                  className="w-full bg-primary text-primary-foreground rounded-md py-3.5 font-semibold flex items-center justify-center gap-2 hover:bg-primary transition-colors disabled:opacity-50">
                   <Send size={18} /> Invia tutte le pratiche ai Comuni
                 </button>
               )}
             </div>
           )}
 
-          {error && <div data-testid="planner-error" className="mt-4 border border-red-200 bg-red-50 rounded-xl text-[#B91C1C] text-sm px-4 py-3">{error}</div>}
+          {error && <div data-testid="planner-error" className="mt-4 border border-destructive/20 bg-destructive-muted rounded-xl text-destructive text-sm px-4 py-3">{error}</div>}
 
-          {step < 6 && (
+          {step < 5 && (
             <div className="mt-8 flex justify-between">
-              <button onClick={() => setStep(Math.max(0, step - 1))} disabled={step === 0 || (step === 5 && !!campagna)}
-                className="px-6 py-2.5 font-bold border border-slate-200 rounded-full hover:border-[#1F3BB3] transition-colors disabled:opacity-40">
+              <button onClick={() => setStep(Math.max(0, step - 1))} disabled={step === 0 || (step === 4 && !!campagna)}
+                className="px-6 py-2.5 font-semibold border border-slate-200 rounded-md hover:border-primary transition-colors disabled:opacity-40">
                 Indietro
               </button>
-              <button data-testid="planner-next-button" onClick={next} disabled={busy || proposalBusy}
-                className="px-8 py-2.5 font-bold rounded-full bg-[#1F3BB3] text-white hover:bg-[#172E93] transition-colors disabled:opacity-50">
-                {busy ? "Attendi..." : step === 4 && !campagna ? "Crea pratiche e compila moduli" : step === 3 ? "Selezione manuale" : "Avanti"}
+              <button data-testid="planner-next-button" onClick={next} disabled={busy || (step === 3 && (spacesLoading || !!spacesError))}
+                className="px-8 py-2.5 font-semibold rounded-md bg-primary text-primary-foreground hover:bg-primary transition-colors disabled:opacity-50">
+                {busy ? "Attendi..." : step === 3 && !campagna ? "Crea pratiche e compila moduli" : "Avanti"}
               </button>
             </div>
           )}

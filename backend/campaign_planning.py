@@ -11,6 +11,7 @@ CONTEXTS = ['centro', 'commerciale', 'stazione', 'universita', 'residenziale']
 ACTIVITIES = ['evento', 'sampling', 'stand', 'installazione']
 
 class CatalogPlanning(BaseModel):
+    capienza: Optional[int] = Field(default=None, gt=0, strict=True)
     contesti: list[Literal['centro', 'commerciale', 'stazione', 'universita', 'residenziale']] = Field(default_factory=list)
     pubblici: list[Literal['studenti', 'famiglie', 'pendolari', 'turisti']] = Field(default_factory=list)
     attivita_ammesse: list[Literal['evento', 'sampling', 'stand', 'installazione']] = Field(default_factory=list)
@@ -39,6 +40,11 @@ class CampaignBrief(BaseModel):
             raise ValueError('Budget minimo 0,01 €')
         self.comuni_ids = list(dict.fromkeys(self.comuni_ids))
         return self
+
+class OSPCampaignBrief(CampaignBrief):
+    persone_previste: Optional[int] = Field(default=None, gt=0, strict=True)
+    obiettivo: Optional[Literal['awareness', 'engagement', 'conversion']] = None
+
 
 class RecommendationIn(BaseModel):
     tipo: Literal['OOH', 'OSP']
@@ -91,7 +97,7 @@ def suitability(item, brief, tipo):
     matches = audiences & set(brief.pubblici)
     if matches:
         score += 25 * len(matches); reasons.append('Pubblico indicato nel catalogo: ' + ', '.join(sorted(matches)))
-    objective_context = {'awareness': {'centro', 'stazione'}, 'engagement': {'universita', 'commerciale', 'centro'}, 'conversion': {'commerciale', 'residenziale'}}[brief.obiettivo]
+    objective_context = {'awareness': {'centro', 'stazione'}, 'engagement': {'universita', 'commerciale', 'centro'}, 'conversion': {'commerciale', 'residenziale'}}.get(brief.obiettivo, set())
     if contexts & objective_context:
         score += 20; reasons.append('Contesto coerente con l’obiettivo')
     if tipo == 'OOH':
@@ -101,6 +107,11 @@ def suitability(item, brief, tipo):
         if (brief.obiettivo == 'awareness' and kind == 'maxi') or (brief.obiettivo == 'engagement' and kind == 'digitale'):
             score += 15; reasons.append('Formato coerente con l’obiettivo')
     else:
+        persone = getattr(brief, 'persone_previste', None)
+        if persone:
+            if (item.get('capienza') or 0) < persone:
+                return None
+            reasons.append('Capienza sufficiente: ' + str(item['capienza']) + ' persone')
         if brief.attivita:
             if brief.attivita not in item.get('attivita_ammesse', []):
                 return None
@@ -190,7 +201,7 @@ def check_selection(brief, items, tipo, days):
         if days < (item.get('giorni_minimi') or 1):
             raise HTTPException(400, 'Durata inferiore al minimo richiesto')
         if suitability(item, brief, tipo) is None:
-            raise HTTPException(400, 'Uno spazio selezionato non rispetta formato, attività, superficie o raggio richiesti')
+            raise HTTPException(400, 'Uno spazio selezionato non rispetta formato, attività, superficie, capienza o raggio richiesti')
 
 
 def build_planning(require_role, available_osp, available_ooh):
