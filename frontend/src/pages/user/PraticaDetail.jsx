@@ -1,10 +1,11 @@
+import { StateTimeline } from "../../components/StateTimeline";
 import { practiceLabel } from "../../lib/practicePresentation";
 import { OSPForms } from "../../components/OSPForms";
 import { LoadingState } from "../../components/LoadingState";
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { UserShell } from "../../components/BackofficeLayout";
-import { StatusBadge, STATO_COLORS } from "../../components/StatusBadge";
+import { StatusBadge } from "../../components/StatusBadge";
 import { ChatFloating } from "../../components/ChatFloating";
 import { SezioneRichiedente, SezionePrenotazione, SezioneImpiantiCreativita, SezioneDatiForm, SezioneDocumenti } from "../../components/PraticaDettagli";
 import { IntegrazioneEditor } from "../../components/IntegrazioneEditor";
@@ -70,6 +71,8 @@ export default function PraticaDetail() {
         <Link to="/dashboard" className="inline-flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-slate-900 transition-colors">
           <ArrowLeft size={16} /> Le mie pratiche
         </Link>
+        <StateTimeline entries={pratica.log_stato || []} />
+
         <div className="mt-4 flex flex-wrap items-center gap-4 justify-between">
           <div>
             <h1 className="text-3xl font-heading font-semibold tracking-tight">{practiceLabel(pratica)}</h1>
@@ -154,24 +157,7 @@ export default function PraticaDetail() {
           <div className="space-y-6">
             <SezioneImpiantiCreativita pratica={pratica} />
             <SezioneDocumenti documenti={pratica.documenti} />
-            <div className="border border-slate-100 bg-card rounded-xl overflow-hidden">
-              <div className="px-5 py-2.5 border-b border-slate-100 text-xs font-semibold tracking-normal bg-muted">Cronologia stati</div>
-              <div className="p-5 space-y-0">
-                {pratica.log_stato.map((l, i) => (
-                  <div key={l.id} className="flex gap-4 pb-5 last:pb-0 relative">
-                    <div className="flex flex-col items-center">
-                      <span className="w-3.5 h-3.5 rounded-full" style={{ backgroundColor: STATO_COLORS[l.a]?.dot }} />
-                      {i < pratica.log_stato.length - 1 && <span className="w-px flex-1 bg-slate-300 mt-1" />}
-                    </div>
-                    <div className="pb-1 -mt-0.5">
-                      <div className="text-sm font-semibold">{STATO_COLORS[l.a]?.label || l.a}</div>
-                      <div className="text-xs text-slate-500">{l.autore_nome} · {new Date(l.timestamp).toLocaleString("it-IT")}</div>
-                      {l.nota && <div className="text-xs text-slate-600 mt-0.5 italic">"{l.nota}"</div>}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+
           </div>
         </div>
         <ChatFloating praticaId={pratica.id} />

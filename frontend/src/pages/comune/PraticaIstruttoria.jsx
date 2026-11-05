@@ -1,9 +1,10 @@
+import { StateTimeline } from "../../components/StateTimeline";
 import { practiceLabel } from "../../lib/practicePresentation";
 import { LoadingState } from "../../components/LoadingState";
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { BackofficeLayout, COMUNE_LINKS } from "../../components/BackofficeLayout";
-import { StatusBadge, STATO_COLORS } from "../../components/StatusBadge";
+import { StatusBadge } from "../../components/StatusBadge";
 import { ChatFloating } from "../../components/ChatFloating";
 import { SezioneRichiedente, SezionePrenotazione, SezioneImpiantiCreativita, SezioneDatiForm, SezioneDocumenti } from "../../components/PraticaDettagli";
 import { api, apiError, API } from "../../lib/api";
@@ -77,6 +78,8 @@ export default function PraticaIstruttoria() {
       <Link to="/comune" className="inline-flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-slate-900 transition-colors">
         <ArrowLeft size={16} /> Scrivania
       </Link>
+      <StateTimeline entries={pratica.log_stato || []} />
+
       <div className="mt-3 flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-heading font-semibold tracking-tight" data-testid="istruttoria-title">{practiceLabel(pratica)}</h1>
@@ -213,21 +216,7 @@ export default function PraticaIstruttoria() {
         <div className="space-y-6">
           <SezioneImpiantiCreativita pratica={pratica} />
           <SezioneDocumenti documenti={pratica.documenti} />
-          <div className="border border-slate-100 bg-card rounded-xl">
-            <div className="px-5 py-2.5 border-b border-slate-100 text-xs font-semibold tracking-normal bg-muted">Log stati</div>
-            <div className="p-5 space-y-2">
-              {pratica.log_stato.map((l) => (
-                <div key={l.id} className="text-xs">
-                  <div className="flex items-center gap-3">
-                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: STATO_COLORS[l.a]?.dot }} />
-                    <span className="font-semibold w-40">{l.da ? `${l.da} → ${l.a}` : l.a}</span>
-                    <span className="text-slate-500">{l.autore_nome} · {new Date(l.timestamp).toLocaleString("it-IT")}</span>
-                  </div>
-                  {l.nota && <div className="ml-5 text-slate-600 italic mt-0.5">"{l.nota}"</div>}
-                </div>
-              ))}
-            </div>
-          </div>
+
         </div>
       </div>
       <ChatFloating praticaId={pratica.id} />
