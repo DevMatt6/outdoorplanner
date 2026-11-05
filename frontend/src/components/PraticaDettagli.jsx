@@ -1,13 +1,13 @@
+import { CreativeGallery, creativeLabel } from "./CreativeGallery";
+import { imgSrc } from "../lib/api";
 import { installationGroups } from "../lib/practicePresentation";
 import { FileImage } from "lucide-react";
 
-const BK = process.env.REACT_APP_BACKEND_URL;
 const LABELS = {
   nome: "Nome / Referente", email: "Email", tipo_soggetto: "Tipo soggetto",
   ragione_sociale: "Ragione sociale", partita_iva: "Partita IVA",
   codice_fiscale: "Codice fiscale", pec: "PEC", telefono: "Telefono",
 };
-const isImg = (u) => /\.(jpg|jpeg|png|webp|gif)$/i.test(u || "");
 
 const Box = ({ title, children, testId }) => (
   <div className="border border-slate-100 bg-card rounded-xl overflow-hidden" data-testid={testId}>
@@ -64,7 +64,7 @@ export const SezioneImpiantiCreativita = ({ pratica }) => {
   if (!impianti.length) return null;
   const assegnata = (impId) => (pratica.creativita_dettagli || []).find((c) => c.impianto_id === impId)?.soggetto;
   return (
-    <Box title={`Impianti e creatività (${impianti.length})`} testId="sezione-impianti">
+    <><Box title={`Impianti e creatività (${impianti.length})`} testId="sezione-impianti">
       {installationGroups(pratica).map(group => <section key={group.zona}>
         <h3 className="border-b bg-muted/50 px-5 py-3 text-sm font-semibold">{group.zona} · {group.impianti.length} impianti</h3>
         {group.impianti.map((i) => {
@@ -72,7 +72,7 @@ export const SezioneImpiantiCreativita = ({ pratica }) => {
         return (
           <div key={i.id} className="flex items-start gap-4 px-5 py-4 border-b border-slate-100 last:border-b-0" data-testid={`impianto-row-${i.codice}`}>
             {i.foto_url ? (
-              <img src={i.foto_url.startsWith("/") ? `${BK}${i.foto_url}` : i.foto_url} alt={i.codice}
+              <img src={imgSrc(i.foto_url)} alt={i.codice}
                 className="w-16 h-16 object-cover rounded-xl border border-slate-100 shrink-0" />
             ) : (
               <div className="w-16 h-16 rounded-xl bg-accent flex items-center justify-center shrink-0"><FileImage size={20} className="text-slate-400" /></div>
@@ -83,18 +83,7 @@ export const SezioneImpiantiCreativita = ({ pratica }) => {
               <div className="text-xs text-slate-500 mt-0.5">{i.tipologia} · formato {i.formato}</div>
               <div className="mt-2 text-xs">
                 {sog ? (
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="inline-flex items-center gap-1 bg-accent text-brand-foreground font-semibold rounded-md px-2.5 py-1">Creatività: {sog.nome}</span>
-                    <a href={`${BK}${sog.file_url}`} target="_blank" rel="noreferrer"
-                      className="font-semibold underline text-slate-600 hover:text-slate-900" data-testid={`creativita-file-${i.codice}`}>
-                      {sog.file_nome || "Apri file"}
-                    </a>
-                    {isImg(sog.file_url) && (
-                      <a href={`${BK}${sog.file_url}`} target="_blank" rel="noreferrer">
-                        <img src={`${BK}${sog.file_url}`} alt={sog.nome} className="h-10 rounded-lg border border-slate-100" />
-                      </a>
-                    )}
-                  </div>
+                  <span className="inline-flex items-center gap-1 rounded-md bg-accent px-2.5 py-1 font-semibold text-brand-foreground">Creatività: {creativeLabel(sog)}</span>
                 ) : (
                   <span className="text-slate-400 italic">Nessuna creatività assegnata</span>
                 )}
@@ -104,6 +93,7 @@ export const SezioneImpiantiCreativita = ({ pratica }) => {
         );
       })}</section>)}
     </Box>
+    <CreativeGallery subjects={(pratica.creativita_dettagli || []).map(c => c.soggetto)} /></>
   );
 };
 
@@ -128,7 +118,7 @@ export const SezioneDocumenti = ({ documenti }) => (
   <Box title={`Documenti caricati (${(documenti || []).length})`} testId="sezione-documenti">
     {(documenti || []).length === 0 && <div className="p-5 text-sm text-slate-500">Nessun documento caricato.</div>}
     {(documenti || []).map((d) => (
-      <a key={d.id} href={`${BK}${d.url}`} target="_blank" rel="noreferrer"
+      <a key={d.id} href={imgSrc(d.url)} target="_blank" rel="noreferrer"
         className="flex justify-between px-5 py-3 border-b border-slate-100 last:border-b-0 text-sm hover:bg-accent transition-colors">
         <span className="font-semibold">{d.nome}</span>
         <span className="text-xs text-slate-500 uppercase">{d.tipo}</span>
