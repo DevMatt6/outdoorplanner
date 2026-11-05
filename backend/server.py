@@ -1160,6 +1160,23 @@ async def aggiorna_comune(comune_id: str, data: ComuneUpdateIn, user: dict = Dep
 class ResetIn(BaseModel):
     conferma: str
 
+@api_router.post("/admin/reset-pratiche-campagne")
+async def reset_pratiche_campagne(data: ResetIn, user: dict = Depends(require_role("superadmin"))):
+    if data.conferma != "RESET":
+        raise HTTPException(status_code=400, detail="Digita RESET per confermare l'operazione")
+    # Clear operational records and availability holds; preserve catalog and configuration.
+    dettaglio = {}
+    for coll in ["pratiche", "campagne", "prenotazioni", "soggetti", "creativita", "log_stato", "chat", "occupazioni"]:
+        result = await db[coll].delete_many({})
+        dettaglio[coll] = result.deleted_count
+    for coll in ["notifiche", "notifications"]:
+        result = await db[coll].delete_many({"$or": [
+            {"pratica_id": {"$exists": True, "$ne": None}},
+            {"campagna_id": {"$exists": True, "$ne": None}},
+        ]})
+        dettaglio[coll] = result.deleted_count
+    return {"ok": True, "dettaglio": dettaglio}
+
 @api_router.post("/admin/reset-piattaforma")
 async def reset_piattaforma(data: ResetIn, user: dict = Depends(require_role("superadmin"))):
     if data.conferma != "RESET":

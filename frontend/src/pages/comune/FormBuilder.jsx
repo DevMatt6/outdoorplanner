@@ -66,12 +66,15 @@ export default function FormBuilder() {
   };
 
   const save = async () => {
+    if (tpl.campi.some((c) => !c.label.trim())) return toast.error("Inserisci un’etichetta per ogni campo");
     try {
-      await api.put(`/comune/form-templates/${tpl.id}`, { nome: tpl.nome, campi: tpl.campi, documenti_richiesti: tpl.documenti_richiesti || [] });
+      await api.put(`/comune/form-templates/${tpl.id}`, { nome: tpl.nome, campi: tpl.campi.map((c) => ({ ...c, opzioni: (c.opzioni || []).map((o) => o.trim()).filter(Boolean) })), documenti_richiesti: tpl.documenti_richiesti || [] });
       toast.success("Modulo salvato");
       load(tpl.id);
     } catch (e) { toast.error(apiError(e)); }
   };
+
+  const updateCampo = (index, updates) => setTpl({ ...tpl, campi: tpl.campi.map((campo, i) => i === index ? { ...campo, ...updates } : campo) });
 
   const input = "border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-primary transition-colors bg-card";
 
@@ -92,7 +95,7 @@ export default function FormBuilder() {
           )}
         </div>
       </div>
-      <p className="text-sm text-slate-500 mt-1">Crea più moduli (es. "Modulo Poster Standard", "Modulo Maxi Affissione") e assegnali agli spazi dal Catalogo. I campi di tipo <strong>file</strong> compaiono allo step Documenti della candidatura come "Documenti specifici".</p>
+      <p className="text-sm text-slate-500 mt-1">Modifica i campi esistenti direttamente nella lista, poi premi Salva modulo. Crea più moduli (es. "Modulo Poster Standard", "Modulo Maxi Affissione") e assegnali agli spazi dal Catalogo. I campi di tipo <strong>file</strong> compaiono allo step Documenti della candidatura come "Documenti specifici".</p>
 
       <div className="mt-5 flex flex-wrap gap-2" data-testid="moduli-tabs">
         {templates.map((t) => (
@@ -155,12 +158,16 @@ export default function FormBuilder() {
             {tpl.campi.map((c, i) => (
               <div key={c.id + i} className="flex flex-wrap items-center gap-3 px-4 py-3 border-b border-slate-100" data-testid={`campo-row-${c.id}`}>
                 <GripVertical size={15} className="text-slate-300" />
-                <span className="font-semibold text-sm flex-1 min-w-[140px]">{c.label}</span>
-                <span className={`text-[10px] font-semibold uppercase rounded-md px-2.5 py-1 ${c.tipo === "file" ? "bg-accent text-brand-foreground" : "bg-slate-100 text-slate-600"}`}>{c.tipo === "file" ? "Upload file" : c.tipo}</span>
+                <input aria-label={`Etichetta ${c.id}`} className={`${input} flex-1 min-w-[140px]`} value={c.label} onChange={(e) => updateCampo(i, { label: e.target.value })} />
+                <select aria-label={`Tipo ${c.id}`} className={input} value={c.tipo} onChange={(e) => updateCampo(i, { tipo: e.target.value })}>
+                  {TIPI_CAMPO.map((t) => <option key={t} value={t}>{t}</option>)}
+                </select>
+                <label className="flex items-center gap-2 text-sm">
+                  <input type="checkbox" aria-label={`Obbligatorio ${c.id}`} checked={!!c.required} onChange={(e) => updateCampo(i, { required: e.target.checked })} /> Obbligatorio
+                </label>
+                {c.tipo === "select" && <input aria-label={`Opzioni ${c.id}`} className={input} value={(c.opzioni || []).join(",")} onChange={(e) => updateCampo(i, { opzioni: e.target.value.split(",") })} placeholder="Opzioni separate da virgola" />}
                 <span className="text-xs text-muted-foreground">{c.scope === "comune" ? "Una volta per Comune" : "Per area"}</span>
-                {c.required && <span className="text-[10px] font-semibold uppercase rounded-md bg-destructive-muted text-destructive px-2.5 py-1">Obbligatorio</span>}
-                {c.condizione && <span className="text-[10px] font-semibold uppercase rounded-md bg-primary text-primary-foreground px-2.5 py-1">{c.condizione.campo ? `se ${c.condizione.campo} ${c.condizione.op === "ne" ? "≠" : "="} ${String(c.condizione.valore)}` : "Condizione su più risposte"}</span>}
-                {c.opzioni?.length > 0 && <span className="text-xs text-slate-500">[{c.opzioni.join(", ")}]</span>}
+                {c.condizione && <span className="text-xs text-muted-foreground">{c.condizione.campo ? `Visibile se ${c.condizione.campo} ${c.condizione.op === "ne" ? "≠" : "="} ${String(c.condizione.valore)}` : "Condizione su più risposte"}</span>}
                 <button data-testid={`rimuovi-campo-${c.id}`} onClick={() => setTpl({ ...tpl, campi: tpl.campi.filter((_, j) => j !== i) })}
                   className="ml-auto border border-slate-200 rounded-lg p-1.5 hover:border-destructive hover:text-destructive transition-colors">
                   <Trash2 size={14} />
@@ -179,7 +186,7 @@ export default function FormBuilder() {
               {(tpl.documenti_richiesti || []).map((d, i) => (
                 <div key={d.id} className="flex flex-wrap items-center gap-3 border border-slate-100 rounded-xl px-4 py-2.5" data-testid={`doc-row-${d.id}`}>
                   <FileUp size={15} className="text-brand-foreground" />
-                  <span className="font-semibold text-sm flex-1 min-w-[160px]">{d.label}</span>
+                  <input aria-label={`Nome documento ${d.id}`} className={`${input} flex-1 min-w-[160px]`} value={d.label} onChange={(e) => setTpl({ ...tpl, documenti_richiesti: tpl.documenti_richiesti.map((doc, j) => j === i ? { ...doc, label: e.target.value } : doc) })} />
                   <label className="flex items-center gap-2 text-xs font-semibold text-slate-600">
                     <input data-testid={`doc-required-${d.id}`} type="checkbox" className="w-4 h-4 accent-primary" checked={d.required}
                       onChange={(e) => { const dd = [...tpl.documenti_richiesti]; dd[i] = { ...dd[i], required: e.target.checked }; setTpl({ ...tpl, documenti_richiesti: dd }); }} />

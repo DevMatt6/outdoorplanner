@@ -21,8 +21,8 @@ export default function AdminDashboard() {
   const eseguiReset = async () => {
     setResetting(true);
     try {
-      await api.post("/admin/reset-piattaforma", { conferma: confermaReset });
-      toast.success("Piattaforma azzerata: puoi ricominciare da capo");
+      await api.post(showReset === "pratiche" ? "/admin/reset-pratiche-campagne" : "/admin/reset-piattaforma", { conferma: confermaReset });
+      toast.success(showReset === "pratiche" ? "Pratiche e campagne eliminate" : "Piattaforma azzerata: puoi ricominciare da capo");
       setShowReset(false);
       setConfermaReset("");
       setDettaglio(null);
@@ -191,24 +191,28 @@ export default function AdminDashboard() {
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2 font-heading font-semibold text-destructive"><AlertTriangle size={17} /> Zona pericolosa</div>
-            <p className="text-sm text-slate-600 mt-1">Elimina TUTTI i dati (comuni, utenze, inserzionisti, pratiche, campagne, impianti, file). Resta solo il tuo account superadmin.</p>
+            <p className="text-sm text-slate-600 mt-1">Per ricominciare i test, elimina pratiche e campagne mantenendo comuni, utenti, catalogo e moduli. Il reset della piattaforma elimina invece tutti i dati tranne gli account superadmin.</p>
           </div>
-          <button data-testid="btn-reset-piattaforma" onClick={() => setShowReset(true)}
+          <button data-testid="btn-reset-pratiche-campagne" onClick={() => setShowReset("pratiche")}
+            className="px-5 py-2.5 rounded-md font-semibold text-sm border border-destructive text-destructive">
+            Elimina pratiche e campagne
+          </button>
+          <button data-testid="btn-reset-piattaforma" onClick={() => setShowReset("piattaforma")}
             className="px-5 py-2.5 rounded-md font-semibold text-sm bg-destructive text-destructive-foreground hover:bg-destructive transition-colors">
             Reset piattaforma
           </button>
         </div>
         {showReset && (
-          <Dialog open onOpenChange={(open) => { if (!resetting && !open) { setShowReset(false); setConfermaReset(""); } }}><DialogContent data-testid="reset-dialog"><DialogTitle>Reset della piattaforma</DialogTitle><DialogDescription>Tutti i dati verranno eliminati definitivamente. Il tuo account superadmin sarà conservato.</DialogDescription>
+          <Dialog open onOpenChange={(open) => { if (!resetting && !open) { setShowReset(false); setConfermaReset(""); } }}><DialogContent data-testid="reset-dialog"><DialogTitle>{showReset === "pratiche" ? "Elimina pratiche e campagne" : "Reset della piattaforma"}</DialogTitle><DialogDescription>{showReset === "pratiche" ? "Verranno eliminate tutte le pratiche e campagne, le prenotazioni, i soggetti, le chat e le notifiche collegate. Comuni, utenti, catalogo e moduli saranno conservati; le disponibilità torneranno libere." : "Tutti i dati verranno eliminati definitivamente. Il tuo account superadmin sarà conservato."}</DialogDescription>
             <p className="text-sm font-semibold text-slate-800">Operazione irreversibile. Digita <span className="tabular-nums font-semibold text-destructive">RESET</span> per confermare:</p>
             <div className="mt-3 flex flex-wrap gap-3">
               <input data-testid="input-conferma-reset" value={confermaReset} onChange={(e) => setConfermaReset(e.target.value)}
                 aria-label="Digita RESET per confermare" placeholder="RESET" className="border border-slate-200 rounded-xl px-4 py-2.5 text-sm tabular-nums outline-none focus:border-destructive transition-colors" />
               <button data-testid="btn-conferma-reset" onClick={eseguiReset} disabled={confermaReset !== "RESET" || resetting}
                 className="px-5 py-2.5 rounded-md font-semibold text-sm bg-destructive text-destructive-foreground hover:bg-destructive transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
-                {resetting ? "Cancellazione..." : "Cancella tutto definitivamente"}
+                {resetting ? "Cancellazione..." : showReset === "pratiche" ? "Elimina pratiche e campagne" : "Cancella tutto definitivamente"}
               </button>
-              <button data-testid="btn-annulla-reset" onClick={() => { setShowReset(false); setConfermaReset(""); }}
+              <button data-testid="btn-annulla-reset" disabled={resetting} onClick={() => { setShowReset(false); setConfermaReset(""); }}
                 className="px-5 py-2.5 rounded-md font-semibold text-sm border border-slate-300 text-slate-600 hover:border-slate-900 hover:text-slate-900 transition-colors">
                 Annulla
               </button>
