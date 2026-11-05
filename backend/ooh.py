@@ -103,18 +103,42 @@ def build(db, get_current_user, require_role, require_comune_l3, notifica, log_s
 
     async def expire_holds():
         now = now_iso()
-        expired = await db.prenotazioni.find({"stato": "HELD", "hold_expires_at": {"$lt": now}}, {"_id": 0}).to_list(200)
-        for pren in expired:
-            await db.prenotazioni.update_one({"id": pren["id"]}, {"$set": {"stato": "EXPIRED", "expired_at": now}})
-            await db.pratiche.update_many({"prenotazione_id": pren["id"], "stato": "DA_COMPLETARE"},
-                                          {"$set": {"stato": "PRENOTAZIONE_SCADUTA", "updated_at": now}})
+        expired_count = 0
+        # Include existing OPTIONED drafts created before the submission deadline was introduced.
+        candidates = db.prenotazioni.find({"stato": {"$in": ["HELD", "OPTIONED"]}, "$or": [
+            {"hold_expires_at": {"$lte": now}},
+            {"hold_expires_at": {"$exists": False}, "submitted_at": {"$exists": False}},
+        ]}, {"_id": 0})
+        async for pren in candidates:
+            draft = await db.pratiche.find_one({"prenotazione_id": pren["id"], "stato": "DA_COMPLETARE"}, {"_id": 0})
+            if not draft:
+                continue
+            deadline = pren.get("hold_expires_at")
+            if not deadline:
+                created = pren.get("hold_created_at") or draft.get("created_at")
+                if not created:
+                    continue
+                deadline = (datetime.fromisoformat(created) + timedelta(hours=24)).isoformat()
+                await db.prenotazioni.update_one({"id": pren["id"]}, {"$set": {"hold_expires_at": deadline}})
+                await db.pratiche.update_one({"id": draft["id"]}, {"$set": {"submission_due_at": deadline}})
+            if deadline > now:
+                continue
+            changed = await db.pratiche.update_one({"id": draft["id"], "stato": "DA_COMPLETARE"},
+                {"$set": {"stato": "PRENOTAZIONE_SCADUTA", "updated_at": now}})
+            if not changed.modified_count:
+                continue
+            await db.prenotazioni.update_one({"id": pren["id"], "stato": {"$in": ["HELD", "OPTIONED"]}},
+                {"$set": {"stato": "EXPIRED", "expired_at": now}})
+            expired_count += 1
+            await log_stato(draft["id"], "DA_COMPLETARE", "PRENOTAZIONE_SCADUTA",
+                {"id": "system", "nome": "Sistema", "ruolo": "system"}, "Invio non completato entro 24 ore")
             camp = await db.campagne.find_one({"id": pren["campagna_id"]}, {"_id": 0})
-            if camp and camp.get("stato") == "HOLD":
-                attive = await db.prenotazioni.count_documents({"campagna_id": camp["id"], "stato": "HELD"})
-                if attive == 0:
+            if camp:
+                pending = await db.pratiche.count_documents({"campagna_id": camp["id"], "stato": "DA_COMPLETARE"})
+                if pending == 0 and camp.get("stato") in ("HOLD", "IN_COMPLETAMENTO"):
                     await db.campagne.update_one({"id": camp["id"]}, {"$set": {"stato": "SCADUTA"}})
                 await notifica(camp["user_id"], "Prenotazione scaduta",
-                               f"Il blocco di 24 ore per la campagna '{camp['nome']}' è scaduto: gli impianti sono stati liberati.")
+                    f"La pratica della campagna '{camp['nome']}' non è stata inviata entro 24 ore: gli impianti sono stati liberati.", draft["id"])
         # scadenza pagamento post-approvazione: 24h dall'approvazione
         da_pagare = await db.pratiche.find({"stato": "APPROVATA", "pagata": False,
                                             "payment_due_at": {"$lt": now}}, {"_id": 0}).to_list(200)
@@ -124,7 +148,7 @@ def build(db, get_current_user, require_role, require_comune_l3, notifica, log_s
                 await db.prenotazioni.update_one({"id": p["prenotazione_id"]}, {"$set": {"stato": "CANCELLED"}})
             await notifica(p["user_id"], "Pagamento scaduto",
                            f"Non hai pagato entro 24 ore: la prenotazione '{p['spazio_nome']}' è decaduta e gli impianti sono stati liberati.")
-        return len(expired) + len(da_pagare)
+        return expired_count + len(da_pagare)
 
     # ---------- disponibilità ----------
 
@@ -242,6 +266,7 @@ def build(db, get_current_user, require_role, require_comune_l3, notifica, log_s
             raise HTTPException(status_code=400, detail=f"Periodo troppo breve: gli impianti {', '.join(d['codice'] for d in violati[:4])} richiedono almeno {mx} giorni di prenotazione")
         campagna_id = str(uuid.uuid4())
         hold_created = now_iso()
+        submission_due = (datetime.fromisoformat(hold_created) + timedelta(hours=24)).isoformat()
         # raggruppa i circuiti per comune: una pratica e una prenotazione per comune
         per_comune: dict = {}
         for p in pacchetti:
@@ -253,7 +278,7 @@ def build(db, get_current_user, require_role, require_comune_l3, notifica, log_s
                     "pacchetto_id": pacs[0]["id"], "pacchetti_ids": [p["id"] for p in pacs],
                     "comune_id": cid, "impianti_ids": impianti_ids,
                     "data_inizio": data.data_inizio, "data_fine": data.data_fine,
-                    "stato": "OPTIONED", "hold_created_at": hold_created,
+                    "stato": "OPTIONED", "hold_created_at": hold_created, "hold_expires_at": submission_due,
                     "user_id": user["id"]}
             await db.prenotazioni.insert_one({**pren})
             prenotazioni.append((cid, pacs, pren))
@@ -289,7 +314,7 @@ def build(db, get_current_user, require_role, require_comune_l3, notifica, log_s
                                      "tipologia": i["tipologia"], "formato": i.get("formato", ""),
                                      "circuito_nome": circuito_di.get(i["id"], ""),
                                      "foto_url": i.get("foto_url", ""), "lat": i["lat"], "lng": i["lng"]} for i in impianti],
-                       "stato": "DA_COMPLETARE", "dati_form": {}, "documenti": [], "creativita": [],
+                       "stato": "DA_COMPLETARE", "submission_due_at": submission_due, "dati_form": {}, "documenti": [], "creativita": [],
                        "richiedente": snapshot_richiedente(user),
                        "data_inizio": data.data_inizio, "data_fine": data.data_fine,
                        "importo": sum(period_cost(i.get("prezzo", 0), giorni) for i in impianti) / 100, "pagata": False,
@@ -305,7 +330,7 @@ def build(db, get_current_user, require_role, require_comune_l3, notifica, log_s
                     "brief": data.brief.model_dump() if data.brief else None,
                     "pacchetti_ids": ids, "pratica_ids": [p["id"] for p in pratiche],
                     "importo_totale": round(sum(p["importo"] for p in pratiche), 2),
-                    "stato": "IN_COMPLETAMENTO", "created_at": now_iso()}
+                    "stato": "IN_COMPLETAMENTO", "submission_due_at": submission_due, "created_at": now_iso()}
         await db.campagne.insert_one({**campagna})
         await notifica(user["id"], "Impianti opzionati",
                        f"Campagna '{data.nome}': gli impianti selezionati sono stati opzionati. Completa e invia le pratiche ai Comuni; il pagamento sarà richiesto dopo l'approvazione.")
@@ -342,7 +367,8 @@ def build(db, get_current_user, require_role, require_comune_l3, notifica, log_s
         out = []
         for p in pratiche:
             out.append({**p, "checklist": await _checklist(p)})
-        return {**c, "pratiche": out}
+        deadlines = [p.get("submission_due_at") for p in pratiche if p.get("submission_due_at") and p["stato"] == "DA_COMPLETARE"]
+        return {**c, "submission_due_at": min(deadlines) if deadlines else c.get("submission_due_at"), "pratiche": out}
 
     @router.get("/ooh/campagne/{campagna_id}")
     async def get_campagna_ooh(campagna_id: str, user: dict = Depends(require_role("user"))):
@@ -422,8 +448,16 @@ def build(db, get_current_user, require_role, require_comune_l3, notifica, log_s
                 mancano = [{"moduli_ok": "moduli", "documenti_ok": "documentazione",
                             "creativita_ok": "creatività"}[k] for k, v in ck.items() if not v]
                 raise HTTPException(status_code=400, detail=f"'{p['pacchetto_nome']}': completa {', '.join(mancano)}")
+        await expire_holds()
+        if await db.pratiche.count_documents({"campagna_id": campagna_id, "stato": "PRENOTAZIONE_SCADUTA"}):
+            raise HTTPException(status_code=400, detail="La prenotazione è scaduta: crea una nuova campagna")
         for p in pratiche:
-            await db.pratiche.update_one({"id": p["id"]}, {"$set": {"stato": "INVIATA", "updated_at": now_iso()}})
+            sent = await db.pratiche.update_one({"id": p["id"], "stato": "DA_COMPLETARE", "$or": [
+                {"submission_due_at": {"$gt": now_iso()}}, {"submission_due_at": {"$exists": False}},
+            ]}, {"$set": {"stato": "INVIATA", "updated_at": now_iso()}})
+            if not sent.modified_count:
+                raise HTTPException(status_code=400, detail="La pratica non è più inviabile: aggiorna la campagna")
+            await db.prenotazioni.update_one({"id": p["prenotazione_id"]}, {"$unset": {"hold_expires_at": ""}, "$set": {"submitted_at": now_iso()}})
             await log_stato(p["id"], "DA_COMPLETARE", "INVIATA", user, f"Inviata dalla campagna OOH '{c['nome']}'")
             operatori = await db.users.find({"ruolo": "comune", "comune_id": p["comune_id"]}, {"_id": 0}).to_list(20)
             for op in operatori:

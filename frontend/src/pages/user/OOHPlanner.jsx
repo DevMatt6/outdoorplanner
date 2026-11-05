@@ -1,23 +1,24 @@
-import { OOHProposalMap } from "../../components/OOHProposalMap";
+import { ComuneLogo } from "../../components/ComuneLogo";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "../../components/ui/dialog";
 import { Stepper } from "../../components/Stepper";
 import { CampaignBrief, BudgetSummary, RecommendationPanel, initialBrief, briefPayload, briefError, catalogCompatible } from "../../components/CampaignBrief";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { MapContainer, TileLayer, Polygon, CircleMarker, Tooltip, Marker, useMapEvents } from "react-leaflet";
+import { MapContainer, TileLayer, Polygon, CircleMarker, Tooltip, Marker, Polyline, useMapEvents } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { UserShell } from "../../components/BackofficeLayout";
 import { DateRangePicker, fmtDay } from "../../components/DateRangePicker";
 import { api, apiError, imgSrc } from "../../lib/api";
 import { toast } from "sonner";
-import { Landmark, Check, ChevronDown, ChevronUp, MapPin, ImageOff, Info, X } from "lucide-react";
+import { Check, ChevronDown, ChevronUp, MapPin, ImageOff, Info, X } from "lucide-react";
 
-const STEPS = [[0,"Obiettivo e budget"],[1,"Periodo"],[2,"Comuni"],[3,"Proposta"],[4,"Circuiti"],[5,"Riepilogo"]];
+const STEPS = [[0,"Obiettivo e budget"],[1,"Periodo"],[2,"Comuni"],[3,"Proposta e circuiti"],[4,"Riepilogo"]];
 const FLAT_TILES = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
 
 const ZoomTracker = ({ onZoom }) => {
-  useMapEvents({ zoomend: (e) => onZoom(e.target.getZoom()) });
+  const map = useMapEvents({ zoomend: (e) => onZoom(e.target.getZoom()) });
+  useEffect(() => { onZoom(map.getZoom()); }, [map, onZoom]);
   return null;
 };
 
@@ -44,7 +45,6 @@ export default function OOHPlanner() {
   const [step, setStep] = useState(0);
   const [brief, setBrief] = useState(initialBrief);
   const [proposal, setProposal] = useState(null);
-  const [excluded, setExcluded] = useState([]);
   const [proposalBusy, setProposalBusy] = useState(false);
   const [proposalError, setProposalError] = useState("");
   const [nome, setNome] = useState("");
@@ -73,7 +73,7 @@ export default function OOHPlanner() {
   }, []);
 
   useEffect(() => {
-    if (step !== 4 && step !== 3) return;
+    if (step !== 3) return;
     comuniSel.forEach(async (cid) => {
       try {
       const [z, p] = await Promise.all([
@@ -130,6 +130,9 @@ export default function OOHPlanner() {
       const names = Object.fromEntries(comuni.map(c => [c.id, c.nome]));
       data.avvisi = data.avvisi.map(w => Object.entries(names).reduce((text, [id, name]) => text.replaceAll(id, name), w));
       setProposal(data);
+      const grouped = {};
+      data.items.forEach(i => { grouped[i.pacchetto_id] = [...(grouped[i.pacchetto_id] || []), i.id]; });
+      setSelected(Object.keys(grouped)); setImpSel(grouped);
     } catch (e) { setProposalError(apiError(e)); } finally { setProposalBusy(false); }
   };
   const applyProposal = () => {
@@ -137,9 +140,7 @@ export default function OOHPlanner() {
       const grouped = {};
       proposal.items.forEach(i => { grouped[i.pacchetto_id] = [...(grouped[i.pacchetto_id] || []), i.id]; });
       setSelected(Object.keys(grouped)); setImpSel(grouped); setComuneIdx(0);
-    setStep(4);
   };
-  const excludeSuggestion = (id) => { const omit = [...excluded, id]; setExcluded(omit); calculate(omit); };
   const next = async () => {
     setError("");
     if (step === 0) {
@@ -150,27 +151,19 @@ export default function OOHPlanner() {
       if (!nome.trim()) return setError("Dai un nome alla campagna");
       if (!dal || !al) return setError("Seleziona il periodo sul calendario");
       if (al < dal) return setError("Periodo non valido");
-      setSelected([]); setProposal(null); setExcluded([]);
+      setSelected([]); setProposal(null);
       setStep(2);
     } else if (step === 2) {
       if (comuniSel.length === 0) return setError("Seleziona almeno un Comune");
       setComuneIdx(0);
-      setSelected([]); setImpSel({}); setExcluded([]);
+      setSelected([]); setImpSel({});
       setStep(3); calculate([]);
     } else if (step === 3) {
+      if (!selected.some(id => (impSel[id] || []).length)) return setError("Seleziona almeno un impianto");
+      if (totale > Number(brief.budget) + 0.001) return setError("La selezione supera il budget massimo");
+      if (brief.distribuzione === "tutti" && comuniSel.some(id => !circuitiDelComune(id).length)) return setError("Seleziona almeno un circuito per ogni Comune scelto");
       setStep(4);
     } else if (step === 4) {
-      const cid = comuniSel[comuneIdx];
-      if (totale > Number(brief.budget) + 0.001) return setError("La selezione supera il budget massimo");
-      if (brief.distribuzione === "tutti" && circuitiDelComune(cid).length === 0) return setError(`Seleziona almeno un circuito per ${comuneNome(cid)} (oppure torna indietro e deseleziona il Comune)`);
-      if (circuitiDelComune(cid).some((p) => (impSel[p.id] || liberiIds(p)).length === 0)) return setError("Seleziona almeno un impianto per ogni circuito");
-      if (comuneIdx < comuniSel.length - 1) {
-        setComuneIdx(comuneIdx + 1);
-        setExpanded(null);
-      } else {
-        setStep(5);
-      }
-    } else if (step === 5) {
       if (!selected.some(id => (impSel[id] || []).length)) return setError("Seleziona almeno un impianto");
       if (totale > Number(brief.budget) + 0.001) return setError("La selezione supera il budget massimo");
       setBusy(true);
@@ -194,8 +187,7 @@ export default function OOHPlanner() {
         <Stepper steps={STEPS} current={step} data-testid="ooh-steps" />
 
         <div className="mt-6 bg-card border border-slate-100 rounded-xl p-4 sm:p-8">
-          {step === 3 && <RecommendationPanel proposal={proposal} busy={proposalBusy} error={proposalError} onCalculate={() => { setExcluded([]); calculate([]); }} onApply={applyProposal} onExclude={excludeSuggestion} cityName={comuneNome}><OOHProposalMap proposal={proposal} comuni={comuni.filter(c => comuniSel.includes(c.id))} busy={proposalBusy} onExclude={excludeSuggestion} /></RecommendationPanel>}
-          {step >= 4 && <div className="mb-5"><BudgetSummary brief={brief} total={totale} perCity={perCity} /></div>}
+          {step >= 3 && <div className="mb-5"><BudgetSummary brief={brief} total={totale} perCity={perCity} /></div>}
           {step === 0 && <CampaignBrief value={brief} onChange={setBrief} tipo="OOH" />}
           {step === 1 && (
             <div className="space-y-5">
@@ -226,8 +218,7 @@ export default function OOHPlanner() {
                       <button key={c.id} type="button" data-testid={`ooh-comune-${c.id}`} onClick={() => toggleComune(c.id)}
                         className={`border rounded-xl p-6 text-left transition-colors relative ${comuniSel.includes(c.id) ? "border-primary ring-2 ring-primary/30 bg-accent" : "border-slate-100 hover:border-primary"}`}>
                         {comuniSel.includes(c.id) && <span className="absolute top-3 right-3 w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center"><Check size={13} /></span>}
-                        {c.logo_url ? <img src={imgSrc(c.logo_url)} alt="" className="w-10 h-10 rounded-xl object-contain border border-slate-100 bg-card" />
-                          : <span className="w-10 h-10 rounded-xl bg-accent flex items-center justify-center text-brand-foreground"><Landmark size={18} /></span>}
+                        <ComuneLogo comune={c} />
                         <div className="font-heading font-semibold mt-3">{c.nome}</div>
                         <div className="text-xs text-slate-500">{c.regione}</div>
                       </button>
@@ -243,15 +234,18 @@ export default function OOHPlanner() {
             </div>
           )}
 
-          {step === 4 && (
+          {step === 3 && (
             <div className="space-y-8">
+              <RecommendationPanel proposal={proposal} busy={proposalBusy} error={proposalError} onCalculate={() => { calculate([]); }} onApply={applyProposal} applyLabel="Ripristina proposta" cityName={comuneNome}>
+                <p className="text-sm text-muted-foreground">La proposta è già selezionata in blu nella mappa e nei circuiti qui sotto. Puoi aggiungere o rimuovere impianti manualmente per ogni Comune.</p>
+              </RecommendationPanel>
               {comuniSel.length > 1 && (
                 <div className="flex flex-wrap items-center gap-2" data-testid="ooh-substeps">
                   {comuniSel.map((cid, i) => (
-                    <span key={cid} className={`text-[11px] font-semibold tracking-normal rounded-md px-3 py-1.5 transition-colors
+                    <button type="button" key={cid} onClick={() => { setComuneIdx(i); setExpanded(null); }} aria-pressed={i === comuneIdx} className={`text-[11px] font-semibold tracking-normal rounded-md px-3 py-1.5 transition-colors
                       ${i === comuneIdx ? "bg-primary text-primary-foreground" : i < comuneIdx ? "bg-accent text-brand-foreground" : "bg-slate-100 text-slate-400"}`}>
-                      {i + 1}. {comuneNome(cid)}{circuitiDelComune(cid).length > 0 ? " ✓" : ""}
-                    </span>
+                      <span className="flex items-center gap-2"><ComuneLogo comune={comuni.find(c => c.id === cid)} className="h-10 w-10" /><span>{comuneNome(cid)}{circuitiDelComune(cid).length > 0 ? " ✓" : ""}</span></span>
+                    </button>
                   ))}
                 </div>
               )}
@@ -261,6 +255,7 @@ export default function OOHPlanner() {
                 const pacs = (pacchetti[cid] || []).filter((p) => !zsel || p.zona_id === zsel);
                 const zonaObj = zs.find((z) => z.id === zsel);
                 const comune = comuni.find((c) => c.id === cid);
+                const selectedInZone = (zoneId) => new Set((pacchetti[cid] || []).filter(p => p.zona_id === zoneId && selected.includes(p.id)).flatMap(p => impSel[p.id] || [])).size;
                 return (
                   <div key={cid} data-testid={`ooh-sezione-${cid}`}>
                     <h2 className="font-heading font-semibold text-xl">
@@ -275,7 +270,7 @@ export default function OOHPlanner() {
                       {zs.map((z) => (
                         <button key={z.id} type="button" data-testid={`ooh-zona-${z.id}`} onClick={() => setZonaSel({ ...zonaSel, [cid]: z.id })}
                           className={`px-4 py-1.5 text-xs font-semibold rounded-md border transition-colors ${zsel === z.id ? "bg-primary text-primary-foreground border-primary" : "bg-card border-slate-200 hover:border-primary"}`}>
-                          {z.nome} · {z.pacchetti_count}
+                          {z.nome} · {selectedInZone(z.id)} impianti scelti
                         </button>
                       ))}
                     </div>
@@ -293,18 +288,19 @@ export default function OOHPlanner() {
                           <Polygon key={z.id} positions={z.polygon}
                             eventHandlers={{ click: () => setZonaSel({ ...zonaSel, [cid]: z.id }) }}
                             pathOptions={{ color: zsel === z.id ? "hsl(var(--info))" : "#93A6E8", fillColor: zsel === z.id ? "hsl(var(--info))" : "#DCE4F7", fillOpacity: 0.45, weight: 2 }}>
-                            <Tooltip sticky>{z.nome} · {z.impianti_count} impianti</Tooltip>
+                            <Tooltip sticky>{z.nome} · {selectedInZone(z.id)} impianti scelti</Tooltip>
                           </Polygon>
                         ))}
                         {mapZoom < 13 && zs.map((z) => (
-                          z.impianti_count > 0 && (
-                            <Marker key={`cl-${z.id}`} position={centroide(z.polygon)} icon={clusterIcon(z.impianti_count)}
+                          selectedInZone(z.id) > 0 && (
+                            <Marker key={`cl-${z.id}`} position={centroide(z.polygon)} icon={clusterIcon(selectedInZone(z.id))}
                               eventHandlers={{ click: () => setZonaSel({ ...zonaSel, [cid]: z.id }) }}>
-                              <Tooltip direction="top" offset={[0, -14]}>{z.nome}: {z.impianti_count} impianti — clicca o zooma per vederli</Tooltip>
+                              <Tooltip direction="top" offset={[0, -14]}>{z.nome}: {selectedInZone(z.id)} impianti scelti — clicca o zooma per vederli</Tooltip>
                             </Marker>
                           )
                         ))}
-                        {mapZoom >= 13 && pacs.filter((p) => selected.includes(p.id) || expanded === p.id).flatMap((p) => p.impianti.map((i) => ({ ...i, _p: p, _libSel: (impSel[p.id] || liberiIds(p)).includes(i.id) && selected.includes(p.id) }))).map((i) => (
+                        {pacs.filter(p => selected.includes(p.id)).map(p => <Polyline key={`line-${p.id}`} positions={p.impianti.filter(i => (impSel[p.id] || []).includes(i.id) && Number.isFinite(i.lat) && Number.isFinite(i.lng)).map(i => [i.lat, i.lng])} pathOptions={{ color: "#2563eb", weight: 3, opacity: 0.6, dashArray: "6 6" }} />)}
+                        {mapZoom >= 13 && pacs.flatMap((p) => p.impianti.map((i) => ({ ...i, _p: p, _libSel: (impSel[p.id] || liberiIds(p)).includes(i.id) && selected.includes(p.id) }))).map((i) => (
                           <CircleMarker key={i.id} center={[i.lat, i.lng]} radius={8}
                             eventHandlers={{ click: () => { if (catalogCompatible(i, brief, "OOH", giorni)) toggleImpianto(i._p, i.id); } }}
                             pathOptions={{ color: "#fff", weight: 2, fillColor: i.occupato ? "#94A3B8" : i._libSel ? "hsl(var(--info))" : "#93A6E8", fillOpacity: 1 }}>
@@ -320,6 +316,7 @@ export default function OOHPlanner() {
                         ))}
                       </MapContainer>
                     </div>
+                    <p className="mt-2 text-xs text-muted-foreground">Blu: impianti selezionati nella proposta. Azzurro chiaro: altri impianti aggiungibili. I collegamenti indicano la distribuzione, non una copertura misurata. Ingrandisci per selezionare i singoli impianti.</p>
                     <div className="mt-4 grid md:grid-cols-2 xl:grid-cols-3 gap-4">
                       {pacs.map((p) => (
                         <div key={p.id} data-testid={`ooh-pacchetto-${p.id}`}
@@ -390,7 +387,7 @@ export default function OOHPlanner() {
             </div>
           )}
 
-          {step === 5 && (
+          {step === 4 && (
             <div className="space-y-5">
               <h2 className="font-heading font-semibold text-xl">Riepilogo campagna "{nome}"</h2>
               <div className="border border-slate-100 rounded-xl overflow-hidden divide-y divide-slate-100">
@@ -406,7 +403,7 @@ export default function OOHPlanner() {
                 </div>
               </div>
               <div className="border border-warning/20 bg-warning-muted rounded-xl px-4 py-3 text-sm text-warning-foreground">
-                Generando la campagna gli impianti selezionati saranno <strong>opzionati</strong>. Completa moduli, documenti e creatività e invia le pratiche: il pagamento sarà richiesto dopo l’approvazione.
+                Generando la campagna gli impianti selezionati saranno <strong>opzionati per 24 ore</strong>. Entro la scadenza completa moduli, documenti e creatività e invia le pratiche: il pagamento sarà richiesto dopo l’approvazione.
               </div>
             </div>
           )}
@@ -450,16 +447,15 @@ export default function OOHPlanner() {
           <div className="mt-8 flex justify-between">
             <button onClick={() => {
               setError("");
-              if (step === 4 && comuneIdx > 0) { setComuneIdx(comuneIdx - 1); setExpanded(null); }
-              else setStep(Math.max(0, step - 1));
+              setStep(Math.max(0, step - 1));
             }} disabled={step === 0}
               className="px-6 py-2.5 font-semibold border border-slate-200 rounded-md hover:border-primary transition-colors disabled:opacity-40">
               Indietro
             </button>
             <button data-testid="ooh-next-button" onClick={next} disabled={busy || proposalBusy}
               className="px-8 py-2.5 font-semibold rounded-md bg-primary text-primary-foreground hover:bg-primary transition-colors disabled:opacity-50">
-              {busy ? "Attendi..." : step === 5 ? "Genera Campagna"
-                : step === 4 && comuneIdx < comuniSel.length - 1 ? `Avanti: ${comuneNome(comuniSel[comuneIdx + 1])}` : step === 3 ? "Selezione manuale" : "Avanti"}
+              {busy ? "Attendi..." : step === 4 ? "Genera Campagna"
+                : step === 3 ? "Riepilogo" : "Avanti"}
             </button>
           </div>
         </div>

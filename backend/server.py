@@ -80,6 +80,7 @@ async def get_current_user(request: Request) -> dict:
             raise HTTPException(status_code=401, detail="Utente non trovato")
         if user.get("attivo") is False:
             raise HTTPException(status_code=403, detail="Account disabilitato")
+        await expire_holds()
         return user
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token scaduto")

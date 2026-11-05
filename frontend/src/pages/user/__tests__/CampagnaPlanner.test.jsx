@@ -15,7 +15,7 @@ const button = (text) => [...host.querySelectorAll("button")].find((b) => b.text
 async function click(el) { await act(async () => el.click()); }
 function input(el, value) { act(() => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(el, value); el.dispatchEvent(new Event("input", { bubbles: true })); }); }
 beforeEach(async () => {
- api.get.mockImplementation((url) => Promise.resolve({ data: url === "/comuni" ? [{ id: "roma", nome: "Roma" }, { id: "milano", nome: "Milano" }] : url === "/spazi/disponibili" ? spaces : { campi: [], documenti_richiesti: [] } }));
+ api.get.mockImplementation((url) => Promise.resolve({ data: url === "/comuni" ? [{ id: "roma", nome: "Roma", logo_url: "/api/uploads/roma.png" }, { id: "milano", nome: "Milano" }] : url === "/spazi/disponibili" ? spaces : { campi: [], documenti_richiesti: [] } }));
  api.post.mockResolvedValue({ data: { id: "campaign", pratiche: [{ id: "pr", spazio_id: "r", spazio_nome: "Piazza Roma", comune_id: "roma" }, { id: "pm", spazio_id: "m", spazio_nome: "Piazza Milano", comune_id: "milano" }] } });
  host = document.createElement("div"); document.body.appendChild(host); root = createRoot(host);
  await act(async () => root.render(<CampagnaPlanner />));
@@ -24,6 +24,7 @@ afterEach(() => { act(() => root.unmount()); host.remove(); });
 async function reachSpaces() {
  input(byTest("campaign-budget"), "100"); input(byTest("osp-persone-previste"), "50"); await click(byTest("planner-next-button"));
  input(byTest("campagna-nome-input"), "Evento di prova"); await click(button("Scegli periodo di prova")); await click(byTest("planner-next-button"));
+ expect(host.querySelector('img[alt="Logo Comune di Roma"]').getAttribute('src')).toBe('/api/uploads/roma.png');
  for (const cb of host.querySelectorAll('[type="checkbox"]')) await click(cb);
  await click(byTest("planner-next-button"));
 }

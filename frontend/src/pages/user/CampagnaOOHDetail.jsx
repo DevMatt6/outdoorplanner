@@ -76,6 +76,14 @@ export default function CampagnaOOHDetail() {
 
   useEffect(() => { load(); loadCreativita(); }, [id]);
 
+  useEffect(() => {
+    if (!c?.submission_due_at || !["HOLD", "IN_COMPLETAMENTO"].includes(c?.stato)) return;
+    const timer = setTimeout(() => {
+      api.get(`/ooh/campagne/${id}`).then(({ data }) => setC(data)).catch(() => {});
+    }, Math.max(0, new Date(c.submission_due_at).getTime() - Date.now()) + 500);
+    return () => clearTimeout(timer);
+  }, [c?.submission_due_at, c?.stato, id]);
+
   const formatiUtili = useMemo(() => formati, [formati]);
 
   const editablePratiche = useMemo(() => (c?.pratiche || []).filter((p) => p.stato === "DA_COMPLETARE"), [c]);
@@ -213,8 +221,9 @@ export default function CampagnaOOHDetail() {
         {attiva && (
           <div className="mt-6 border border-warning/20 bg-warning-muted rounded-xl px-6 py-4 flex flex-wrap items-center gap-3" data-testid="hold-banner">
             <Clock size={20} className="text-warning-foreground" />
-            <span className="text-sm font-semibold text-warning-foreground">Impianti opzionati per la tua campagna.</span>
-            <span className="text-xs text-warning-foreground">Completa moduli, documenti e creatività, poi invia ai Comuni. Il pagamento sarà richiesto solo dopo l'approvazione (24 ore di tempo).</span>
+            <span className="text-sm font-semibold text-warning-foreground">Invia la campagna entro 24 ore dalla generazione.</span>
+            {c.submission_due_at && <Countdown scadenza={c.submission_due_at} />}
+            <span className="text-xs text-warning-foreground">Completa moduli, documenti e creatività e invia ai Comuni entro la scadenza, altrimenti le pratiche decadono e gli impianti tornano disponibili. Il pagamento sarà richiesto solo dopo l'approvazione (24 ore di tempo).</span>
           </div>
         )}
         {daPagare.length > 0 && (

@@ -1,8 +1,9 @@
+import { ComuneLogo } from "./ComuneLogo";
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useTheme } from "next-themes";
 import { useAuth, homeFor } from "../store/auth";
-import { api, imgSrc } from "../lib/api";
+import { api } from "../lib/api";
 import { NotificationBell } from "./NotificationBell";
 import { Button } from "./ui/button";
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from "./ui/sheet";
@@ -74,9 +75,10 @@ export const BackofficeLayout = ({ title, links, children }) => {
     const mini = collapsed && !small;
     return <>
       <Link to={homeFor(user)} aria-label="Outdoor Planner, pagina iniziale" className="flex h-16 shrink-0 items-center border-b px-4"><Brand compact={mini} /></Link>
-      {!mini && <div className="mx-3 mt-5 flex items-center gap-2.5 rounded-lg border bg-background p-3" data-testid="comune-logo-sidebar">
-        {comuneInfo?.logo_url ? <img src={imgSrc(comuneInfo.logo_url)} alt="" className="h-8 w-8 object-contain" /> : <Landmark size={18} className="shrink-0 text-muted-foreground" />}
-        <div className="min-w-0"><div className="truncate text-sm font-medium">{comuneInfo ? `Comune di ${comuneInfo.nome}` : title}</div><div className="text-xs text-muted-foreground">{roleLabel}</div></div>
+      {mini && comuneInfo && <div className="mx-2 mt-4 flex justify-center"><ComuneLogo comune={comuneInfo} className="h-12 w-12" /></div>}
+      {!mini && <div className={`mx-3 mt-5 flex rounded-lg border bg-background p-3 ${comuneInfo ? "flex-col items-center gap-3 text-center" : "items-center gap-2.5"}`} data-testid="comune-logo-sidebar">
+        {comuneInfo ? <ComuneLogo comune={comuneInfo} /> : <Landmark size={18} className="shrink-0 text-muted-foreground" />}
+        <div className="min-w-0"><div className="text-sm font-medium">{comuneInfo ? `Comune di ${comuneInfo.nome}` : title}</div><div className="text-xs text-muted-foreground">{roleLabel}</div></div>
       </div>}
       <div className="flex-1 overflow-y-auto px-3 py-5">
         {!mini && <button onClick={() => setGroupOpen((v) => !v)} aria-expanded={groupOpen} className="mb-2 flex w-full items-center justify-between px-2 text-xs font-medium text-muted-foreground">Workspace<ChevronDown size={13} className={groupOpen ? "" : "-rotate-90"} /></button>}

@@ -1,3 +1,4 @@
+import { ComuneLogo } from "../../components/ComuneLogo";
 import { initialOSPBrief, ospBriefPayload, ospBudgetError, ospPeopleError, ospAvailable, ospCost, ospBudgetAdvice } from "../../lib/ospPlanning";
 import { LoadingState } from "../../components/LoadingState";
 import { Stepper } from "../../components/Stepper";
@@ -151,7 +152,7 @@ export default function CampagnaPlanner() {
             </div>
           )}
 
-          {step === 2 && <div className="space-y-4"><h2 className="font-semibold text-xl">Seleziona i comuni</h2><div className="grid sm:grid-cols-3 gap-3">{comuniList.map(c => <label key={c.id} className="border rounded-xl p-4"><input type="checkbox" className="accent-primary mr-2" checked={comuniSel.includes(c.id)} onChange={() => setComuniSel(ids => ids.includes(c.id) ? ids.filter(x => x !== c.id) : [...ids, c.id])} />{c.nome} · {c.regione}</label>)}</div></div>}
+          {step === 2 && <div className="space-y-4"><h2 className="font-semibold text-xl">Seleziona i comuni</h2><div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">{comuniList.map(c => <label key={c.id} className={`flex cursor-pointer items-center gap-4 rounded-xl border p-4 ${comuniSel.includes(c.id) ? "border-primary bg-accent ring-1 ring-primary" : "border-slate-200"}`}><input type="checkbox" className="accent-primary" checked={comuniSel.includes(c.id)} onChange={() => setComuniSel(ids => ids.includes(c.id) ? ids.filter(x => x !== c.id) : [...ids, c.id])} /><ComuneLogo comune={c} /><span className="min-w-0"><strong className="block">{c.nome}</strong><span className="text-sm text-muted-foreground">{c.regione}</span></span></label>)}</div></div>}
           {step === 3 && <div className="space-y-5">
             <div><h2 className="text-xl font-semibold">Scegli i tuoi spazi OSP</h2><p className="mt-2 text-sm text-muted-foreground">Seleziona manualmente le card. Gli spazi mostrati hanno capienza sufficiente per {brief.persone_previste} persone. Quelli consigliati rientrano nel budget residuo e lasciano margine per almeno uno spazio in ogni Comune scelto.</p><p className="mt-1 text-xs text-muted-foreground">I prezzi totali si riferiscono al periodo {dal} → {al} ({giorni} giorni).</p></div>
             <div className="flex flex-wrap gap-3" data-testid="osp-space-filters">

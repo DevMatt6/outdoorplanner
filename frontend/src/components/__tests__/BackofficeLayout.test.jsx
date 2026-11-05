@@ -35,3 +35,11 @@ test("user can reach practices and collapsing preserves every destination", asyn
  expect(container.querySelector('[data-testid="link-pratiche-user"]').getAttribute("aria-label")).toBe("Le mie pratiche");
  expect(localStorage.getItem("op_sidebar_collapsed")).toBe("true");
 });
+test("municipality logo remains visible in expanded and collapsed sidebar", async () => {
+ localStorage.removeItem('op_sidebar_collapsed');
+ api.get.mockResolvedValue({ data: { nome: 'Roma', logo_url: '/api/uploads/roma.png' } });
+ await render({ nome: 'Operatore', ruolo: 'comune', livello: 3 }, COMUNE_LINKS);
+ expect(container.querySelector('[data-testid="comune-logo-sidebar"] img').getAttribute('src')).toBe('/api/uploads/roma.png');
+ act(() => container.querySelector('[data-testid="sidebar-collapse"]').click());
+ expect(container.querySelector('aside img[alt="Logo Comune di Roma"]')).not.toBeNull();
+});
