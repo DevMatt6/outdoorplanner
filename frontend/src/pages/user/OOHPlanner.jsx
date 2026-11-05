@@ -381,7 +381,7 @@ export default function OOHPlanner() {
                 );
               })}
               <div className="bg-muted rounded-xl px-5 py-3 flex flex-wrap gap-2 justify-between items-center text-sm font-semibold" data-testid="ooh-totale">
-                <span>{selected.length} circuiti selezionati{pacchettiSel.length > 0 && <span className="font-normal text-slate-500"> — {pacchettiSel.map((p) => p.nome).join(" · ")}</span>}</span>
+                <span>{Object.values(impSel).reduce((sum, ids) => sum + ids.length, 0)} impianti selezionati · {new Set(pacchettiSel.map(p => p.comune_id)).size} Comuni</span>
                 <span className="font-heading">{totale.toFixed(2)} €</span>
               </div>
             </div>
@@ -391,12 +391,15 @@ export default function OOHPlanner() {
             <div className="space-y-5">
               <h2 className="font-heading font-semibold text-xl">Riepilogo campagna "{nome}"</h2>
               <div className="border border-slate-100 rounded-xl overflow-hidden divide-y divide-slate-100">
-                {pacchettiSel.map((p) => (
-                  <div key={p.id} className="px-5 py-3 flex flex-wrap justify-between gap-2 text-sm">
-                    <span><strong>{p.nome}</strong> · {comuneNome(p.comune_id)} / {p.zona_nome} · {(impSel[p.id] || liberiIds(p)).length} impianti selezionati</span>
-                    <span className="tabular-nums">{(prezzoSel(p) * giorni).toFixed(2)} €</span>
-                  </div>
-                ))}
+                {Object.values(pacchettiSel.reduce((groups, p) => {
+                  const key = `${p.comune_id}-${p.zona_id}`;
+                  const group = groups[key] ||= { key, city: comuneNome(p.comune_id), zone: p.zona_nome, count: 0, total: 0 };
+                  group.count += (impSel[p.id] || liberiIds(p)).length;
+                  group.total += prezzoSel(p) * giorni;
+                  return groups;
+                }, {})).map(group => <div key={group.key} className="px-5 py-3 flex flex-wrap justify-between gap-2 text-sm">
+                  <span><strong>{group.city}</strong> · {group.zone} · {group.count} impianti selezionati</span><span className="tabular-nums">{group.total.toFixed(2)} €</span>
+                </div>)}
                 <div className="px-5 py-3 flex justify-between font-semibold bg-muted">
                   <span>Totale · {dal} → {al} ({giorni} giorni)</span>
                   <span className="font-heading text-lg" data-testid="ooh-riepilogo-totale">{totale.toFixed(2)} €</span>

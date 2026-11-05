@@ -1,3 +1,4 @@
+import { practiceLabel } from "../../lib/practicePresentation";
 import { LoadingState } from "../../components/LoadingState";
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
@@ -25,7 +26,7 @@ export default function PraticaIstruttoria() {
   if (!pratica) return <BackofficeLayout title="Backoffice Comune" links={COMUNE_LINKS}><LoadingState /></BackofficeLayout>;
 
   const maxLv = Math.max(...((pratica.comune?.livelli_attivi || [1, 2, 3])));
-  const can = (min) => livello >= Math.min(min, maxLv);
+  const can = (min) => pratica.tipo === "OOH" || livello >= Math.min(min, maxLv);
   const inIstruttoria = ["IN_ISTRUTTORIA", "IN_VERIFICA"].includes(pratica.stato);
 
   const azione = async (az, label, notaObbligatoria = false) => {
@@ -77,7 +78,7 @@ export default function PraticaIstruttoria() {
       </Link>
       <div className="mt-3 flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-heading font-semibold tracking-tight" data-testid="istruttoria-title">{pratica.spazio_nome}</h1>
+          <h1 className="text-2xl sm:text-3xl font-heading font-semibold tracking-tight" data-testid="istruttoria-title">{practiceLabel(pratica)}</h1>
           <div className="text-sm text-slate-600 mt-1">Richiedente: <strong>{pratica.user_nome}</strong> · {pratica.data_inizio} → {pratica.data_fine} · {pratica.importo.toFixed(2)} € {pratica.pagata ? "(pagata ✓)" : "(non pagata)"}</div>
         </div>
         <StatusBadge stato={pratica.stato} />
@@ -99,7 +100,7 @@ export default function PraticaIstruttoria() {
             <>
               {(() => {
                 const isOSP = pratica.tipo !== "OOH";
-                const reqApprova = isOSP ? Math.min(3, maxLv) : Math.min(2, maxLv);
+                const reqApprova = isOSP ? Math.min(3, maxLv) : 1;
                 const livCorrente = pratica.livello_corrente || 1;
                 const nextLv = Math.min(livCorrente + 1, maxLv, 3);
                 return (

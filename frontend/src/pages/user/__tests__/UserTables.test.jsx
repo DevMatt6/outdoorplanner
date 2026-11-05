@@ -27,12 +27,13 @@ afterEach(() => { act(() => root.unmount()); host.remove(); });
 async function render(Component) { await act(async () => root.render(<Component />)); }
 test("practices have distinct columns and can be searched by municipality", async () => {
  await render(UserDashboard);
- expect([...host.querySelectorAll("th")].map((h) => h.textContent)).toEqual(["Spazio / Circuito", "Comune / Città", "Tipo", "Dal", "Al", "Importo", "Stato", "Azioni"]);
+ expect([...host.querySelectorAll("th")].map((h) => h.textContent)).toEqual(["Spazio / Zona", "Comune / Città", "Tipo", "Dal", "Al", "Importo", "Stato", "Azioni"]);
  expect(host.querySelector('[data-testid="pratica-comune-p1"]').textContent).toBe("Roma");
  const input = host.querySelector("input");
  act(() => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(input, "Milano"); input.dispatchEvent(new Event("input", { bubbles: true })); });
  expect(host.querySelectorAll("tbody tr").length).toBe(1);
- expect(host.querySelector("tbody").textContent).toContain("Circuito centro");
+ expect(host.querySelector("tbody").textContent).toContain("Milano");
+ expect(host.querySelector("tbody").textContent).not.toContain("Circuito centro");
  expect(host.querySelector('tbody a').getAttribute("href")).toBe("/pratiche/p2");
 });
 test("state filters and confirmed draft deletion are preserved", async () => {

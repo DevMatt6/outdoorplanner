@@ -1,3 +1,4 @@
+import { practiceLabel } from "../../lib/practicePresentation";
 import { OSPForms } from "../../components/OSPForms";
 import { LoadingState } from "../../components/LoadingState";
 import { useEffect, useState } from "react";
@@ -70,7 +71,7 @@ export default function PraticaDetail() {
         </Link>
         <div className="mt-4 flex flex-wrap items-center gap-4 justify-between">
           <div>
-            <h1 className="text-3xl font-heading font-semibold tracking-tight">{pratica.spazio_nome}</h1>
+            <h1 className="text-3xl font-heading font-semibold tracking-tight">{practiceLabel(pratica)}</h1>
             <div className="text-sm text-slate-600 tabular-nums mt-1">{pratica.data_inizio} → {pratica.data_fine} · {pratica.importo.toFixed(2)} € {pratica.pagata && "· pagata ✓"}</div>
           </div>
           <StatusBadge stato={pratica.stato} />

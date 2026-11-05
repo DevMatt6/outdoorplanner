@@ -868,7 +868,7 @@ async def transizione(pratica_id: str, data: TransizioneIn, user: dict = Depends
     if pratica.get("tipo") != "OOH" and data.azione == "approva":
         base_lv = 3
     min_richiesto = min(base_lv, max_lv)
-    if user.get("livello", 1) < min_richiesto:
+    if pratica.get("tipo") != "OOH" and user.get("livello", 1) < min_richiesto:
         raise HTTPException(status_code=403, detail=f"Azione riservata al livello L{min_richiesto} o superiore")
     if data.azione == "inoltra":
         if pratica.get("tipo") == "OOH":

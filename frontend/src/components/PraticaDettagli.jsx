@@ -1,3 +1,4 @@
+import { installationGroups } from "../lib/practicePresentation";
 import { FileImage } from "lucide-react";
 
 const BK = process.env.REACT_APP_BACKEND_URL;
@@ -39,7 +40,7 @@ export const SezionePrenotazione = ({ pratica }) => {
     pratica.campagna_nome && ["Campagna", pratica.campagna_nome],
     ["Periodo", `${pratica.data_inizio} → ${pratica.data_fine}`],
     pratica.zona_nome && ["Zona", pratica.zona_nome],
-    pratica.pacchetto_nome && ["Circuito", pratica.pacchetto_nome],
+    pratica.tipo !== "OOH" && pratica.pacchetto_nome && ["Circuito", pratica.pacchetto_nome],
     ["Importo", `${pratica.importo.toFixed(2)} €`],
     ["Pagamento", pratica.pagata ? "Pagata ✓" : "Non pagata"],
     pren && ["Stato prenotazione", pren.stato],
@@ -64,7 +65,9 @@ export const SezioneImpiantiCreativita = ({ pratica }) => {
   const assegnata = (impId) => (pratica.creativita_dettagli || []).find((c) => c.impianto_id === impId)?.soggetto;
   return (
     <Box title={`Impianti e creatività (${impianti.length})`} testId="sezione-impianti">
-      {impianti.map((i) => {
+      {installationGroups(pratica).map(group => <section key={group.zona}>
+        <h3 className="border-b bg-muted/50 px-5 py-3 text-sm font-semibold">{group.zona} · {group.impianti.length} impianti</h3>
+        {group.impianti.map((i) => {
         const sog = assegnata(i.id);
         return (
           <div key={i.id} className="flex items-start gap-4 px-5 py-4 border-b border-slate-100 last:border-b-0" data-testid={`impianto-row-${i.codice}`}>
@@ -76,6 +79,7 @@ export const SezioneImpiantiCreativita = ({ pratica }) => {
             )}
             <div className="flex-1 min-w-0">
               <div className="font-semibold text-sm">{i.codice} {i.via && <span className="font-normal text-slate-500">· {i.via}</span>}</div>
+              {i.circuito_nome && <div className="text-xs text-muted-foreground">Circuito: {i.circuito_nome}</div>}
               <div className="text-xs text-slate-500 mt-0.5">{i.tipologia} · formato {i.formato}</div>
               <div className="mt-2 text-xs">
                 {sog ? (
@@ -98,7 +102,7 @@ export const SezioneImpiantiCreativita = ({ pratica }) => {
             </div>
           </div>
         );
-      })}
+      })}</section>)}
     </Box>
   );
 };

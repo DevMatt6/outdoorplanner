@@ -1,3 +1,4 @@
+import { practiceLabel } from "../../lib/practicePresentation";
 import { OSPForms } from "../../components/OSPForms";
 import { LoadingState } from "../../components/LoadingState";
 import { SavedCampaignBrief } from "../../components/CampaignBrief";
@@ -75,7 +76,7 @@ export default function CampagnaDetail() {
             <Link key={p.id} to={`/pratiche/${p.id}`} data-testid={`campagna-pratica-${p.id}`}
               className="flex flex-wrap items-center gap-4 px-6 py-4 border-b border-slate-100 hover:bg-accent transition-colors">
               <div className="flex-1 min-w-[200px]">
-                <div className="font-semibold">{p.spazio_nome}</div>
+                <div className="font-semibold">{practiceLabel(p)}</div>
                 <div className="text-xs text-slate-500 tabular-nums mt-0.5">{p.importo.toFixed(2)} € {p.pagata && "· pagata ✓"}</div>
               </div>
               <StatusBadge stato={p.stato} />

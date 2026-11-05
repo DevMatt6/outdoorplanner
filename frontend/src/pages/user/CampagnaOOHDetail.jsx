@@ -1,3 +1,4 @@
+import { practiceLabel, installationGroups } from "../../lib/practicePresentation";
 import { AttachmentLink } from "../../components/TemplateAttachment";
 import { useConfirm } from "../../components/ConfirmDialog";
 import { LoadingState } from "../../components/LoadingState";
@@ -122,7 +123,7 @@ export default function CampagnaOOHDetail() {
   const salvaModulo = async (p) => {
     try {
       await api.put(`/ooh/pratiche/${p.id}/dati-form`, { dati_form: { ...(formValues[p.id] || {}), ...sharedValues } });
-      toast.success(`Modulo salvato: ${p.pacchetto_nome}`);
+      toast.success(`Modulo salvato: ${practiceLabel(p)}`);
       load();
     } catch (e) { toast.error(apiError(e)); }
   };
@@ -329,7 +330,7 @@ export default function CampagnaOOHDetail() {
               <div key={p.id} className="border border-slate-100 bg-card rounded-xl overflow-hidden" data-testid={`ooh-pratica-${p.id}`}>
                 <div className="px-6 py-4 bg-muted border-b border-slate-100 flex flex-wrap items-center justify-between gap-3">
                   <div>
-                    <div className="font-heading font-semibold text-lg">{p.pacchetto_nome} <span className="text-sm font-normal text-slate-500">· {p.zona_nome}</span></div>
+                    <div className="font-heading font-semibold text-lg">{practiceLabel(p)}</div>
                     <div className="text-xs text-slate-500">{p.impianti.length} impianti · {p.importo.toFixed(2)} €</div>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
@@ -376,7 +377,7 @@ export default function CampagnaOOHDetail() {
                     <div>
                       <div className="text-xs font-semibold tracking-normal text-slate-500 mb-3">Assegnazione creatività per impianto</div>
                       <div className="space-y-2 max-h-[420px] overflow-auto pr-1">
-                        {p.impianti.map((imp) => {
+                        {installationGroups(p).map(group => <section key={group.zona} className="space-y-2"><h4 className="text-sm font-semibold">{group.zona} · {group.impianti.length} impianti</h4>{group.impianti.map((imp) => {
                           const assegnata = (p.creativita || []).find((a) => a.impianto_id === imp.id);
                           const compatibili = soggetti.filter((sg) => sg.formato === imp.formato);
                           return (
@@ -384,6 +385,7 @@ export default function CampagnaOOHDetail() {
                               <img src={imgSrc(imp.foto_url)} alt="" className="w-11 h-9 object-cover rounded-lg" />
                               <div className="flex-1 min-w-0">
                                 <div className="text-xs font-semibold">{imp.codice} · {imp.tipologia}</div>
+                                {imp.circuito_nome && <div className="text-xs text-muted-foreground">Circuito: {imp.circuito_nome}</div>}
                                 <div className="text-[10px] text-slate-500">{imp.via} · {imp.formato}{isDooh(imp.tipologia) ? " · DOOH" : ""}</div>
                               </div>
                               {assegnata ? (
@@ -396,7 +398,7 @@ export default function CampagnaOOHDetail() {
                               </select>
                             </div>
                           );
-                        })}
+                        })}</section>)}
                       </div>
                     </div>
                   </div>

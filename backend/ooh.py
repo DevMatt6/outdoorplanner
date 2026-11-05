@@ -302,9 +302,10 @@ def build(db, get_current_user, require_role, require_comune_l3, notifica, log_s
                                  "impianti_ids": sel_map[p["id"]]})
             impianti = await db.impianti.find({"id": {"$in": pren["impianti_ids"]}}, {"_id": 0}).to_list(200)
             circuito_di = {i: c["nome"] for c in circuiti for i in c["impianti_ids"]}
+            zone_di = {i: c["zona_nome"] for c in circuiti for i in c["impianti_ids"]}
             nome_comune = comune["nome"] if comune else ""
             pratica = {"id": str(uuid.uuid4()), "tipo": "OOH", "user_id": user["id"], "user_nome": user["nome"],
-                       "comune_id": cid, "campagna_id": campagna_id, "campagna_nome": data.nome,
+                       "comune_id": cid, "comune_nome": nome_comune, "campagna_id": campagna_id, "campagna_nome": data.nome,
                        "zona_id": pacs[0]["zona_id"], "zona_nome": ", ".join(sorted({c["zona_nome"] for c in circuiti})),
                        "pacchetto_id": pacs[0]["id"], "pacchetto_nome": " + ".join(c["nome"] for c in circuiti),
                        "circuiti": circuiti,
@@ -312,7 +313,7 @@ def build(db, get_current_user, require_role, require_comune_l3, notifica, log_s
                        "spazio_nome": f"{nome_comune} — {len(circuiti)} circuiti" if len(circuiti) > 1 else f"{circuiti[0]['nome']} ({nome_comune})",
                        "impianti": [{"id": i["id"], "codice": i["codice"], "via": i.get("via", ""),
                                      "tipologia": i["tipologia"], "formato": i.get("formato", ""),
-                                     "circuito_nome": circuito_di.get(i["id"], ""),
+                                     "circuito_nome": circuito_di.get(i["id"], ""), "zona_nome": zone_di.get(i["id"], ""),
                                      "foto_url": i.get("foto_url", ""), "lat": i["lat"], "lng": i["lng"]} for i in impianti],
                        "stato": "DA_COMPLETARE", "submission_due_at": submission_due, "dati_form": {}, "documenti": [], "creativita": [],
                        "richiedente": snapshot_richiedente(user),
@@ -366,7 +367,8 @@ def build(db, get_current_user, require_role, require_comune_l3, notifica, log_s
         pratiche = await db.pratiche.find({"campagna_id": c["id"]}, {"_id": 0}).to_list(50)
         out = []
         for p in pratiche:
-            out.append({**p, "checklist": await _checklist(p)})
+            city = await db.comuni.find_one({"id": p["comune_id"]}, {"nome": 1})
+            out.append({**p, "comune_nome": (city or {}).get("nome", p.get("comune_nome", "")), "checklist": await _checklist(p)})
         deadlines = [p.get("submission_due_at") for p in pratiche if p.get("submission_due_at") and p["stato"] == "DA_COMPLETARE"]
         return {**c, "submission_due_at": min(deadlines) if deadlines else c.get("submission_due_at"), "pratiche": out}
 

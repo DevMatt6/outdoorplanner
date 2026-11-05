@@ -1,3 +1,4 @@
+import { practiceLabel } from "../../lib/practicePresentation";
 import { LoadingState } from "../../components/LoadingState";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
@@ -7,8 +8,9 @@ import { api } from "../../lib/api";
 
 const CODE = [
   { key: "", label: "Tutte" },
-  { key: "INVIATA", label: "Da assegnare · L1" },
-  { key: "IN_ISTRUTTORIA", label: "In istruttoria · L2" },
+  { key: "INVIATA", label: "Da assegnare" },
+  { key: "IN_VERIFICA", label: "In verifica OOH" },
+  { key: "IN_ISTRUTTORIA", label: "In istruttoria" },
   { key: "INTEGRAZIONE_RICHIESTA", label: "Attesa integrazione" },
   { key: "APPROVATA", label: "Approvate" },
   { key: "RIFIUTATA", label: "Rifiutate" },
@@ -62,7 +64,7 @@ export default function Scrivania() {
               <table className="w-full text-sm border-collapse">
                 <thead>
                   <tr className="border-b border-slate-100 text-left">
-                    {["Spazio / Circuito", "Periodo", "Importo", "Stato", "Aggiornata", ""].map((h) => (
+                    {["Spazio / Zona", "Periodo", "Importo", "Stato", "Aggiornata", ""].map((h) => (
                       <th key={h} className="px-4 py-2.5 text-[11px] font-semibold tracking-normal text-slate-500">{h}</th>
                     ))}
                   </tr>
@@ -70,7 +72,7 @@ export default function Scrivania() {
                 <tbody>
                   {g.pratiche.map((p) => (
                     <tr key={p.id} className="border-b border-slate-100 last:border-b-0 hover:bg-accent transition-colors">
-                      <td className="px-4 py-3 font-semibold">{p.spazio_nome}</td>
+                      <td className="px-4 py-3 font-semibold">{practiceLabel(p)}</td>
                       <td className="px-4 py-3 tabular-nums text-xs">{p.data_inizio} → {p.data_fine}</td>
                       <td className="px-4 py-3 font-semibold">{p.importo.toFixed(2)} € {p.pagata && <span className="text-success">✓</span>}</td>
                       <td className="px-4 py-3"><StatusBadge stato={p.stato} /></td>
