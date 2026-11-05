@@ -1,3 +1,4 @@
+import { OOHProposalMap } from "../../components/OOHProposalMap";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "../../components/ui/dialog";
 import { Stepper } from "../../components/Stepper";
 import { CampaignBrief, BudgetSummary, RecommendationPanel, initialBrief, briefPayload, briefError, catalogCompatible } from "../../components/CampaignBrief";
@@ -193,7 +194,7 @@ export default function OOHPlanner() {
         <Stepper steps={STEPS} current={step} data-testid="ooh-steps" />
 
         <div className="mt-6 bg-card border border-slate-100 rounded-xl p-4 sm:p-8">
-          {step === 3 && <RecommendationPanel proposal={proposal} busy={proposalBusy} error={proposalError} onCalculate={() => { setExcluded([]); calculate([]); }} onApply={applyProposal} onExclude={excludeSuggestion} cityName={comuneNome} />}
+          {step === 3 && <RecommendationPanel proposal={proposal} busy={proposalBusy} error={proposalError} onCalculate={() => { setExcluded([]); calculate([]); }} onApply={applyProposal} onExclude={excludeSuggestion} cityName={comuneNome}><OOHProposalMap proposal={proposal} comuni={comuni.filter(c => comuniSel.includes(c.id))} busy={proposalBusy} onExclude={excludeSuggestion} /></RecommendationPanel>}
           {step >= 4 && <div className="mb-5"><BudgetSummary brief={brief} total={totale} perCity={perCity} /></div>}
           {step === 0 && <CampaignBrief value={brief} onChange={setBrief} tipo="OOH" />}
           {step === 1 && (

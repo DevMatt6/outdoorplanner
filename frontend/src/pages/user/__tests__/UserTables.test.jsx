@@ -56,3 +56,10 @@ test("campaign tables keep OOH/OSP detail destinations and separate standalone r
  expect(single.querySelectorAll("tbody tr").length).toBe(1);
  expect(single.querySelector('[data-testid="pratica-comune-p1"]').textContent).toBe("Roma");
 });
+test("campaign drafts can be deleted while submitted campaigns cannot", async () => {
+ await render(Campagne);
+ expect(host.querySelector('[data-testid="delete-campagna-ooh"]')).toBeNull();
+ await act(async () => host.querySelector('[data-testid="delete-campagna-osp"]').click());
+ expect(api.delete).toHaveBeenCalledWith('/campagne/osp');
+ expect(host.querySelector('[data-testid="campagna-row-osp"]')).toBeNull();
+});

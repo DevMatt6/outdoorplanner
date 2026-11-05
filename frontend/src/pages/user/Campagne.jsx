@@ -5,8 +5,10 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { UserShell } from "../../components/BackofficeLayout";
 import { STATO_COLORS, StatusBadge, TipoBadge } from "../../components/StatusBadge";
-import { api } from "../../lib/api";
-import { Plus, ArrowRight, Megaphone } from "lucide-react";
+import { useConfirm } from "../../components/ConfirmDialog";
+import { toast } from "sonner";
+import { api, apiError } from "../../lib/api";
+import { Plus, ArrowRight, Megaphone, Trash2 } from "lucide-react";
 
 const resourceCount = (c) => (c.pacchetti_ids || c.spazi_ids || []).length;
 const columns = [
@@ -23,6 +25,8 @@ const columns = [
 const campaignUrl = (c) => c.tipo === "OOH" ? `/campagne/ooh/${c.id}` : `/campagne/${c.id}`;
 
 export default function Campagne() {
+  const confirm = useConfirm();
+  const [deleting, setDeleting] = useState(null);
   const [campagne, setCampagne] = useState(null);
   const [singole, setSingole] = useState([]);
 
@@ -30,6 +34,18 @@ export default function Campagne() {
     api.get("/campagne").then(({ data }) => setCampagne(data));
     api.get("/pratiche").then(({ data }) => setSingole(data.filter((p) => !p.campagna_id)));
   }, []);
+
+  const removeDraft = async (campaign) => {
+    if (!(await confirm(`Eliminare definitivamente la campagna "${campaign.nome}" e tutte le sue pratiche in bozza? Gli impianti opzionati torneranno disponibili.`))) return;
+    setDeleting(campaign.id);
+    try {
+      await api.delete(`/campagne/${campaign.id}`);
+      setCampagne((rows) => rows.filter((c) => c.id !== campaign.id));
+      toast.success("Campagna eliminata");
+    } catch (error) { toast.error(apiError(error)); }
+    finally { setDeleting(null); }
+  };
+  const isDraft = (c) => !c.pagata && [undefined, null, "BOZZA", "IN_COMPLETAMENTO"].includes(c.stato) && (c.pratiche || []).every((p) => ["BOZZA", "DA_COMPLETARE"].includes(p.stato) && !p.pagata);
 
   return <UserShell><div className="mx-auto max-w-7xl" data-testid="campagne-page">
     <div className="flex flex-wrap items-end justify-between gap-4">
@@ -46,7 +62,7 @@ export default function Campagne() {
         <td className="px-4 py-3 tabular-nums">{c.pratiche?.length || Object.values(c.per_stato || {}).reduce((sum, n) => sum + n, 0)}</td>
         <td className="whitespace-nowrap px-4 py-3 font-medium tabular-nums">{Number(c.importo_totale || 0).toFixed(2)} €</td>
         <td className="px-4 py-3"><div className="flex min-w-[150px] flex-wrap gap-2">{Object.entries(c.per_stato || {}).map(([stato, n]) => <span key={stato} className="inline-flex items-center gap-1"><span className="text-xs tabular-nums text-muted-foreground">{n} ×</span><StatusBadge stato={stato} /></span>)}{Object.keys(c.per_stato || {}).length === 0 && <span className="text-xs text-muted-foreground">Nessuna pratica</span>}</div></td>
-        <td className="px-4 py-3"><Link to={campaignUrl(c)} aria-label={`Apri campagna ${c.nome}`} title="Apri campagna" className="inline-flex h-8 w-8 items-center justify-center rounded-md border hover:bg-accent"><ArrowRight size={14} /></Link></td>
+        <td className="px-4 py-3"><div className="flex items-center gap-2"><Link to={campaignUrl(c)} aria-label={`Apri campagna ${c.nome}`} title="Apri campagna" className="inline-flex h-8 w-8 items-center justify-center rounded-md border hover:bg-accent"><ArrowRight size={14} /></Link>{isDraft(c) && <button data-testid={`delete-campagna-${c.id}`} aria-label={`Elimina bozza ${c.nome}`} title="Elimina campagna in bozza" disabled={deleting !== null} onClick={() => removeDraft(c)} className="inline-flex h-8 w-8 items-center justify-center rounded-md border hover:border-destructive hover:text-destructive disabled:opacity-50"><Trash2 size={14} /></button>}</div></td>
       </tr>} />}
     </div>
     {singole.length > 0 && <section className="mt-8 overflow-hidden rounded-xl border bg-card" data-testid="pratiche-singole"><h2 className="border-b bg-muted/50 px-5 py-3 !text-sm font-medium">Richieste singole OSP</h2><PraticheTable pratiche={singole} rowTestPrefix="pratica-singola" /></section>}

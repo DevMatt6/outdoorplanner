@@ -603,6 +603,24 @@ async def mie_campagne(user: dict = Depends(require_role("user"))):
     camps = await db.campagne.find({"user_id": user["id"]}, {"_id": 0}).sort("created_at", -1).to_list(100)
     return [await _enrich_campagna(c) for c in camps]
 
+@api_router.delete("/campagne/{campagna_id}")
+async def elimina_campagna(campagna_id: str, user: dict = Depends(require_role("user"))):
+    campaign = await db.campagne.find_one({"id": campagna_id, "user_id": user["id"]}, {"_id": 0})
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campagna non trovata")
+    practices = await db.pratiche.find({"campagna_id": campagna_id}, {"_id": 0}).to_list(None)
+    if (campaign.get("stato") not in (None, "BOZZA", "IN_COMPLETAMENTO") or campaign.get("pagata")
+            or any(p.get("stato") not in ("BOZZA", "DA_COMPLETARE") or p.get("pagata") for p in practices)):
+        raise HTTPException(status_code=400, detail="Solo le campagne in bozza e non pagate possono essere eliminate")
+    pids = [p["id"] for p in practices]
+    linked = {"$or": [{"campagna_id": campagna_id}, {"pratica_id": {"$in": pids}}]}
+    # Remove holds as well, so deleting an OOH draft releases its installations.
+    for collection in ["prenotazioni", "soggetti", "creativita", "log_stato", "chat", "notifiche", "notifications", "occupazioni"]:
+        await db[collection].delete_many(linked)
+    await db.pratiche.delete_many({"campagna_id": campagna_id})
+    await db.campagne.delete_one({"id": campagna_id, "user_id": user["id"]})
+    return {"ok": True}
+
 @api_router.get("/campagne/{campagna_id}")
 async def get_campagna(campagna_id: str, user: dict = Depends(require_role("user"))):
     c = await db.campagne.find_one({"id": campagna_id, "user_id": user["id"]}, {"_id": 0})
