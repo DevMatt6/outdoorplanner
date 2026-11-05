@@ -45,7 +45,7 @@ const Protected = ({ role, children }) => {
 function App() {
   const refresh = useAuth((s) => s.refresh);
   useEffect(() => {
-    if (localStorage.getItem("op_token")) refresh();
+    if (sessionStorage.getItem("op_token")) refresh();
   }, [refresh]);
   return (
     <ThemeProvider attribute="class" defaultTheme="light" enableSystem storageKey="op_theme">

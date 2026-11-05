@@ -58,7 +58,7 @@ export default function Auth() {
             </button>
           </div>
           <form onSubmit={submit} className="p-6 sm:p-8 space-y-3.5">
-            <div className="pb-3"><h1 className="text-2xl font-semibold">{mode === "login" ? "Bentornato" : "Crea il tuo account"}</h1><p className="mt-1 text-sm text-muted-foreground">{mode === "login" ? "Accedi al tuo spazio di lavoro." : "Inizia a pianificare con Outdoor Planner."}</p></div>
+            <div className="pb-3"><h1 className="text-2xl font-semibold">{mode === "login" ? "Bentornato" : "Crea il tuo account"}</h1><p className="mt-1 text-sm text-muted-foreground">{mode === "login" ? "Accedi al tuo spazio di lavoro. Ogni scheda può usare un account diverso." : "Inizia a pianificare con Outdoor Planner."}</p></div>
             {mode === "register" && (
               <>
                 <div>

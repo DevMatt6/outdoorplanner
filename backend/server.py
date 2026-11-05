@@ -66,11 +66,9 @@ def create_access_token(user_id: str, email: str, ruolo: str) -> str:
     return jwt.encode(payload, os.environ["JWT_SECRET"], algorithm=JWT_ALGO)
 
 async def get_current_user(request: Request) -> dict:
-    token = request.cookies.get("access_token")
-    if not token:
-        auth = request.headers.get("Authorization", "")
-        if auth.startswith("Bearer "):
-            token = auth[7:]
+    # A tab's explicit credentials take precedence over browser-wide cookies.
+    auth = request.headers.get("Authorization", "")
+    token = auth[7:] if auth.startswith("Bearer ") else request.cookies.get("access_token")
     if not token:
         raise HTTPException(status_code=401, detail="Non autenticato")
     try:

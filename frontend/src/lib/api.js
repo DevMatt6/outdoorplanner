@@ -8,7 +8,7 @@ export const imgSrc = (url) => (url?.startsWith("/api/") ? `${BACKEND_URL}${url}
 export const api = axios.create({ baseURL: API });
 
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem("op_token");
+  const token = sessionStorage.getItem("op_token");
   if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });

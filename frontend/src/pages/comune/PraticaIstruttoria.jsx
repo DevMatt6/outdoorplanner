@@ -62,7 +62,7 @@ export default function PraticaIstruttoria() {
 
   const scaricaPdf = async () => {
     const res = await fetch(`${API}/pratiche/${pratica.id}/autorizzazione`, {
-      headers: { Authorization: `Bearer ${localStorage.getItem("op_token")}` },
+      headers: { Authorization: `Bearer ${sessionStorage.getItem("op_token")}` },
     });
     if (!res.ok) { toast.error("PDF non disponibile: verifica approvazione e pagamento della pratica"); return; }
     const blob = await res.blob();
