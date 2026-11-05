@@ -1,3 +1,4 @@
+import { paymentLabel } from "../../lib/campaignTables";
 import { LoadingState } from "../../components/LoadingState";
 import { DataTable } from "../../components/DataTable";
 import { PraticheTable } from "../../components/PraticheTable";
@@ -10,16 +11,17 @@ import { toast } from "sonner";
 import { api, apiError } from "../../lib/api";
 import { Plus, ArrowRight, Megaphone, Trash2 } from "lucide-react";
 
-const resourceCount = (c) => (c.pacchetti_ids || c.spazi_ids || []).length;
+const resourceCount = (c) => c.tipo === "OOH" ? new Set((c.pratiche || []).flatMap(p => (p.impianti || []).map(i => i.id))).size : (c.spazi_ids || []).length;
 const columns = [
   { label: "Campagna", key: "nome" },
   { label: "Tipo", key: "tipo", value: (c) => c.tipo === "OOH" ? "Campagna OOH" : "OSP / Evento" },
   { label: "Dal", key: "data_inizio" },
   { label: "Al", key: "data_fine" },
-  { label: "Circuiti / Spazi", key: "risorse", value: resourceCount },
+  { label: "Impianti / Spazi", key: "risorse", value: resourceCount },
   { label: "Pratiche", key: "numero_pratiche", value: (c) => c.pratiche?.length || Object.values(c.per_stato || {}).reduce((sum, n) => sum + n, 0) },
   { label: "Importo", key: "importo_totale" },
   { label: "Stato pratiche", key: "stati", value: (c) => Object.keys(c.per_stato || {}).map((s) => STATO_COLORS[s]?.label || s).join(" ") },
+  { label: "Pagamento", key: "pagamento", value: c => paymentLabel(c.pratiche) },
   { label: "Azioni" },
 ];
 const campaignUrl = (c) => c.tipo === "OOH" ? `/campagne/ooh/${c.id}` : `/campagne/${c.id}`;
@@ -58,11 +60,12 @@ export default function Campagne() {
         <td className="px-4 py-3"><Link to={campaignUrl(c)} data-testid={`campagna-card-${c.id}`} className="font-medium hover:text-brand-foreground hover:underline">{c.nome}</Link></td>
         <td className="px-4 py-3"><TipoBadge tipo={c.tipo} /></td>
         <td className="whitespace-nowrap px-4 py-3 tabular-nums">{c.data_inizio}</td><td className="whitespace-nowrap px-4 py-3 tabular-nums">{c.data_fine}</td>
-        <td className="whitespace-nowrap px-4 py-3 tabular-nums">{resourceCount(c)} {c.tipo === "OOH" ? "circuiti" : "spazi"}</td>
+        <td className="whitespace-nowrap px-4 py-3 tabular-nums">{resourceCount(c)} {c.tipo === "OOH" ? "impianti" : "spazi"}</td>
         <td className="px-4 py-3 tabular-nums">{c.pratiche?.length || Object.values(c.per_stato || {}).reduce((sum, n) => sum + n, 0)}</td>
         <td className="whitespace-nowrap px-4 py-3 font-medium tabular-nums">{Number(c.importo_totale || 0).toFixed(2)} €</td>
         <td className="px-4 py-3"><div className="flex min-w-[150px] flex-wrap gap-2">{Object.entries(c.per_stato || {}).map(([stato, n]) => <span key={stato} className="inline-flex items-center gap-1"><span className="text-xs tabular-nums text-muted-foreground">{n} ×</span><StatusBadge stato={stato} /></span>)}{Object.keys(c.per_stato || {}).length === 0 && <span className="text-xs text-muted-foreground">Nessuna pratica</span>}</div></td>
-        <td className="px-4 py-3"><div className="flex items-center gap-2"><Link to={campaignUrl(c)} aria-label={`Apri campagna ${c.nome}`} title="Apri campagna" className="inline-flex h-8 w-8 items-center justify-center rounded-md border hover:bg-accent"><ArrowRight size={14} /></Link>{isDraft(c) && <button data-testid={`delete-campagna-${c.id}`} aria-label={`Elimina bozza ${c.nome}`} title="Elimina campagna in bozza" disabled={deleting !== null} onClick={() => removeDraft(c)} className="inline-flex h-8 w-8 items-center justify-center rounded-md border hover:border-destructive hover:text-destructive disabled:opacity-50"><Trash2 size={14} /></button>}</div></td>
+        <td className="px-4 py-3 whitespace-nowrap">{paymentLabel(c.pratiche)}</td>
+        <td className="px-4 py-3"><div className="flex items-center gap-2"><Link to={campaignUrl(c)} aria-label={`Apri campagna ${c.nome}`} title="Apri campagna" className="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm hover:bg-accent">Dettaglio<ArrowRight size={14} /></Link>{isDraft(c) && <button data-testid={`delete-campagna-${c.id}`} aria-label={`Elimina bozza ${c.nome}`} title="Elimina campagna in bozza" disabled={deleting !== null} onClick={() => removeDraft(c)} className="inline-flex h-8 w-8 items-center justify-center rounded-md border hover:border-destructive hover:text-destructive disabled:opacity-50"><Trash2 size={14} /></button>}</div></td>
       </tr>} />}
     </div>
     {singole.length > 0 && <section className="mt-8 overflow-hidden rounded-xl border bg-card" data-testid="pratiche-singole"><h2 className="border-b bg-muted/50 px-5 py-3 !text-sm font-medium">Richieste singole OSP</h2><PraticheTable pratiche={singole} rowTestPrefix="pratica-singola" /></section>}

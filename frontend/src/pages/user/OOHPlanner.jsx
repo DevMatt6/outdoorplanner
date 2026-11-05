@@ -327,7 +327,7 @@ export default function OOHPlanner() {
                               <div className="font-heading font-semibold text-lg">{p.nome}</div>
                             </div>
                             {!p.disponibile ? <span className="text-[10px] font-semibold rounded-md bg-primary text-primary-foreground px-2.5 py-1">Occupato</span>
-                              : p.impianti_liberi < p.n_impianti ? <span className="text-[10px] font-semibold rounded-md bg-warning-muted text-warning-foreground px-2.5 py-1">{p.impianti_liberi}/{p.n_impianti} liberi</span> : null}
+                              : p.impianti_liberi < p.n_impianti ? <span className="text-[10px] font-semibold rounded-md bg-info-muted text-brand-foreground px-2.5 py-1">{p.impianti_liberi}/{p.n_impianti} liberi</span> : null}
                           </div>
                           <div className="text-xs text-slate-500 mt-1">{p.descrizione}</div>
                           <div className="mt-3 flex items-center justify-between">
@@ -405,7 +405,7 @@ export default function OOHPlanner() {
                   <span className="font-heading text-lg" data-testid="ooh-riepilogo-totale">{totale.toFixed(2)} €</span>
                 </div>
               </div>
-              <div className="border border-warning/20 bg-warning-muted rounded-xl px-4 py-3 text-sm text-warning-foreground">
+              <div className="border border-info/20 bg-info-muted rounded-xl px-4 py-3 text-sm text-brand-foreground">
                 Generando la campagna gli impianti selezionati saranno <strong>opzionati per 24 ore</strong>. Entro la scadenza completa moduli, documenti e creatività e invia le pratiche: il pagamento sarà richiesto dopo l’approvazione.
               </div>
             </div>

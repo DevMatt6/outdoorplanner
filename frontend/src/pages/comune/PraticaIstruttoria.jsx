@@ -63,6 +63,7 @@ export default function PraticaIstruttoria() {
     const res = await fetch(`${API}/pratiche/${pratica.id}/autorizzazione`, {
       headers: { Authorization: `Bearer ${localStorage.getItem("op_token")}` },
     });
+    if (!res.ok) { toast.error("PDF non disponibile: verifica approvazione e pagamento della pratica"); return; }
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -92,7 +93,7 @@ export default function PraticaIstruttoria() {
         <div className="mt-3 flex flex-wrap gap-3">
           {pratica.stato === "INVIATA" && (
             <button data-testid="btn-presa-in-carico" onClick={() => azione("presa_in_carico", "Pratica presa in carico")}
-              className="px-5 py-2.5 rounded-md font-semibold text-sm bg-warning text-white hover:bg-warning-foreground transition-colors">
+              className="px-5 py-2.5 rounded-md font-semibold text-sm bg-primary text-primary-foreground hover:bg-primary/90 transition-colors">
               Prendi in carico
             </button>
           )}
@@ -118,7 +119,7 @@ export default function PraticaIstruttoria() {
                     )}
                     {livello >= reqApprova ? (
                       <button data-testid="btn-approva" onClick={() => azione("approva", "Pratica approvata")}
-                        className="px-5 py-2.5 rounded-md font-semibold text-sm bg-success text-white hover:bg-success/90 transition-colors">
+                        className="px-5 py-2.5 rounded-md font-semibold text-sm bg-primary text-primary-foreground hover:bg-primary/90 transition-colors">
                         Approva
                       </button>
                     ) : (
@@ -147,19 +148,20 @@ export default function PraticaIstruttoria() {
               </button>
             </>
           )}
-          {pratica.stato === "INTEGRAZIONE_RICHIESTA" && <span className="text-sm text-slate-500 py-2.5">In attesa di integrazione dal richiedente.</span>}          {pratica.stato === "APPROVATA" && (
+          {pratica.stato === "INTEGRAZIONE_RICHIESTA" && <span className="text-sm text-slate-500 py-2.5">In attesa di integrazione dal richiedente.</span>}          {pratica.stato === "APPROVATA" && pratica.pagata && (
             <button data-testid="btn-pdf-comune" onClick={scaricaPdf}
-              className="inline-flex items-center gap-2 px-5 py-2.5 font-semibold text-sm border border-success/20 text-brand-foreground rounded-md bg-success-muted hover:bg-success hover:text-slate-950 transition-colors">
+              className="inline-flex items-center gap-2 px-5 py-2.5 font-semibold text-sm border border-info/20 text-brand-foreground rounded-md bg-info-muted hover:bg-primary/90 hover:text-slate-950 transition-colors">
               <Download size={15} /> PDF autorizzazione {pratica.numero_autorizzazione}
             </button>
           )}
+          {pratica.stato === "APPROVATA" && !pratica.pagata && <p className="rounded-lg border border-info/20 bg-info-muted px-4 py-3 text-sm text-brand-foreground">In attesa del pagamento del richiedente. Il PDF sarà disponibile dopo il pagamento.</p>}
           {pratica.stato === "RIFIUTATA" && <span className="text-sm text-slate-500 py-2.5">Pratica chiusa con rifiuto.</span>}
           {pratica.stato === "ANNULLATA" && <span className="text-sm text-slate-500 py-2.5">Pratica annullata: gli impianti sono stati liberati.</span>}
         </div>
 
         {showIntegra && inIstruttoria && (
-          <div className="mt-4 border border-warning/20 bg-warning-muted/60 rounded-xl p-4" data-testid="integrazione-panel">
-            <div className="text-xs font-semibold tracking-normal text-warning-foreground mb-3">Seleziona gli elementi da correggere o sostituire</div>
+          <div className="mt-4 border border-info/20 bg-info-muted/60 rounded-xl p-4" data-testid="integrazione-panel">
+            <div className="text-xs font-semibold tracking-normal text-brand-foreground mb-3">Seleziona gli elementi da correggere o sostituire</div>
             <div className="grid md:grid-cols-2 gap-4">
               {[
                 ["campo", "Campi del modulo", (pratica.template?.campi || []).map((x) => ({ id: x.id, label: x.label || x.id }))],
@@ -173,16 +175,16 @@ export default function PraticaIstruttoria() {
                       const k = `${tipo}:${it.id}`;
                       const attiva = !!richieste[k];
                       return (
-                        <div key={k} className={`border rounded-xl px-3 py-2 bg-card transition-colors ${attiva ? "border-warning-foreground" : "border-slate-200"}`}>
+                        <div key={k} className={`border rounded-xl px-3 py-2 bg-card transition-colors ${attiva ? "border-primary" : "border-slate-200"}`}>
                           <label className="flex items-center gap-2 text-sm cursor-pointer" data-testid={`richiesta-${tipo}-${it.id}`}>
-                            <input type="checkbox" checked={attiva} onChange={() => toggleRichiesta(tipo, it.id, it.label)} className="accent-warning-foreground w-4 h-4" />
+                            <input type="checkbox" checked={attiva} onChange={() => toggleRichiesta(tipo, it.id, it.label)} className="accent-primary w-4 h-4" />
                             <span className="font-semibold">{it.label}</span>
                           </label>
                           {attiva && (
                             <input aria-label="Nota per il richiedente (es. file illeggibile, valore errato...)" data-testid={`nota-richiesta-${tipo}-${it.id}`} value={richieste[k].nota}
                               onChange={(e) => setRichieste((r) => ({ ...r, [k]: { ...r[k], nota: e.target.value } }))}
                               placeholder="Nota per il richiedente (es. file illeggibile, valore errato...)"
-                              className="mt-2 w-full border border-slate-200 rounded-lg px-3 py-1.5 text-xs outline-none focus:border-warning-foreground transition-colors" />
+                              className="mt-2 w-full border border-slate-200 rounded-lg px-3 py-1.5 text-xs outline-none focus:border-primary transition-colors" />
                           )}
                         </div>
                       );
@@ -193,7 +195,7 @@ export default function PraticaIstruttoria() {
             </div>
             <div className="mt-4 flex flex-wrap items-center gap-3">
               <button data-testid="btn-invia-integrazione" onClick={inviaRichiestaIntegrazione}
-                className="px-5 py-2.5 rounded-md font-semibold text-sm bg-warning-foreground text-white hover:bg-slate-900 transition-colors">
+                className="px-5 py-2.5 rounded-md font-semibold text-sm bg-primary text-primary-foreground hover:bg-slate-900 transition-colors">
                 Invia richiesta ({Object.keys(richieste).length} elementi)
               </button>
               <span className="text-xs text-slate-500">La nota generale scritta sopra verrà inclusa nella richiesta.</span>

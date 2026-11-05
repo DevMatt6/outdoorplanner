@@ -53,6 +53,7 @@ export default function PraticaDetail() {
     const res = await fetch(`${API}/pratiche/${pratica.id}/autorizzazione`, {
       headers: { Authorization: `Bearer ${localStorage.getItem("op_token")}` },
     });
+    if (!res.ok) { toast.error("PDF non disponibile: verifica approvazione e pagamento della pratica"); return; }
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -78,12 +79,12 @@ export default function PraticaDetail() {
         </div>
 
         {pratica.stato === "APPROVATA" && (
-          <div className="mt-6 border border-success/20 bg-success-muted rounded-xl p-5 flex flex-wrap items-center justify-between gap-4">
+          <div className="mt-6 border border-info/20 bg-info-muted rounded-xl p-5 flex flex-wrap items-center justify-between gap-4">
             <div>
-              <div className="font-heading font-semibold text-lg">Autorizzazione {pratica.numero_autorizzazione}</div>
-              <div className="text-sm text-slate-600">Rilasciata dal Comune di {pratica.comune?.nome}</div>
+              <div className="font-heading font-semibold text-lg">{pratica.pagata ? `Autorizzazione ${pratica.numero_autorizzazione}` : "Pratica approvata · pagamento richiesto"}</div>
+              <div className="text-sm text-slate-600">{pratica.pagata ? "Rilasciata" : "Approvata"} dal Comune di {pratica.comune?.nome}{!pratica.pagata && ". Il PDF sarà disponibile dopo il pagamento."}</div>
               {!pratica.pagata && pratica.payment_due_at && (
-                <div className="text-sm font-semibold text-warning-foreground mt-1" data-testid="payment-deadline">
+                <div className="text-sm font-semibold text-brand-foreground mt-1" data-testid="payment-deadline">
                   Paga entro il {new Date(pratica.payment_due_at).toLocaleString("it-IT")} o la prenotazione decade e gli impianti tornano disponibili.
                 </div>
               )}
@@ -91,14 +92,14 @@ export default function PraticaDetail() {
             <div className="flex flex-wrap gap-3">
               {!pratica.pagata && pratica.tipo === "OOH" && (
                 <button data-testid="paga-ora-button" onClick={pagaOra}
-                  className="inline-flex items-center gap-2 bg-warning-foreground text-white rounded-md px-6 py-3 font-semibold hover:bg-slate-900 transition-colors">
+                  className="inline-flex items-center gap-2 bg-primary text-primary-foreground rounded-md px-6 py-3 font-semibold hover:bg-slate-900 transition-colors">
                   <CreditCard size={17} /> Paga ora {pratica.importo.toFixed(2)} € (mock)
                 </button>
               )}
-              <button data-testid="download-pdf-button" onClick={scaricaPdf}
+              {pratica.pagata && <button data-testid="download-pdf-button" onClick={scaricaPdf}
                 className="inline-flex items-center gap-2 bg-primary text-primary-foreground rounded-md px-6 py-3 font-semibold hover:bg-primary transition-colors">
                 <Download size={17} /> Scarica PDF
-              </button>
+              </button>}
             </div>
           </div>
         )}

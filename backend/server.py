@@ -915,6 +915,8 @@ async def transizione(pratica_id: str, data: TransizioneIn, user: dict = Depends
               "APPROVATA": "Pratica approvata! Autorizzazione disponibile",
               "RIFIUTATA": "Pratica rifiutata",
               "ANNULLATA": "Pratica annullata dal Comune"}
+    if nuovo == "APPROVATA" and not pratica.get("pagata"):
+        labels[nuovo] = "Pratica approvata: completa il pagamento per ottenere il PDF"
     await notifica(pratica["user_id"], labels[nuovo],
                    f"Pratica '{pratica['spazio_nome']}': {data.nota or labels[nuovo]}", pratica_id)
     return {"ok": True, "stato": nuovo}
@@ -948,8 +950,15 @@ async def pdf_autorizzazione(pratica_id: str, user: dict = Depends(get_current_u
         raise HTTPException(status_code=404, detail="Autorizzazione non disponibile")
     if user["ruolo"] == "user" and pratica["user_id"] != user["id"]:
         raise HTTPException(status_code=403, detail="Accesso negato")
+    if user["ruolo"] == "comune" and pratica["comune_id"] != user.get("comune_id"):
+        raise HTTPException(status_code=403, detail="Accesso negato")
+    if not pratica.get("pagata"):
+        raise HTTPException(status_code=403, detail="Il PDF sarà disponibile dopo il pagamento")
     comune = await db.comuni.find_one({"id": pratica["comune_id"]}, {"_id": 0})
-    spazio = await db.spazi.find_one({"id": pratica["spazio_id"]}, {"_id": 0})
+    if pratica.get("tipo") == "OOH":
+        spazio = {"nome": "Impianti OOH", "indirizzo": pratica.get("zona_nome", ""), "tipologia": "Campagna OOH"}
+    else:
+        spazio = await db.spazi.find_one({"id": pratica["spazio_id"]}, {"_id": 0})
     buf = io.BytesIO()
     c = pdf_canvas.Canvas(buf, pagesize=A4)
     w, h = A4

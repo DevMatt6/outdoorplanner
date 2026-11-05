@@ -215,22 +215,22 @@ export default function CampagnaOOHDetail() {
             <h1 className="text-3xl font-heading font-semibold tracking-tight">{c.nome}</h1>
             <div className="text-sm text-slate-600 tabular-nums mt-1">{c.data_inizio} → {c.data_fine} · {c.importo_totale.toFixed(2)} € · Campagna OOH</div>
           </div>
-          <span className={`text-xs font-semibold rounded-md px-4 py-1.5 ${["CONFERMATA", "INVIATA"].includes(c.stato) ? "bg-accent text-brand-foreground" : attiva ? "bg-warning-muted text-warning-foreground" : "bg-destructive-muted text-destructive"}`}>
+          <span className={`text-xs font-semibold rounded-md px-4 py-1.5 ${["CONFERMATA", "INVIATA"].includes(c.stato) ? "bg-accent text-brand-foreground" : attiva ? "bg-info-muted text-brand-foreground" : "bg-destructive-muted text-destructive"}`}>
             {attiva ? "Impianti opzionati" : c.stato === "INVIATA" ? "Inviata ai Comuni" : c.stato === "CONFERMATA" ? "Confermata" : c.stato}
           </span>
         </div>
 
         {attiva && (
-          <div className="mt-6 border border-warning/20 bg-warning-muted rounded-xl px-6 py-4 flex flex-wrap items-center gap-3" data-testid="hold-banner">
-            <Clock size={20} className="text-warning-foreground" />
-            <span className="text-sm font-semibold text-warning-foreground">Invia la campagna entro 24 ore dalla generazione.</span>
+          <div className="mt-6 border border-info/20 bg-info-muted rounded-xl px-6 py-4 flex flex-wrap items-center gap-3" data-testid="hold-banner">
+            <Clock size={20} className="text-brand-foreground" />
+            <span className="text-sm font-semibold text-brand-foreground">Invia la campagna entro 24 ore dalla generazione.</span>
             {c.submission_due_at && <Countdown scadenza={c.submission_due_at} />}
-            <span className="text-xs text-warning-foreground">Completa moduli, documenti e creatività e invia ai Comuni entro la scadenza, altrimenti le pratiche decadono e gli impianti tornano disponibili. Il pagamento sarà richiesto solo dopo l'approvazione (24 ore di tempo).</span>
+            <span className="text-xs text-brand-foreground">Completa moduli, documenti e creatività e invia ai Comuni entro la scadenza, altrimenti le pratiche decadono e gli impianti tornano disponibili. Il pagamento sarà richiesto solo dopo l'approvazione (24 ore di tempo).</span>
           </div>
         )}
         {daPagare.length > 0 && (
-          <div className="mt-6 border border-success/20 bg-success-muted rounded-xl px-6 py-4 flex flex-wrap items-center gap-3" data-testid="payment-banner">
-            <CreditCard size={20} className="text-success-foreground" />
+          <div className="mt-6 border border-info/20 bg-info-muted rounded-xl px-6 py-4 flex flex-wrap items-center gap-3" data-testid="payment-banner">
+            <CreditCard size={20} className="text-brand-foreground" />
             <span className="text-sm font-semibold">{daPagare.length} pratiche approvate in attesa di pagamento — tempo rimanente:</span>
             <Countdown scadenza={daPagare[0].payment_due_at} />
             <button data-testid="ooh-checkout-button" onClick={checkout} disabled={busy}
@@ -290,7 +290,7 @@ export default function CampagnaOOHDetail() {
                     </div>
                     <div className="mt-3 text-xs font-semibold" data-testid={`riepilogo-formato-${f.formato}`}>
                       <span className="text-slate-500">{caricati.length} soggetti caricati · </span>
-                      <span className={assegnati === f.n_impianti ? "text-brand-foreground" : "text-warning-foreground"}>{assegnati}/{f.n_impianti} impianti assegnati</span>
+                      <span className={assegnati === f.n_impianti ? "text-brand-foreground" : "text-brand-foreground"}>{assegnati}/{f.n_impianti} impianti assegnati</span>
                       {assegnati < f.n_impianti && <span className="text-destructive"> · {f.n_impianti - assegnati} senza creatività</span>}
                     </div>
                   </div>
