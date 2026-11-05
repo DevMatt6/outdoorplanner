@@ -1,3 +1,4 @@
+import { AttachmentLink } from "./TemplateAttachment";
 import { forwardRef, useEffect, useImperativeHandle, useState } from 'react';
 import { api, apiError } from '../lib/api';
 import { DynamicField, isVisible } from './DynamicField';
@@ -30,7 +31,7 @@ export function OSPDocuments({ pratica, template, values, documents, onUploaded 
     {visibleDocuments(template, values).map(d => <div key={d.id} className="border rounded-xl p-4 flex flex-wrap gap-3 items-center" data-testid={`doc-pratica-${pratica.id}-${d.id}`}>
       <div className="flex-1 min-w-[180px]"><div className="text-sm font-medium">{d.label}{d.required && <span className="text-destructive"> *</span>}</div>
         {d.help_text && <p className="text-xs text-muted-foreground mt-1">{d.help_text}</p>}
-        {d.fonte_url && <a className="text-xs text-brand-foreground underline" href={d.fonte_url} target="_blank" rel="noreferrer">Modello ufficiale</a>}
+        <AttachmentLink field={d} label="Modello ufficiale" />
         <div className="text-xs mt-1 text-muted-foreground">{documents.filter(x => x.tipo === d.id).map(x => x.nome).join(', ') || 'Nessun file caricato'}</div></div>
       <label className={`border rounded-md px-4 py-2 text-sm ${busy ? 'opacity-50' : 'cursor-pointer hover:border-primary'}`}>{busy === d.id ? 'Caricamento…' : documents.some(x => x.tipo === d.id) ? 'Sostituisci' : 'Carica'}<input aria-label={`${d.label} · ${pratica.spazio_nome}`} data-testid={`upload-pratica-${pratica.id}-${d.id}`} type="file" accept={d.accept} disabled={!!busy} className="hidden" onChange={e => upload(e, d)} /></label>
     </div>)}{error && <p role="alert" className="text-sm text-destructive">{error}</p>}

@@ -1,3 +1,4 @@
+import { AttachmentLink } from "../../components/TemplateAttachment";
 import { useConfirm } from "../../components/ConfirmDialog";
 import { LoadingState } from "../../components/LoadingState";
 import { SavedCampaignBrief } from "../../components/CampaignBrief";
@@ -362,6 +363,7 @@ export default function CampagnaOOHDetail() {
                         return (
                           <div key={d.id} className="flex flex-wrap items-center gap-3 border border-slate-100 rounded-xl px-4 py-2 mb-2">
                             <span className="text-sm font-semibold flex-1 min-w-[140px]">{d.label}{d.required && <span className="text-destructive"> *</span>}</span>
+                            <AttachmentLink field={d} />
                             <span className="text-xs text-slate-500">{caricati.map((x) => x.nome).join(", ") || "Nessun file"}</span>
                             <label className="cursor-pointer inline-flex items-center gap-2 border border-slate-200 rounded-md px-4 py-1.5 text-xs font-semibold hover:border-primary hover:text-brand-foreground transition-colors">
                               <Upload size={13} /> Carica

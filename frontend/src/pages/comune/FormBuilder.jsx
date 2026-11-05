@@ -1,14 +1,16 @@
+import { TemplateAttachmentEditor } from "../../components/TemplateAttachment";
 import { useEffect, useState } from "react";
 import { BackofficeLayout, COMUNE_LINKS } from "../../components/BackofficeLayout";
 import { api, apiError } from "../../lib/api";
 import { toast } from "sonner";
 import { Plus, Trash2, GripVertical, FilePlus2, FileUp } from "lucide-react";
 
-const NUOVO_CAMPO = { label: "", tipo: "text", opzioni: "", required: false, cond_campo: "", cond_valore: "" };
+const NUOVO_CAMPO = { label: "", tipo: "text", opzioni: "", required: false, fonte_url: "", fonte_nome: "", cond_campo: "", cond_valore: "" };
 const TIPI_CAMPO = ["text", "textarea", "number", "date", "select", "checkbox", "file"];
 const slugId = (label) => label.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
 
 export default function FormBuilder() {
+  const [uploading, setUploading] = useState(false);
   const [templates, setTemplates] = useState([]);
   const [tpl, setTpl] = useState(null);
   const [nuovo, setNuovo] = useState(NUOVO_CAMPO);
@@ -49,7 +51,7 @@ export default function FormBuilder() {
     const campo = {
       id, label: nuovo.label, tipo: nuovo.tipo,
       opzioni: nuovo.tipo === "select" ? nuovo.opzioni.split(",").map((s) => s.trim()).filter(Boolean) : [],
-      required: nuovo.required,
+      required: nuovo.required, fonte_url: nuovo.fonte_url, fonte_nome: nuovo.fonte_nome,
       condizione: nuovo.cond_campo ? { campo: nuovo.cond_campo, valore: nuovo.cond_valore === "true" ? true : nuovo.cond_valore } : null,
     };
     setTpl({ ...tpl, campi: [...tpl.campi, campo] });
@@ -61,7 +63,7 @@ export default function FormBuilder() {
     const id = slugId(nuovoDoc.label);
     const docs = tpl.documenti_richiesti || [];
     if (docs.some((d) => d.id === id)) return toast.error("Documento già presente");
-    setTpl({ ...tpl, documenti_richiesti: [...docs, { id, label: nuovoDoc.label.trim(), required: nuovoDoc.required }] });
+    setTpl({ ...tpl, documenti_richiesti: [...docs, { id, label: nuovoDoc.label.trim(), required: nuovoDoc.required, fonte_url: nuovoDoc.fonte_url || "", fonte_nome: nuovoDoc.fonte_nome || "" }] });
     setNuovoDoc({ label: "", required: false });
   };
 
@@ -74,7 +76,7 @@ export default function FormBuilder() {
     } catch (e) { toast.error(apiError(e)); }
   };
 
-  const updateCampo = (index, updates) => setTpl({ ...tpl, campi: tpl.campi.map((campo, i) => i === index ? { ...campo, ...updates } : campo) });
+  const updateCampo = (index, updates) => setTpl(prev => ({ ...prev, campi: prev.campi.map((campo, i) => i === index ? { ...campo, ...updates } : campo) }));
 
   const input = "border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-primary transition-colors bg-card";
 
@@ -83,12 +85,12 @@ export default function FormBuilder() {
       <div className="flex flex-wrap items-center justify-between gap-4">
         <h1 className="text-2xl sm:text-3xl font-heading font-semibold tracking-tight">Moduli dinamici</h1>
         <div className="flex gap-3">
-          <button data-testid="nuovo-modulo-button" onClick={nuovoModulo}
+          <button disabled={uploading} data-testid="nuovo-modulo-button" onClick={nuovoModulo}
             className="inline-flex items-center gap-2 border border-slate-200 rounded-md px-5 py-2.5 font-semibold bg-card hover:border-primary hover:text-brand-foreground transition-colors">
             <FilePlus2 size={16} /> Nuovo modulo
           </button>
           {tpl && (
-            <button data-testid="salva-template-button" onClick={save}
+            <button disabled={uploading} data-testid="salva-template-button" onClick={save}
               className="bg-primary text-primary-foreground rounded-md px-6 py-2.5 font-semibold hover:bg-primary transition-colors">
               Salva modulo
             </button>
@@ -99,7 +101,7 @@ export default function FormBuilder() {
 
       <div className="mt-5 flex flex-wrap gap-2" data-testid="moduli-tabs">
         {templates.map((t) => (
-          <button key={t.id} data-testid={`modulo-tab-${t.id}`} onClick={() => setTpl(t)}
+          <button disabled={uploading} key={t.id} data-testid={`modulo-tab-${t.id}`} onClick={() => setTpl(t)}
             className={`px-4 py-2 text-sm font-semibold rounded-md border transition-colors ${tpl?.id === t.id ? "bg-primary text-primary-foreground border-primary" : "bg-card border-slate-200 hover:border-primary"}`}>
             {t.nome}
           </button>
@@ -112,7 +114,7 @@ export default function FormBuilder() {
           <div className="mt-4 flex flex-wrap items-center gap-3">
             <input aria-label="Nome del modulo" className={`${input} w-full max-w-lg font-semibold`} value={tpl.nome} data-testid="template-nome-input"
               onChange={(e) => setTpl({ ...tpl, nome: e.target.value })} placeholder="Nome del modulo" />
-            <button data-testid="elimina-modulo-button" onClick={eliminaModulo}
+            <button disabled={uploading} data-testid="elimina-modulo-button" onClick={eliminaModulo}
               className="inline-flex items-center gap-1.5 text-sm font-semibold text-destructive border border-destructive/20 rounded-md px-4 py-2 hover:bg-destructive-muted transition-colors">
               <Trash2 size={14} /> Elimina modulo
             </button>
@@ -134,11 +136,12 @@ export default function FormBuilder() {
                 <input type="checkbox" className="w-4 h-4 accent-primary" checked={nuovo.required} onChange={(e) => setNuovo({ ...nuovo, required: e.target.checked })} />
                 Obbligatorio
               </label>
-              <button data-testid="aggiungi-campo-button" onClick={addCampo}
+              <button disabled={uploading} data-testid="aggiungi-campo-button" onClick={addCampo}
                 className="ml-auto inline-flex items-center gap-2 rounded-md bg-primary text-primary-foreground px-5 py-2 text-sm font-semibold hover:bg-primary transition-colors">
                 <Plus size={15} /> Aggiungi
               </button>
             </div>
+            <div className="mt-3"><TemplateAttachmentEditor value={nuovo} label="nuovo campo" onChange={updates => setNuovo(prev => ({ ...prev, ...updates }))} disabled={uploading} onBusyChange={setUploading} /></div>
             {nuovo.tipo !== "file" && (
               <div className="mt-3 flex flex-wrap gap-3 items-center">
                 <span className="text-xs text-slate-500 font-semibold">Logica condizionale (opzionale):</span>
@@ -168,7 +171,8 @@ export default function FormBuilder() {
                 {c.tipo === "select" && <input aria-label={`Opzioni ${c.id}`} className={input} value={(c.opzioni || []).join(",")} onChange={(e) => updateCampo(i, { opzioni: e.target.value.split(",") })} placeholder="Opzioni separate da virgola" />}
                 <span className="text-xs text-muted-foreground">{c.scope === "comune" ? "Una volta per Comune" : "Per area"}</span>
                 {c.condizione && <span className="text-xs text-muted-foreground">{c.condizione.campo ? `Visibile se ${c.condizione.campo} ${c.condizione.op === "ne" ? "≠" : "="} ${String(c.condizione.valore)}` : "Condizione su più risposte"}</span>}
-                <button data-testid={`rimuovi-campo-${c.id}`} onClick={() => setTpl({ ...tpl, campi: tpl.campi.filter((_, j) => j !== i) })}
+                <TemplateAttachmentEditor value={c} label={c.id} onChange={updates => updateCampo(i, updates)} disabled={uploading} onBusyChange={setUploading} />
+                <button disabled={uploading} data-testid={`rimuovi-campo-${c.id}`} onClick={() => setTpl({ ...tpl, campi: tpl.campi.filter((_, j) => j !== i) })}
                   className="ml-auto border border-slate-200 rounded-lg p-1.5 hover:border-destructive hover:text-destructive transition-colors">
                   <Trash2 size={14} />
                 </button>
@@ -180,7 +184,7 @@ export default function FormBuilder() {
           <div className="mt-6 border border-slate-100 bg-card rounded-xl overflow-hidden" data-testid="documenti-richiesti-section">
             <div className="px-5 py-3 border-b border-slate-100 bg-muted">
               <div className="text-xs font-semibold tracking-normal text-slate-500">Documenti allegati richiesti</div>
-              <p className="text-xs text-slate-400 mt-0.5">Personalizza lo step "Documenti" della candidatura per questo modulo: aggiungi o rimuovi i campi di upload.</p>
+              <p className="text-xs text-slate-400 mt-0.5">Personalizza lo step "Documenti" della candidatura per questo modulo: aggiungi o modifica i documenti richiesti e associa, se serve, un modello da scaricare. Premi Salva modulo per confermare.</p>
             </div>
             <div className="p-5 space-y-2">
               {(tpl.documenti_richiesti || []).map((d, i) => (
@@ -192,7 +196,8 @@ export default function FormBuilder() {
                       onChange={(e) => { const dd = [...tpl.documenti_richiesti]; dd[i] = { ...dd[i], required: e.target.checked }; setTpl({ ...tpl, documenti_richiesti: dd }); }} />
                     Obbligatorio
                   </label>
-                  <button data-testid={`rimuovi-doc-${d.id}`} onClick={() => setTpl({ ...tpl, documenti_richiesti: tpl.documenti_richiesti.filter((_, j) => j !== i) })}
+                  <TemplateAttachmentEditor value={d} label={d.id} onChange={updates => setTpl(prev => ({ ...prev, documenti_richiesti: prev.documenti_richiesti.map(doc => doc.id === d.id ? { ...doc, ...updates } : doc) }))} disabled={uploading} onBusyChange={setUploading} />
+                  <button disabled={uploading} data-testid={`rimuovi-doc-${d.id}`} onClick={() => setTpl({ ...tpl, documenti_richiesti: tpl.documenti_richiesti.filter((_, j) => j !== i) })}
                     className="border border-slate-200 rounded-lg p-1.5 hover:border-destructive hover:text-destructive transition-colors">
                     <Trash2 size={14} />
                   </button>
@@ -201,6 +206,7 @@ export default function FormBuilder() {
               {(tpl.documenti_richiesti || []).length === 0 && (
                 <div className="text-sm text-slate-500">Nessun documento richiesto: lo step Documenti della candidatura non chiederà allegati.</div>
               )}
+              <TemplateAttachmentEditor value={nuovoDoc} label="nuovo documento" onChange={updates => setNuovoDoc(prev => ({ ...prev, ...updates }))} disabled={uploading} onBusyChange={setUploading} />
               <div className="flex flex-wrap gap-3 items-center pt-2 border-t border-dashed border-slate-200 mt-3">
                 <input aria-label="Nome documento (es. Polizza assicurativa)" data-testid="nuovo-doc-label" className={`${input} flex-1 min-w-[200px]`} placeholder="Nome documento (es. Polizza assicurativa)"
                   value={nuovoDoc.label} onChange={(e) => setNuovoDoc({ ...nuovoDoc, label: e.target.value })} />
@@ -208,7 +214,7 @@ export default function FormBuilder() {
                   <input type="checkbox" className="w-4 h-4 accent-primary" checked={nuovoDoc.required} onChange={(e) => setNuovoDoc({ ...nuovoDoc, required: e.target.checked })} />
                   Obbligatorio
                 </label>
-                <button data-testid="aggiungi-doc-button" onClick={addDoc}
+                <button disabled={uploading} data-testid="aggiungi-doc-button" onClick={addDoc}
                   className="inline-flex items-center gap-2 rounded-md bg-primary text-primary-foreground px-5 py-2 text-sm font-semibold hover:bg-primary transition-colors">
                   <Plus size={15} /> Aggiungi documento
                 </button>

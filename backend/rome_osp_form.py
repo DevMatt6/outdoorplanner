@@ -154,9 +154,7 @@ def errors(practice):
 
 async def install(db):
     if await db.migrations.find_one({'_id':SCHEMA}):
-        # Correct the download target without changing filed requests or entered values.
-        await db.form_templates.update_many({'schema_key':SCHEMA},{'$set':{'documenti_richiesti.$[doc].fonte_url':EMERGENCY}},array_filters=[{'doc.id':'piano_emergenza'}])
-        await db.pratiche.update_many({'stato':'BOZZA','form_template_snapshot.schema_key':SCHEMA},{'$set':{'form_template_snapshot.documenti_richiesti.$[doc].fonte_url':EMERGENCY}},array_filters=[{'doc.id':'piano_emergenza'}])
+        # Existing attachment sources are managed by the municipality; preserve edits.
         return
     city=await db.comuni.find_one({'nome':'Roma'})
     if not city: return

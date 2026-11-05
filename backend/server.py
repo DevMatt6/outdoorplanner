@@ -765,6 +765,19 @@ async def crea_template(data: TemplateIn, user: dict = Depends(require_comune_l3
     await db.form_templates.insert_one({**tpl})
     return tpl
 
+@api_router.post("/comune/form-templates/upload-allegato")
+async def upload_modello(file: UploadFile = File(...), user: dict = Depends(require_comune_l3)):
+    allowed = {".pdf", ".doc", ".docx", ".xls", ".xlsx", ".odt", ".ods", ".png", ".jpg", ".jpeg", ".p7m"}
+    suffix = Path(file.filename or "").suffix.lower()
+    if suffix not in allowed:
+        raise HTTPException(400, "Formato non ammesso: usa PDF, Word, Excel, OpenDocument, immagini o P7M")
+    content = await file.read(20 * 1024 * 1024 + 1)
+    if not content or len(content) > 20 * 1024 * 1024:
+        raise HTTPException(400, "Carica un file non vuoto di massimo 20 MB")
+    path = f"modelli/{user['comune_id']}/{uuid.uuid4().hex}{suffix}"
+    await upload_storage.save(path, content)
+    return {"url": f"/api/uploads/{path}", "nome": Path(file.filename).name}
+
 @api_router.put("/comune/form-templates/{tid}")
 async def salva_template(tid: str, data: TemplateIn, user: dict = Depends(require_comune_l3)):
     campi_unici = list({c.id: c for c in data.campi}.values())
